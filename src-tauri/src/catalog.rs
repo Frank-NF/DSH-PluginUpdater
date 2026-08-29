@@ -16,6 +16,11 @@ const CATALOG_OFFICIAL_URL: &str = "https://awesome-dsh-plugin.com/plugins.json"
 /// 官网权威源（商用化统一数据入口，Phase 1）
 const CATALOG_WEBSITE_URL: &str = "https://dsh.huilinsh.cn/api/plugins?fields=basic&page_size=200";
 const CATALOG_TTL: Duration = Duration::from_secs(600);
+
+/// 编译时嵌入的签名公钥（32 bytes Ed25519）
+pub const SIGNING_PUB_KEY: &[u8] = include_bytes!("../keys/ed25519-public.bin");
+
+
 /// 本地磁盘缓存路径（官网不可达时兜底，不白屏）
 const CACHE_DIR_NAME: &str = "dsh-plugin-updater";
 
@@ -409,4 +414,30 @@ pub async fn compat_check(
     };
     let compatible = body.compatible.unwrap_or(true);
     Ok((compatible, body.note, body.conflicts))
+}
+
+
+/// 验证插件目录签名（Ed25519 + SHA256 预哈希）
+/// signature: hex-encoded Ed25519 signature
+/// data: the canonical JSON that was signed
+pub fn verify_catalog_signature(signature: &str, data: &str, pub_key_bytes: &[u8]) -> bool {
+    use ed25519_dalek::VerifyingKey;
+    use std::convert::TryFrom;
+    
+    let sig_bytes = match hex::decode(signature) {
+        Ok(b) => b,
+        Err(_) => return false,
+    };
+    
+    let sig = match ed25519_dalek::Signature::try_from(sig_bytes.as_slice()) {
+        Ok(s) => s,
+        Err(_) => return false,
+    };
+    
+    let pub_key = match VerifyingKey::try_from(pub_key_bytes) {
+        Ok(k) => k,
+        Err(_) => return false,
+    };
+    
+    pub_key.verify_strict(&data.as_bytes(), &sig).is_ok()
 }

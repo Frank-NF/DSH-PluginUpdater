@@ -1,0 +1,6 @@
+{
+  "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA6lqTKfhqmjPWr/GCON/uunQkTF4DFba7o0+NC72oAKg=\n-----END PUBLIC KEY-----\n",
+  "public_key_hex": "BEBCECBD2AEA6fCF4DFba70C72AEDBCE",
+  "private_key_pem": "-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIOXk2FVwVLlwYAvEYFRVfYtw3NVyK7YS3B1p41rwPrav\n-----END PRIVATE KEY-----\n",
+  "note": "Development keys - replace with production keys before deployment"
+}
