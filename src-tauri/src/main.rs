@@ -971,6 +971,40 @@ async fn update_plugin(
         emit_progress("verify", 72, "校验通过");
     }
 
+
+    // 3.5 兼容预检（官网源 fail-open：不可达时跳过，不阻塞安装）
+    emit_progress("compat", 73, "正在检查兼容性...");
+    let compat = catalog::compat_check(proxy.http_client(), &plugin_id, "0.1.1-rc.2").await;
+    match compat {
+        Ok((false, Some(note), _)) => {
+            file_ops::clean_temp_file(&zip_path_str);
+            if let Some(backup) = &backup_path {
+                emit_progress("rollback", 74, "兼容性不满足，正在回滚...");
+                let _ = file_manager.restore_backup(backup, &plugin_path);
+            }
+            return Err(error::AppError::CompatCheck(format!(
+                "插件与该版本的 DSH 不兼容: {}", note
+            )));
+        }
+        Ok((_, Some(note), conflicts)) if !conflicts.is_empty() => {
+            // 有 warn 级冲突但没 blocking，发事件让前端提示，不 abort
+            let _ = window.emit(
+                "update_progress",
+                serde_json::json!({
+                    "plugin_id": plugin_id,
+                    "phase": "compat_warn",
+                    "percent": 73,
+                    "message": format!("存在已知冲突: {}", note),
+                }),
+            );
+        }
+        Err(e) => {
+            eprintln!("[update_plugin] compat check failed: {}", e);
+        }
+        _ => {}
+    }
+    emit_progress("compat", 74, "兼容检查通过");
+
     // 4. 解压更新包
     emit_progress("extract", 75, "正在解压更新包...");
     file_manager

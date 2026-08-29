@@ -349,3 +349,64 @@ pub async fn get_catalog(client: &reqwest::Client) -> AppResult<Catalog> {
     fetch_catalog(client).await
 }
 
+/// 兼容预检 API URL
+const COMPAT_CHECK_URL: &str = "https://dsh.huilinsh.cn/api/compat/check";
+
+/// 兼容预检响应
+#[derive(Debug, Deserialize)]
+pub(crate) struct CompatCheckResponse {
+    #[serde(default)]
+    pub compatible: Option<bool>,
+    #[serde(default)]
+    pub note: Option<String>,
+    #[serde(default)]
+    pub conflicts: Vec<CompatConflict>,
+    #[serde(default = "default_true")]
+    pub has_blocking_conflict: bool,
+}
+
+#[derive(Debug, Deserialize)]
+pub(crate) struct CompatConflict {
+    pub conflict_with: String,
+    #[serde(default)]
+    pub reason: Option<String>,
+    #[serde(default)]
+    pub severity: Option<String>,
+}
+
+fn default_true() -> bool { true }
+
+/// 调用官网 /api/compat/check 做安装前兼容预检。
+/// 官网不可达时 fail-open（返回 Ok(true)），不阻塞安装。
+pub async fn compat_check(
+    client: &reqwest::Client,
+    plugin_id: &str,
+    dsh_ver: &str,
+) -> AppResult<(bool, Option<String>, Vec<CompatConflict>)> {
+    let url = format!(
+        "{}?plugin_id={}&dsh_ver={}",
+        COMPAT_CHECK_URL,
+        urlencoding::encode(plugin_id),
+        urlencoding::encode(dsh_ver)
+    );
+    let resp = match client.get(&url).timeout(TIMEOUT).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("[compat] 官网预检请求失败，跳过: {}", e);
+            return Ok((true, None, Vec::new()));
+        }
+    };
+    if !resp.status().is_success() {
+        eprintln!("[compat] 官网预检 HTTP {}", resp.status());
+        return Ok((true, None, Vec::new()));
+    }
+    let body: CompatCheckResponse = match resp.json().await {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("[compat] 官网预检响应解析失败: {}", e);
+            return Ok((true, None, Vec::new()));
+        }
+    };
+    let compatible = body.compatible.unwrap_or(true);
+    Ok((compatible, body.note, body.conflicts))
+}

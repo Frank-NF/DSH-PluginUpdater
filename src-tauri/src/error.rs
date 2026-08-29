@@ -21,6 +21,10 @@ pub enum AppError {
     ManifestInvalid(String),
     #[error("操作被取消")]
     Cancelled,
+    #[error("兼容性预检失败: {0}")]
+    CompatCheck(String),
+    #[error("存在阻塞级冲突: {0}")]
+    BlockingConflict(String),
     #[error("其他错误: {0}")]
     Other(String),
 }
