@@ -1134,8 +1134,7 @@ async fn self_update(window: tauri::Window) -> AppResult<String> {
     let bytes = reqwest::Client::new().get(&url).send().await.map_err(|e| AppError::SelfUpdate(e.to_string()))?.bytes().await.map_err(|e| AppError::SelfUpdate(e.to_string()))?;
     std::fs::write(&temp, &bytes).map_err(|e| AppError::SelfUpdate(e.to_string()))?;
     emit_self_progress(&window, "launch", 80, "正在启动更新进程...");
-    let current = std::env::current_exe()
-            .map_err(|e| AppError::SelfUpdate(format!("获取exe路径失败: {}", e)))?;
+    let current = std::env::current_exe().map_err(|e| AppError::SelfUpdate(e.to_string()))?;
     std::process::Command::new("cmd").args(["/c", "timeout", "/t", "2", "/nobreak >nul", "&", "move", "/Y", &temp_str, &current.to_string_lossy(), "&", "start", "", &current.to_string_lossy()]).spawn().map_err(|e| AppError::SelfUpdate(e.to_string()))?;
     std::process::exit(0);
 }
