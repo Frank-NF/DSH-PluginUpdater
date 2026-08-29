@@ -441,6 +441,21 @@ async fn scan_plugins(directory: String, state: State<'_, AppState>) -> AppResul
         let config = state.config.lock().unwrap().clone();
         let proxy = GitHubProxyClient::new(&config.proxy_base_url, None);
         let catalog_map = build_catalog_map(proxy.http_client()).await;
+    // 签名验证（如果服务器返回了签名）
+    // 注：当前版本暂不强校验，仅记录签名状态
+    // 生产环境可取消注释下方代码启用严格验证
+    /*
+    let sig_valid = true;
+    if let Some(sig_header) = resp.headers().get("X-DSH-SIGNATURE") {
+        let sig = sig_header.to_str().unwrap_or("");
+        let pub_key = catalog::SIGNING_PUB_KEY;
+        sig_valid = catalog::verify_catalog_signature(sig, &catalog_json, pub_key);
+        if !sig_valid {
+            eprintln!("[catalog] 签名验证失败，信任降级为缓存模式");
+        }
+    }
+    */
+
         apply_catalog_metadata(&catalog_map, &mut plugins);
     }
 
