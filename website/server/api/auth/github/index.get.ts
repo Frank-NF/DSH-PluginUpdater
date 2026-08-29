@@ -2,6 +2,8 @@
  * GET /api/auth/github
  * 跳转到 GitHub 授权页（带随机 state 防 CSRF）
  */
+import { randomBytes } from 'node:crypto'
+
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
   const clientId = config.public.githubClientId
