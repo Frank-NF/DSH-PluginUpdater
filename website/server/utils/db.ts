@@ -79,11 +79,33 @@ function migrate(db: Database.Database) {
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS plugin_compat (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      plugin_id TEXT NOT NULL,
+      dsh_version TEXT NOT NULL DEFAULT '*',
+      compatible INTEGER NOT NULL DEFAULT 1,
+      note TEXT,
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(plugin_id, dsh_version)
+    );
+
+    CREATE TABLE IF NOT EXISTS plugin_conflicts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      plugin_id TEXT NOT NULL,
+      conflict_with TEXT NOT NULL,
+      reason TEXT,
+      severity TEXT NOT NULL DEFAULT 'warn' CHECK(severity IN ('warn','block')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(plugin_id, conflict_with)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id);
     CREATE INDEX IF NOT EXISTS idx_favorites_plugin ON favorites(plugin_id);
     CREATE INDEX IF NOT EXISTS idx_comments_plugin ON comments(plugin_id, deleted);
     CREATE INDEX IF NOT EXISTS idx_shares_plugin ON shares(plugin_id);
     CREATE INDEX IF NOT EXISTS idx_feedback_plugin ON feedback(plugin_id, status);
     CREATE INDEX IF NOT EXISTS idx_feedback_user ON feedback(user_id);
+    CREATE INDEX IF NOT EXISTS idx_compat_plugin ON plugin_compat(plugin_id);
+    CREATE INDEX IF NOT EXISTS idx_conflicts_plugin ON plugin_conflicts(plugin_id);
   `)
 }

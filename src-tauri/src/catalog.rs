@@ -1,5 +1,5 @@
 use crate::error::{AppError, AppResult};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::io::Read;
 use std::time::{Duration, Instant};
 
@@ -13,10 +13,14 @@ const NPM_MIRRORS: &[&str] = &[
 
 const CATALOG_PACKAGE: &str = "dsh-plugin-catalog";
 const CATALOG_OFFICIAL_URL: &str = "https://awesome-dsh-plugin.com/plugins.json";
+/// 官网权威源（商用化统一数据入口，Phase 1）
+const CATALOG_WEBSITE_URL: &str = "https://dsh.huilinsh.cn/api/plugins?fields=basic&page_size=200";
 const CATALOG_TTL: Duration = Duration::from_secs(600);
+/// 本地磁盘缓存路径（官网不可达时兜底，不白屏）
+const CACHE_DIR_NAME: &str = "dsh-plugin-updater";
 
 /// 官方插件目录的一条记录
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CatalogEntry {
     pub name: String,
     #[serde(default)]
@@ -33,7 +37,7 @@ pub struct CatalogEntry {
     pub downloads: Option<u64>,
 }
 
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CatalogDescription {
     #[serde(default)]
     pub en: Option<String>,
@@ -90,9 +94,95 @@ fn plugins_json_from_tarball(gz_bytes: &[u8]) -> AppResult<Vec<u8>> {
     Err(AppError::Other("npm 包内未找到 package/plugins.json".to_string()))
 }
 
+/// 官网 API 响应结构（fields=basic 精简模式）
+#[derive(Debug, Deserialize)]
+struct WebsiteCatalogResponse {
+    #[serde(default)]
+    plugins: Vec<WebsitePluginItem>,
+}
+
+#[derive(Debug, Deserialize)]
+struct WebsitePluginItem {
+    id: String,
+    #[serde(default)]
+    name: String,
+    #[serde(default)]
+    category: Option<String>,
+    #[serde(default)]
+    stars: Option<u64>,
+    #[serde(default)]
+    github_url: Option<String>,
+}
+
+/// 本地磁盘缓存路径：%APPDATA%/dsh-plugin-updater/catalog.json
+fn cache_file_path() -> Option<std::path::PathBuf> {
+    let dir = dirs::config_dir()?;
+    let cache_dir = dir.join(CACHE_DIR_NAME);
+    std::fs::create_dir_all(&cache_dir).ok()?;
+    Some(cache_dir.join("catalog.json"))
+}
+
+/// 写入磁盘缓存（官网源成功时刷新）
+fn write_cache(entries: &[CatalogEntry]) {
+    if let Some(path) = cache_file_path() {
+        if let Ok(json) = serde_json::to_string(entries) {
+            let _ = std::fs::write(path, json);
+        }
+    }
+}
+
+/// 读取磁盘缓存（官网不可达时兜底）
+fn read_cache() -> Option<Vec<CatalogEntry>> {
+    let path = cache_file_path()?;
+    let raw = std::fs::read_to_string(path).ok()?;
+    let entries: Vec<CatalogEntry> = serde_json::from_str(&raw).ok()?;
+    if entries.is_empty() { None } else { Some(entries) }
+}
+
+/// 从官网权威源拉取目录（Phase 1：统一数据入口）
+pub async fn fetch_catalog_from_website(client: &reqwest::Client) -> AppResult<Catalog> {
+    let resp = client.get(CATALOG_WEBSITE_URL).timeout(TIMEOUT).send().await?;
+    if !resp.status().is_success() {
+        return Err(AppError::Other(format!("官网目录 HTTP {}", resp.status())));
+    }
+    let parsed: WebsiteCatalogResponse = resp.json().await?;
+    if parsed.plugins.is_empty() {
+        return Err(AppError::Other("官网目录为空".to_string()));
+    }
+
+    let entries: Vec<CatalogEntry> = parsed
+        .plugins
+        .into_iter()
+        .map(|p| CatalogEntry {
+            name: p.id.clone(),
+            url: p.github_url,
+            npm: Some(p.id),
+            description: None,
+            category: p.category,
+            stars: p.stars,
+            downloads: None,
+        })
+        .collect();
+
+    // 成功时刷新磁盘缓存
+    write_cache(&entries);
+
+    Ok(Catalog {
+        entries,
+        fetched_at: Instant::now(),
+        source: "dsh.huilinsh.cn".to_string(),
+    })
+}
+
 /// 拉取官方插件目录。
-/// 源顺序：npm 镜像包（腾讯镜像 → npmjs）→ 官方 GitHub Pages 直连。
+/// 源顺序：官网权威源 → npm 镜像包（腾讯镜像 → npmjs）→ 官方 GitHub Pages 直连 → 本地磁盘缓存。
 pub async fn fetch_catalog(client: &reqwest::Client) -> AppResult<Catalog> {
+    // 0. 优先官网权威源（统一数据入口）
+    match fetch_catalog_from_website(client).await {
+        Ok(cat) => return Ok(cat),
+        Err(e) => eprintln!("[catalog] 官网源失败，降级 npm/Pages: {}", e),
+    }
+
     let mut last_err: Option<String> = None;
 
     // 路线 1：npm 包（镜像 rewritten dist.tarball，国内走镜像）
@@ -161,6 +251,16 @@ pub async fn fetch_catalog(client: &reqwest::Client) -> AppResult<Catalog> {
         },
         Ok(resp) => last_err = Some(format!("官方目录 HTTP {}", resp.status())),
         Err(e) => last_err = Some(format!("官方目录请求失败: {}", e)),
+    }
+
+    // 最后兜底：本地磁盘缓存（断网/内网场景不白屏）
+    if let Some(cached) = read_cache() {
+        eprintln!("[catalog] 所有网络源不可达，使用本地缓存 ({} 条)", cached.len());
+        return Ok(Catalog {
+            entries: cached,
+            fetched_at: Instant::now(),
+            source: "disk-cache".to_string(),
+        });
     }
 
     Err(AppError::Other(format!(
