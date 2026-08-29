@@ -76,4 +76,13 @@ export interface BackupInfo {
   created: string
 }
 
+export interface SelfUpdateInfo {
+  available: boolean
+  current_version: string
+  latest_version: string | null
+  changelog: string[]
+  release_url: string | null
+  is_mandatory: boolean
+}
+
 export type UpdateStatus = 'idle' | 'checking' | 'updating' | 'success' | 'error'

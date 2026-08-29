@@ -1084,6 +1084,49 @@ async fn update_plugin(
     emit_progress("complete", 100, "更新完成！");
     Ok(latest_version)
 }
+
+/// 检查桌面端自身是否有新版本
+#[tauri::command]
+async fn check_self_update() -> AppResult<SelfUpdateInfo> {
+    use reqwest::Client;
+    let client = Client::builder().timeout(std::time::Duration::from_secs(10)).build().unwrap_or_default();
+    let resp = match client.get("https://dsh.huilinsh.cn/api/updater/latest").send().await {
+        Ok(r) => r, Err(e) => { eprintln!("[self_update] 请求失败: {}", e); return Ok(SelfUpdateInfo { available: false, current_version: env!("CARGO_PKG_VERSION").to_string(), latest_version: None, changelog: vec![], release_url: None, is_mandatory: false }); }
+    };
+    if !resp.status().is_success() { return Ok(SelfUpdateInfo { available: false, current_version: env!("CARGO_PKG_VERSION").to_string(), latest_version: None, changelog: vec![], release_url: None, is_mandatory: false }); }
+    #[derive(serde::Deserialize)]
+    struct UR { version: String, #[serde(default)] changelog: Vec<String>, #[serde(default)] release_url: Option<String>, #[serde(default)] is_mandatory: bool }
+    let data: UR = match resp.json().await { Ok(d) => d, Err(e) => { eprintln!("[self_update] 解析失败: {}", e); return Ok(SelfUpdateInfo { available: false, current_version: env!("CARGO_PKG_VERSION").to_string(), latest_version: None, changelog: vec![], release_url: None, is_mandatory: false }); } };
+    let current = env!("CARGO_PKG_VERSION").to_string();
+    let latest = data.version.clone();
+    let available = match (semver::Version::parse(&current), semver::Version::parse(&latest)) { (Ok(a), Ok(b)) => b > a, _ => false };
+    Ok(SelfUpdateInfo { available, current_version: current, latest_version: Some(latest), changelog: data.changelog, release_url: data.release_url, is_mandatory: data.is_mandatory })
+}
+
+/// 执行自我更新：下载新版 exe 并替换
+#[tauri::command]
+async fn self_update(window: tauri::Window) -> AppResult<String> {
+    let info = check_self_update().await?;
+    if !info.available { return Err(AppError::SelfUpdate("当前已是最新版本".to_string())); }
+    let latest = info.latest_version.unwrap();
+    let url = info.release_url.unwrap_or("https://dsh.huilinsh.cn/dsh-plugin-updater.exe".to_string());
+    let temp = std::env::temp_dir().join(format!("dsh-updater-{}.exe", latest));
+    let temp_str = temp.to_string_lossy().to_string();
+    emit_self_progress(&window, "download", 10, "正在下载新版本...");
+    let bytes = reqwest::Client::new().get(&url).send().await.map_err(|e| AppError::SelfUpdate(e.to_string()))?.bytes().await.map_err(|e| AppError::SelfUpdate(e.to_string()))?;
+    std::fs::write(&temp, &bytes).map_err(|e| AppError::SelfUpdate(e.to_string()))?;
+    emit_self_progress(&window, "launch", 80, "正在启动更新进程...");
+    let current = std::env::current_exe().map_err(|e| AppError::SelfUpdate(e.to_string()))?;
+    std::process::Command::new("cmd").args(["/c", "timeout", "/t", "2", "/nobreak >nul", "&", "move", "/Y", &temp_str, &current.to_string_lossy(), "&", "start", "", &current.to_string_lossy()]).spawn().map_err(|e| AppError::SelfUpdate(e.to_string()))?;
+    std::process::exit(0);
+}
+
+fn emit_self_progress(w: &tauri::Window, phase: &str, pct: u8, msg: &str) {
+    let _ = w.emit("self_update_progress", serde_json::json!({ "phase": phase, "percent": pct, "message": msg }));
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SelfUpdateInfo { pub available: bool, pub current_version: String, pub latest_version: Option<String>, pub changelog: Vec<String>, pub release_url: Option<String>, pub is_mandatory: bool }
 #[tauri::command]
 fn uninstall_plugin(plugin_id: String, state: State<'_, AppState>) -> AppResult<()> {
     let config = state.config.lock().unwrap().clone();
@@ -1330,6 +1373,8 @@ fn main() {
             open_external,
             kill_dsh_processes_elevated,
             list_install_targets,
+            check_self_update,
+            self_update,
         ])
         .run(tauri::generate_context!())
         .expect("error while running DSH Plugin Updater");
