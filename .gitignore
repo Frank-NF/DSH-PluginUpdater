@@ -64,3 +64,8 @@ src-tauri/.updater_backups/
 proxy-server/
 website/pages.bak/
 
+
+# Ed25519 keys (deploy manually)
+src-tauri/keys/
+scripts/ed25519-*.pem
+scripts/key-info.json
