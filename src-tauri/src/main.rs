@@ -1123,7 +1123,10 @@ async fn check_self_update() -> AppResult<SelfUpdateInfo> {
 async fn self_update(window: tauri::Window) -> AppResult<String> {
     let info = check_self_update().await?;
     if !info.available { return Err(AppError::SelfUpdate("当前已是最新版本".to_string())); }
-    let latest = info.latest_version.unwrap();
+    let latest = match info.latest_version {
+            Some(v) => v,
+            None => return Err(AppError::SelfUpdate("版本信息缺失".to_string())),
+        };
     let url = info.release_url.unwrap_or("https://dsh.huilinsh.cn/dsh-plugin-updater.exe".to_string());
     let temp = std::env::temp_dir().join(format!("dsh-updater-{}.exe", latest));
     let temp_str = temp.to_string_lossy().to_string();
@@ -1131,7 +1134,8 @@ async fn self_update(window: tauri::Window) -> AppResult<String> {
     let bytes = reqwest::Client::new().get(&url).send().await.map_err(|e| AppError::SelfUpdate(e.to_string()))?.bytes().await.map_err(|e| AppError::SelfUpdate(e.to_string()))?;
     std::fs::write(&temp, &bytes).map_err(|e| AppError::SelfUpdate(e.to_string()))?;
     emit_self_progress(&window, "launch", 80, "正在启动更新进程...");
-    let current = std::env::current_exe().map_err(|e| AppError::SelfUpdate(e.to_string()))?;
+    let current = std::env::current_exe()
+            .map_err(|e| AppError::SelfUpdate(format!("获取exe路径失败: {}", e)))?;
     std::process::Command::new("cmd").args(["/c", "timeout", "/t", "2", "/nobreak >nul", "&", "move", "/Y", &temp_str, &current.to_string_lossy(), "&", "start", "", &current.to_string_lossy()]).spawn().map_err(|e| AppError::SelfUpdate(e.to_string()))?;
     std::process::exit(0);
 }

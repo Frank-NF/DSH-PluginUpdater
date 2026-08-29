@@ -123,6 +123,23 @@ export default defineEventHandler(async (event) => {
     return null
   }
 
+  
+  // Ed25519 签名（如果私钥可用）
+  let signature = null;
+  try {
+    const { createHash, createSign } = await import('node:crypto')
+    const { readFileSync } = await import('node:fs')
+    const keyPath = process.env.DSH_SIGNING_KEY_PATH || '/var/www/dsh-updater/ed25519-private.pem'
+    const canonical = JSON.stringify(enriched.map(p => ({ id: p.id, repo: p.repo, name: p.name, category: p.category })).sort((a, b) => a.id.localeCompare(b.id)))
+    const hash = createHash('sha256').update(canonical).digest()
+    const signer = createSign('SHA256')
+    signer.update(hash)
+    signature = signer.sign(readFileSync(keyPath), 'hex')
+    setHeader(event, 'X-DSH-SIGNATURE', signature)
+  } catch (e) {
+    // 私钥不可用时静默跳过
+  }
+
   return {
     total,
     page,

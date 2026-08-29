@@ -188,7 +188,6 @@ pub async fn fetch_catalog(client: &reqwest::Client) -> AppResult<Catalog> {
         Err(e) => eprintln!("[catalog] 官网源失败，降级 npm/Pages: {}", e),
     }
 
-    let mut last_err: Option<String> = None;
 
     // 路线 1：npm 包（镜像 rewritten dist.tarball，国内走镜像）
     for mirror in NPM_MIRRORS {
