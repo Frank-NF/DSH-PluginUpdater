@@ -144,6 +144,13 @@
                 </svg>
                 {{ plugin.share_count || 0 }}
               </button>
+              <button class="social-btn fb-btn" title="提交反馈 / 查看进度" @click="openFeedback(plugin)">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  <path d="M8 9h8M8 13h5" />
+                </svg>
+                {{ plugin.feedback_count || 0 }}
+              </button>
             </div>
           </article>
         </div>
@@ -241,6 +248,14 @@
       @changed="refreshCounts"
     />
 
+    <!-- 反馈弹窗 -->
+    <FeedbackDialog
+      :plugin-id="feedbackPlugin?.id || null"
+      :plugin-name="feedbackPlugin?.name || ''"
+      @close="feedbackPlugin = null"
+      @changed="refreshCounts"
+    />
+
     <!-- 轻提示 Toast -->
     <Transition name="toast-fade">
       <div v-if="toast" class="toast glass" role="status">{{ toast }}</div>
@@ -282,6 +297,7 @@ const installPlugin = ref<PluginData | null>(null)
 const { user, openAuthDialog } = useAuth()
 
 const commentPlugin = ref<PluginData | null>(null)
+const feedbackPlugin = ref<PluginData | null>(null)
 
 // 当前用户收藏的插件 id 集合
 const favIds = ref<Set<string>>(new Set())
@@ -347,6 +363,10 @@ async function toggleFav(plugin: PluginData) {
 
 function openComments(plugin: PluginData) {
   commentPlugin.value = plugin
+}
+
+function openFeedback(plugin: PluginData) {
+  feedbackPlugin.value = plugin
 }
 
 async function share(plugin: PluginData) {
@@ -1009,6 +1029,12 @@ function langColor(lang: string): string {
   color: var(--warning);
   background: rgba(245, 158, 11, 0.12);
   border-color: rgba(245, 158, 11, 0.4);
+}
+
+.fb-btn:hover {
+  color: var(--primary-light);
+  border-color: rgba(99, 102, 241, 0.4);
+  background: rgba(99, 102, 241, 0.1);
 }
 
 /* ---------- Toast ---------- */

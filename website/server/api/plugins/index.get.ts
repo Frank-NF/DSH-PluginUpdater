@@ -24,21 +24,24 @@ export default defineEventHandler(async (event) => {
     `SELECT
        (SELECT COUNT(*) FROM favorites WHERE plugin_id = ?) AS favorites,
        (SELECT COUNT(*) FROM comments  WHERE plugin_id = ? AND deleted = 0) AS comments,
-       (SELECT COUNT(*) FROM shares    WHERE plugin_id = ?) AS shares`
+       (SELECT COUNT(*) FROM shares    WHERE plugin_id = ?) AS shares,
+       (SELECT COUNT(*) FROM feedback  WHERE plugin_id = ?) AS feedback`
   )
 
   const enriched = plugins.map((p) => {
-    const counts = countStmt.get(p.id, p.id, p.id) as {
+    const counts = countStmt.get(p.id, p.id, p.id, p.id) as {
       favorites: number
       comments: number
       shares: number
+      feedback: number
     }
     return {
       ...p,
       favorite_count: counts.favorites,
       comment_count: counts.comments,
       share_count: counts.shares,
-      hot_score: counts.favorites * 3 + counts.comments * 2 + counts.shares,
+      feedback_count: counts.feedback,
+      hot_score: counts.favorites * 3 + counts.comments * 2 + counts.shares + counts.feedback,
     }
   })
 

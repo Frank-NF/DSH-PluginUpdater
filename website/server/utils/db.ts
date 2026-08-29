@@ -65,9 +65,25 @@ function migrate(db: Database.Database) {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    CREATE TABLE IF NOT EXISTS feedback (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      plugin_id TEXT NOT NULL,
+      plugin_name TEXT NOT NULL DEFAULT '',
+      type TEXT NOT NULL DEFAULT 'suggestion' CHECK(type IN ('bug','suggestion','experience','question','other')),
+      content TEXT NOT NULL CHECK(length(content) <= 2000),
+      contact TEXT,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      ip_hash TEXT,
+      status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open','processing','resolved','closed')),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
     CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id);
     CREATE INDEX IF NOT EXISTS idx_favorites_plugin ON favorites(plugin_id);
     CREATE INDEX IF NOT EXISTS idx_comments_plugin ON comments(plugin_id, deleted);
     CREATE INDEX IF NOT EXISTS idx_shares_plugin ON shares(plugin_id);
+    CREATE INDEX IF NOT EXISTS idx_feedback_plugin ON feedback(plugin_id, status);
+    CREATE INDEX IF NOT EXISTS idx_feedback_user ON feedback(user_id);
   `)
 }
