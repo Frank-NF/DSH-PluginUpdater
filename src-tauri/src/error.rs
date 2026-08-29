@@ -25,6 +25,8 @@ pub enum AppError {
     CompatCheck(String),
     #[error("存在阻塞级冲突: {0}")]
     BlockingConflict(String),
+    #[error("自我更新失败: {0}")]
+    SelfUpdate(String),
     #[error("其他错误: {0}")]
     Other(String),
 }

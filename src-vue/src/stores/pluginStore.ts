@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { PluginInfo, AppConfig, UpdateProgress, MarketPlugin } from '../types'
+import type { PluginInfo, AppConfig, UpdateProgress, MarketPlugin, SelfUpdateInfo } from '../types'
 import { pluginApi, eventApi } from '../api'
 import { t } from '../i18n'
 
@@ -15,6 +15,8 @@ export const usePluginStore = defineStore('plugin', () => {
   const lastScanTime = ref<string>('')
   const errorMessage = ref<string>('')
   const installingNpm = ref<string | null>(null)
+const selfUpdateInfo = ref<SelfUpdateInfo | null>(null)
+const isCheckingSelfUpdate = ref(false)
 
   const updatablePlugins = computed(() =>
     plugins.value.filter((p) => p.update_available)
@@ -118,6 +120,20 @@ export const usePluginStore = defineStore('plugin', () => {
   }
 
   /** 从市场安装插件到目标 profile 目录，完成后自动扫描刷新列表 */
+  async function checkSelfUpdate() {
+    isCheckingSelfUpdate.value = true
+    try {
+      selfUpdateInfo.value = await pluginApi.checkSelfUpdate()
+      return selfUpdateInfo.value
+    } finally {
+      isCheckingSelfUpdate.value = false
+    }
+  }
+
+  async function selfUpdate() {
+    return pluginApi.selfUpdate()
+  }
+
   async function installPlugin(npmName: string, targetDir: string) {
     installingNpm.value = npmName
     try {
@@ -258,5 +274,9 @@ return {
     autoScanPlugins,
     installingNpm,
     installPlugin,
+    checkSelfUpdate,
+    selfUpdate,
+    selfUpdateInfo,
+    isCheckingSelfUpdate,
   }
 })
