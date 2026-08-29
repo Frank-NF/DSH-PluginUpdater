@@ -1,16 +1,18 @@
 # DSH 插件升级管理工具
 
-> 独立运行的 DSH 插件升级管理工具，不依赖 Agent 本体。支持扫描、更新、启用、禁用、卸载插件，通过香港中转代理访问 GitHub。
+> 独立运行的 DSH 插件升级管理工具，不依赖 Agent 本体。支持扫描、更新、启用、禁用、卸载插件，内置官方插件市场与自动更新检测。
 
 ## 项目特性
 
 - **独立运行**：不依赖 DSH Agent 本体进程，纯桌面工具
 - **智能扫描**：自动识别插件目录下所有已安装插件和 Agent 本体
-- **一键更新**：通过香港中转代理快速检测和下载 GitHub 最新版本
+- **插件市场**：内置官方插件目录（2189+ 款插件），支持分类筛选、关键词搜索、Star/下载量/最新排序、一键安装
+- **一键更新**：通过 npm registry 检测最新版本，快速下载更新
 - **启停管理**：轻松启用/禁用插件，无需删除文件
 - **安全卸载**：卸载前自动备份，支持随时回滚
 - **目录直达**：一键打开插件所在文件夹
-- **香港加速**：所有 GitHub 请求通过香港服务器中转，解决访问限制
+- **修复中心**：DSH 运行环境体检 + 常见报错双语修复指南
+- **双语界面**：中文/英文一键切换，本地记忆选择
 - **跨平台**：支持 Windows 和 Linux，单文件运行
 
 ## 项目结构
@@ -23,7 +25,7 @@ DSH-PluginUpdater/
 │   │   ├── error.rs        # 错误类型和数据结构定义
 │   │   ├── manifest.rs     # 插件清单读写
 │   │   ├── plugin_scan.rs  # 插件目录扫描
-│   │   ├── github_proxy.rs # GitHub 代理客户端
+│   │   ├── github_proxy.rs # GitHub 请求客户端
 │   │   └── file_ops.rs     # 文件操作（更新/卸载/备份）
 │   ├── Cargo.toml
 │   ├── tauri.conf.json
@@ -40,12 +42,6 @@ DSH-PluginUpdater/
 │   ├── package.json
 │   ├── vite.config.ts
 │   └── index.html
-├── proxy-server/           # Go 香港中转代理服务
-│   ├── main.go
-│   ├── go.mod
-│   ├── Dockerfile
-│   ├── docker-compose.yml
-│   └── .env.example
 ├── website/                # Nuxt3 官方网站
 │   ├── pages/              # 页面（首页/插件市场/下载/文档）
 │   ├── components/         # 网站组件
@@ -71,12 +67,6 @@ DSH-PluginUpdater/
   - `serde`：序列化/反序列化
   - `walkdir`：目录遍历
 
-### 香港中转代理服务
-- **Go 1.21**：高性能后端语言
-- **Gin**：Web 框架
-- **Redis**：API 响应缓存
-- **Docker**：容器化部署
-
 ### 官方网站
 - **Nuxt 3**：SSR 框架
 - **Vue 3**：前端框架
@@ -87,7 +77,7 @@ DSH-PluginUpdater/
 ### 1. 克隆项目
 
 ```bash
-git clone https://github.com/DSH-Team/DSH-PluginUpdater.git
+git clone https://github.com/Frank-NF/DSH-PluginUpdater.git
 cd DSH-PluginUpdater
 ```
 
@@ -116,20 +106,7 @@ cargo tauri build
 
 构建产物位于 `src-tauri/target/release/bundle/` 目录下。
 
-### 4. 部署香港中转代理
-
-```bash
-cd proxy-server
-
-# 复制配置
-cp .env.example .env
-# 编辑 .env 配置 Token 等参数
-
-# Docker 部署
-docker-compose up -d
-```
-
-### 5. 启动官方网站
+### 4. 启动官方网站
 
 ```bash
 cd website
@@ -169,51 +146,20 @@ npm run dev
 | author | string | 否 | 作者 |
 | homepage | string | 否 | 主页地址 |
 
-## 代理服务 API
-
-### 获取最新 Release
-
-```
-GET /api/github/latest?repo=owner/repo
-```
-
-### 获取 Release 列表
-
-```
-GET /api/github/releases?repo=owner/repo&per_page=10
-```
-
-### 下载 Release 资产
-
-```
-GET /api/github/download?repo=owner/repo&tag=v1.0.0&asset=plugin.zip
-```
-
-### 获取插件列表
-
-```
-GET /api/plugins/list
-```
-
 ## 配置说明
-
-### 客户端配置
 
 在工具「设置」中可配置：
 
-- **香港中转代理地址**：默认 `https://proxy.dsh-update.hk`
+- **代理地址**：默认本地直连，留空合法；填写代理后所有 GitHub 请求经代理中转
+- **安装源（npm Registry）**：官方源或国内镜像，自定义地址须以 http(s):// 开头
 - **默认插件目录**：启动时自动扫描的目录
 - **扫描后自动检查更新**：默认开启
 - **更新前自动备份**：默认开启
 
-### 代理服务环境变量
-
-参见 `proxy-server/.env.example`。
-
 ## 常见问题
 
 ### Q: 工具提示"检查更新失败"？
-A: 检查网络连接和代理地址配置，确保香港中转代理服务可访问。
+A: 检查网络连接。更新检测走 npm registry，无需额外配置。
 
 ### Q: 更新时提示"文件被占用"？
 A: 请先关闭 DSH Agent 本体，再执行更新操作。
@@ -227,6 +173,5 @@ MIT License
 
 ## 联系方式
 
-- 官网：https://dsh-update.hk
-- 邮箱：support@dsh-update.hk
-- GitHub：https://github.com/DSH-Team
+- 官网：https://dsh.huilinsh.cn
+- GitHub：https://github.com/Frank-NF/DSH-PluginUpdater

@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang='zh-CN'>
 <head>
     <meta charset='UTF-8'>
@@ -88,7 +88,7 @@
                     <div class='logo-icon'>DSH</div>
                     <div class='logo-text'>
                         <h2>插件升级管理</h2>
-                        <span class='subtitle'>独立运行 · 香港中转加速</span>
+                        <span class='subtitle'>独立运行 · 官方加速</span>
                     </div>
                 </div>
             </div>
@@ -210,9 +210,9 @@
         const app = createApp({
             setup() {
                 const plugins = ref([
-                    { id: 'dsh-agent-core', name: 'DSH Agent 本体', description: '核心程序，提供基础运行环境', github_repo: 'DSH-Team/DSH-Agent', current_version: '1.0.0', latest_version: '1.0.0', update_available: false, enabled: true, is_core: true },
-                    { id: 'dsh-plugin-comfyui', name: 'ComfyUI 集成', description: '集成 ComfyUI 工作流，支持 AI 绘图', github_repo: 'DSH-Team/dsh-plugin-comfyui', current_version: '0.9.0', latest_version: '1.0.0', update_available: true, enabled: true, is_core: false },
-                    { id: 'dsh-plugin-memory', name: '长期记忆插件', description: '向量数据库支持的长期记忆存储', github_repo: 'DSH-Team/dsh-plugin-memory', current_version: '0.8.0', latest_version: '0.8.0', update_available: false, enabled: false, is_core: false },
+                    { id: 'dsh-agent-core', name: 'DSH Agent 本体', description: '核心程序，提供基础运行环境', github_repo: 'Frank-NF/DSH-Agent', current_version: '1.0.0', latest_version: '1.0.0', update_available: false, enabled: true, is_core: true },
+                    { id: 'dsh-plugin-comfyui', name: 'ComfyUI 集成', description: '集成 ComfyUI 工作流，支持 AI 绘图', github_repo: 'Frank-NF/dsh-plugin-comfyui', current_version: '0.9.0', latest_version: '1.0.0', update_available: true, enabled: true, is_core: false },
+                    { id: 'dsh-plugin-memory', name: '长期记忆插件', description: '向量数据库支持的长期记忆存储', github_repo: 'Frank-NF/dsh-plugin-memory', current_version: '0.8.0', latest_version: '0.8.0', update_available: false, enabled: false, is_core: false },
                 ]);
                 return { plugins };
             }

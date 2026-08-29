@@ -40,11 +40,11 @@ pub fn create_agent_core_manifest(plugin_dir: &Path) -> AppResult<PluginManifest
         id: "dsh-agent-core".to_string(),
         name: "DSH Agent 本体".to_string(),
         description: "DSH Agent 核心程序，提供基础运行环境与能力调度".to_string(),
-        github_repo: "DSH-Team/DSH-Agent".to_string(),
+        github_repo: "Frank-NF/DSH-Agent".to_string(),
         current_version,
         enabled: true,
         r#type: "agent-core".to_string(),
         author: "DSH Team".to_string(),
-        homepage: "https://dsh-update.hk".to_string(),
+        homepage: "https://dsh.huilinsh.cn".to_string(),
     })
 }

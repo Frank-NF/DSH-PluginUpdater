@@ -23,7 +23,7 @@
             <ul>
               <li><strong>Windows:</strong> Windows 10 或更高版本（64位）</li>
               <li><strong>Linux:</strong> Ubuntu 20.04+ / Debian 11+（x86_64）</li>
-              <li><strong>网络:</strong> 可访问香港中转代理服务器</li>
+              <li><strong>网络:</strong> 可访问代理服务器</li>
             </ul>
           </article>
 
@@ -62,7 +62,7 @@
             <p>点击「扫描」按钮，工具将遍历目录下的所有子文件夹，读取每个插件的 <code>plugin.manifest.json</code> 文件，列出所有已安装插件。</p>
 
             <h2>3. 检查更新</h2>
-            <p>点击「检查更新」按钮，工具将通过香港中转代理访问 GitHub，检测每个插件的最新版本。有可用更新的插件将高亮显示。</p>
+            <p>点击「检查更新」按钮，工具将通过网络代理访问 GitHub，检测每个插件的最新版本。有可用更新的插件将高亮显示。</p>
 
             <h2>4. 更新插件</h2>
             <p>对于有可用更新的插件，点击「更新」按钮即可开始更新。更新前会自动备份旧版本，更新过程中显示进度条。</p>
@@ -157,7 +157,7 @@
   "id": "dsh-plugin-example",
   "name": "示例插件",
   "description": "这是一个示例插件，展示 manifest 格式",
-  "github_repo": "DSH-Team/dsh-plugin-example",
+  "github_repo": "Frank-NF/dsh-plugin-example",
   "current_version": "1.0.0",
   "enabled": true,
   "type": "plugin",
@@ -168,12 +168,12 @@
 
           <article id="proxy-setup">
             <h1>代理服务部署</h1>
-            <p>香港中转代理服务是工具能够正常访问 GitHub 的关键。以下是部署指南。</p>
+            <p>代理服务是工具能够正常访问 GitHub 的关键。以下是部署指南。</p>
 
             <h2>使用 Docker 部署（推荐）</h2>
             <ol>
-              <li>克隆项目到香港服务器
-                <pre><code>git clone https://github.com/DSH-Team/DSH-PluginUpdater.git
+              <li>克隆项目
+                <pre><code>git clone https://github.com/Frank-NF/DSH-PluginUpdater.git
 cd DSH-PluginUpdater/proxy-server</code></pre>
               </li>
               <li>复制环境变量配置文件
@@ -219,7 +219,7 @@ cd DSH-PluginUpdater/proxy-server</code></pre>
             <h1>常见问题</h1>
 
             <h3>Q: 工具提示"检查更新失败"怎么办？</h3>
-            <p>A: 请检查网络连接是否正常，香港中转代理服务是否可访问。可以在设置中确认代理地址配置正确。</p>
+            <p>A: 请检查网络连接是否正常，代理服务是否可访问。可以在设置中确认代理地址配置正确。</p>
 
             <h3>Q: 更新插件时提示"文件被占用"？</h3>
             <p>A: 这是因为 DSH Agent 正在运行并加载了该插件。请先关闭 DSH Agent 本体，再执行更新操作。</p>
@@ -234,7 +234,7 @@ cd DSH-PluginUpdater/proxy-server</code></pre>
             <p>A: 工具使用语义化版本（Semantic Versioning）规范，格式为 MAJOR.MINOR.PATCH，例如 1.2.3。也支持 v 前缀，如 v1.2.3。</p>
 
             <h3>Q: 工具会收集我的数据吗？</h3>
-            <p>A: 不会。所有插件扫描和管理操作都在本地完成，仅在检查更新和下载时通过香港中转代理访问 GitHub，不收集任何用户数据。</p>
+            <p>A: 不会。所有插件扫描和管理操作都在本地完成，仅在检查更新和下载时通过网络代理访问 GitHub，不收集任何用户数据。</p>
           </article>
         </div>
       </div>

@@ -56,7 +56,7 @@ interface CatalogEntry {
 const REGISTRY: RegistryEntry[] = [
   {
     id: 'dsh-agent-core',
-    repo: 'DSH-Team/DSH-Agent',
+    repo: 'Frank-NF/DSH-Agent',
     name: 'DSH Agent 本体',
     description: '核心程序，提供插件运行环境与基础服务',
     category: '核心',
@@ -64,7 +64,7 @@ const REGISTRY: RegistryEntry[] = [
   },
   {
     id: 'dsh-plugin-comfyui',
-    repo: 'DSH-Team/dsh-plugin-comfyui',
+    repo: 'Frank-NF/dsh-plugin-comfyui',
     name: 'ComfyUI 集成插件',
     description: '集成 ComfyUI 工作流，支持 AI 绘图和视频生成任务调度',
     category: 'AI 绘图',
@@ -72,7 +72,7 @@ const REGISTRY: RegistryEntry[] = [
   },
   {
     id: 'dsh-plugin-ollama',
-    repo: 'DSH-Team/dsh-plugin-ollama',
+    repo: 'Frank-NF/dsh-plugin-ollama',
     name: 'Ollama 本地模型插件',
     description: '通过 Ollama 进行本地大模型推理，支持视觉模型',
     category: '本地 AI',
@@ -80,7 +80,7 @@ const REGISTRY: RegistryEntry[] = [
   },
   {
     id: 'dsh-plugin-memory',
-    repo: 'DSH-Team/dsh-plugin-memory',
+    repo: 'Frank-NF/dsh-plugin-memory',
     name: '长期记忆插件',
     description: '向量数据库支持的长期记忆存储和语义检索能力',
     category: '能力扩展',
@@ -88,7 +88,7 @@ const REGISTRY: RegistryEntry[] = [
   },
   {
     id: 'dsh-plugin-browser',
-    repo: 'DSH-Team/dsh-plugin-browser',
+    repo: 'Frank-NF/dsh-plugin-browser',
     name: '浏览器自动化插件',
     description: '基于浏览器自动化的网页操作、数据采集和交互能力',
     category: '自动化',
@@ -96,7 +96,7 @@ const REGISTRY: RegistryEntry[] = [
   },
   {
     id: 'dsh-plugin-tts',
-    repo: 'DSH-Team/dsh-plugin-tts',
+    repo: 'Frank-NF/dsh-plugin-tts',
     name: '语音合成插件',
     description: '多语言文本转语音，支持多种音色和情感表达',
     category: '多媒体',
@@ -104,7 +104,7 @@ const REGISTRY: RegistryEntry[] = [
   },
   {
     id: 'dsh-plugin-mcp',
-    repo: 'DSH-Team/dsh-plugin-mcp',
+    repo: 'Frank-NF/dsh-plugin-mcp',
     name: 'MCP 协议插件',
     description: 'Model Context Protocol 支持，连接外部工具和数据源',
     category: '协议',
@@ -112,7 +112,7 @@ const REGISTRY: RegistryEntry[] = [
   },
   {
     id: 'dsh-plugin-translator',
-    repo: 'DSH-Team/dsh-plugin-translator',
+    repo: 'Frank-NF/dsh-plugin-translator',
     name: '翻译增强插件',
     description: '支持上下文感知的多语言翻译',
     category: '效率',

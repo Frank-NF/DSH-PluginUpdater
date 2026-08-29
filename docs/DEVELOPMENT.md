@@ -33,7 +33,7 @@ sudo apt install -y libwebkit2gtk-4.0-dev build-essential curl wget file libssl-
 
 ```bash
 # 克隆项目
-git clone https://github.com/DSH-Team/DSH-PluginUpdater.git
+git clone https://github.com/Frank-NF/DSH-PluginUpdater.git
 cd DSH-PluginUpdater
 
 # 安装前端依赖
@@ -181,7 +181,7 @@ go test ./...
                                          ↓
                           ┌──────────────┼──────────────┐
                           ↓              ↓              ↓
-                     文件系统操作    香港代理API      状态管理
+                     文件系统操作    代理API      状态管理
                      (扫描/更新/     (GitHub访问)    (Pinia)
                       卸载/备份)
                           ↓
@@ -240,7 +240,7 @@ RUST_BACKTRACE=1 cargo tauri dev
 # 查看 Redis 缓存
 redis-cli
 > KEYS release:*
-> GET release:latest:DSH-Team/DSH-Agent
+> GET release:latest:Frank-NF/DSH-Agent
 
 # 查看服务日志
 docker-compose logs -f proxy

@@ -118,7 +118,7 @@
             </div>
             <div class="req-item">
               <span class="req-label">网络</span>
-              <span>需访问 GitHub（内置香港中转，无需科学上网）</span>
+              <span>需访问 GitHub（内置代理，无需科学上网）</span>
             </div>
           </div>
         </div>

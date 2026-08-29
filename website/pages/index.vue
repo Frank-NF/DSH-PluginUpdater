@@ -16,7 +16,7 @@
         </h1>
         <p class="hero-desc">
           浏览插件市场、查看实时排行，或直接使用在线版管理插件。
-          桌面客户端支持一键扫描、更新、启用、禁用、卸载，香港中转加速访问 GitHub。
+          桌面客户端支持一键扫描、更新、启用、禁用、卸载，官方加速访问 GitHub。
         </p>
         <div class="hero-buttons">
           <NuxtLink to="/plugins" class="btn btn-primary">
@@ -50,7 +50,7 @@
           <div class="stat-divider"></div>
           <div class="stat">
             <span class="stat-value" :class="{ live: true }">在线</span>
-            <span class="stat-label">香港节点加速</span>
+            <span class="stat-label">官方加速</span>
           </div>
         </div>
       </div>
@@ -139,7 +139,7 @@
             <ul class="mode-features">
               <li>本地插件目录智能扫描</li>
               <li>一键更新 + 自动备份回滚</li>
-              <li>香港中转，GitHub 访问无障碍</li>
+              <li>代理，GitHub 访问无障碍</li>
               <li>Agent 本体保护，安全卸载</li>
             </ul>
             <NuxtLink to="/download" class="btn btn-primary mode-btn">
@@ -210,11 +210,11 @@ function formatStars(n: number): string {
 
 const features = [
   { icon: '🔍', color: 'blue', title: '智能扫描', desc: '自动扫描插件目录，识别所有已装插件与 Agent 本体，信息一目了然。' },
-  { icon: '⬆️', color: 'green', title: '一键更新', desc: '香港中转代理快速检测 GitHub 最新版本，自动备份旧版本，支持回滚。' },
+  { icon: '⬆️', color: 'green', title: '一键更新', desc: '网络代理快速检测 GitHub 最新版本，自动备份旧版本，支持回滚。' },
   { icon: '🎛️', color: 'orange', title: '启停管理', desc: '启用或禁用插件无需删除文件，重启 Agent 即刻生效。' },
   { icon: '🗑️', color: 'red', title: '安全卸载', desc: '卸载前自动备份可随时恢复，Agent 本体受保护防误删。' },
   { icon: '📂', color: 'purple', title: '目录直达', desc: '一键打开插件所在文件夹，快速查看或手动修改配置。' },
-  { icon: '🚀', color: 'cyan', title: '香港加速', desc: '所有 GitHub 请求经香港节点中转，检测与下载速度大幅提升。' },
+  { icon: '🚀', color: 'cyan', title: '官方加速', desc: '所有 GitHub 请求直连，检测与下载速度大幅提升。' },
 ]
 </script>
 

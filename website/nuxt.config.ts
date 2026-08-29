@@ -12,9 +12,9 @@ export default defineNuxtConfig({
         { name: 'viewport', content: 'width=device-width, initial-scale=1' },
         {
           name: 'description',
-          content: 'DSH 独立插件升级管理工具，支持扫描、更新、启用、禁用、卸载插件，通过香港中转代理访问 GitHub，访问速度快，界面友好。',
+          content: 'DSH 独立插件升级管理工具，支持扫描、更新、启用、禁用、卸载插件，通过网络代理访问 GitHub，访问速度快，界面友好。',
         },
-        { name: 'keywords', content: 'DSH,插件管理,升级工具,GitHub代理,香港中转' },
+        { name: 'keywords', content: 'DSH,插件管理,升级工具,GitHub代理,代理' },
       ],
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },

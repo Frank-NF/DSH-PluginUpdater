@@ -55,3 +55,7 @@ temp/
 src-tauri/.updater_backups/
 *.pid
 *.seed
+
+# ============ WorkBuddy ============
+.workbuddy/
+

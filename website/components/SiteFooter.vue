@@ -9,7 +9,7 @@
           </div>
           <p>
             独立运行的插件升级管理工具，支持扫描、更新、启用、禁用、卸载插件。
-            提供在线版与桌面客户端两种使用方式，通过香港中转代理访问 GitHub。
+            提供在线版与桌面客户端两种使用方式，通过网络代理访问 GitHub。
           </p>
         </div>
         <div class="footer-column">
@@ -27,9 +27,9 @@
           <h4>资源</h4>
           <ul>
             <li><NuxtLink to="/docs">使用文档</NuxtLink></li>
-            <li><a href="https://github.com/DSH-Team" target="_blank" rel="noopener">GitHub</a></li>
+            <li><a href="https://github.com/Frank-NF" target="_blank" rel="noopener">GitHub</a></li>
             <li>
-              <a href="https://github.com/DSH-Team/DSH-PluginUpdater/issues" target="_blank" rel="noopener">问题反馈</a>
+              <a href="https://github.com/Frank-NF/DSH-PluginUpdater/issues" target="_blank" rel="noopener">问题反馈</a>
             </li>
           </ul>
         </div>
@@ -37,13 +37,13 @@
           <h4>联系</h4>
           <ul>
             <li><a href="https://dsh.huilinsh.cn">dsh.huilinsh.cn</a></li>
-            <li>香港服务器节点</li>
+            <li>CDN 节点</li>
             <li>7x24 小时在线</li>
           </ul>
         </div>
       </div>
       <div class="footer-bottom">
-        <p>&copy; 2026 DSH Plugin Updater. All rights reserved. | 香港服务器加速</p>
+        <p>&copy; 2026 DSH Plugin Updater. All rights reserved. | 官方加速</p>
       </div>
     </div>
   </footer>

@@ -40,7 +40,7 @@ const makePlugin = (
     current_version: current,
     enabled,
     type,
-    author: 'DSH-Team',
+    author: 'Frank-NF',
     homepage: 'https://dsh.huilinsh.cn',
   },
   install_path: `C:\\DSH\\plugins\\${id}`,
@@ -64,7 +64,7 @@ let mockPlugins: PluginInfo[] = [
     'dsh-agent-core',
     'DSH Agent 本体',
     '核心程序，提供插件运行环境与基础服务',
-    'DSH-Team/DSH-Agent',
+    'Frank-NF/DSH-Agent',
     '1.0.0',
     null,
     true,
@@ -74,7 +74,7 @@ let mockPlugins: PluginInfo[] = [
     'dsh-plugin-comfyui',
     'ComfyUI 集成插件',
     'Integrates ComfyUI workflows for image generation pipelines',
-    'DSH-Team/dsh-plugin-comfyui',
+    'Frank-NF/dsh-plugin-comfyui',
     '0.9.0',
     '1.0.0',
     true
@@ -83,7 +83,7 @@ let mockPlugins: PluginInfo[] = [
     'dsh-plugin-memory',
     '长期记忆插件',
     '基于向量数据库的长期记忆存储与检索',
-    'DSH-Team/dsh-plugin-memory',
+    'Frank-NF/dsh-plugin-memory',
     '0.8.0',
     null,
     false
@@ -92,7 +92,7 @@ let mockPlugins: PluginInfo[] = [
     'dsh-plugin-ollama',
     'Ollama 本地模型插件',
     'Local LLM inference via Ollama, supports qwen3-vl vision models',
-    'DSH-Team/dsh-plugin-ollama',
+    'Frank-NF/dsh-plugin-ollama',
     '0.5.2',
     '0.6.0',
     true
@@ -101,7 +101,7 @@ let mockPlugins: PluginInfo[] = [
     'dsh-plugin-browser',
     '浏览器自动化插件',
     '网页浏览、内容抓取与自动化操作',
-    'DSH-Team/dsh-plugin-browser',
+    'Frank-NF/dsh-plugin-browser',
     '0.3.1',
     null,
     true
