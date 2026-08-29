@@ -816,6 +816,7 @@ const marketFiltered = computed(() => {
 // 搜索词变化时回到第一页
 watch(marketSearch, () => { marketPage.value = 1 })
 watch(marketCatFilter, () => { marketPage.value = 1 })
+watch(marketSort, () => { marketPage.value = 1 })
 
 /** 市场中出现的分类（按数量降序） */
 const marketCategories = computed(() => {
