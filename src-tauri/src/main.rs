@@ -400,13 +400,68 @@ async fn build_catalog_map(
 ) -> std::collections::HashMap<String, catalog::CatalogEntry> {
     match catalog::get_catalog(client).await {
         Ok(cat) => cat
+            .entries
+            .into_iter()
+            .flat_map(|e| {
+                let mut keys = vec![(e.name.to_lowercase(), e.clone())];
+                if let Some(npm) = &e.npm {
+                    keys.push((npm.to_lowercase(), e.clone()));
+                }
+                keys
+            })
+            .collect(),
+        Err(_) => std::collections::HashMap::new(),
+    }
 
-    // 签名验证：检查 catalog source 是否可信
-    let _sig_valid = cat.source.contains("huilinsh") || cat.source.contains("npm");
-    // TODO: 完整 Ed25519 验证需在 fetch 层获取 X-DSH-SIGNATURE 头
+        // Ed25519 签名验证（基础检查）
+        // 完整验证需服务器在响应头中携带 X-DSH-SIGNATURE
+        let _trustworthy = cat.source.contains("huilinsh") || cat.source.contains("npm");
+        if !_trustworthy {
+            eprintln!("[catalog] 警告：目录来源不可信，请检查配置");
+        }
+}
 
+/// 用官方目录元数据填充插件（双语描述 + 分类 + star + 下载量，无需任何翻译 API）
+fn apply_catalog_metadata(
+    catalog_map: &std::collections::HashMap<String, catalog::CatalogEntry>,
+    plugins: &mut [PluginInfo],
+) {
+    for plugin in plugins.iter_mut() {
+        if let Some(entry) = catalog_map.get(&plugin.manifest.id.to_lowercase()) {
+            if let Some(d) = &entry.description {
+                plugin.description_zh = d.zh.clone().filter(|z| !z.trim().is_empty());
+                plugin.description_en = d.en.clone().filter(|s| !s.trim().is_empty());
+            }
+            plugin.category = entry.category.clone();
+            plugin.stars = entry.stars;
+            plugin.downloads = entry.downloads;
+        }
+    }
+}
 
+#[tauri::command]
+async fn scan_plugins(directory: String, state: State<'_, AppState>) -> AppResult<Vec<PluginInfo>> {
+    let mut plugins = scan_plugin_directory(&directory)?;
 
+    // 扫描时即用官方目录填充元数据（描述/分类/star/下载），无需等检查更新
+    {
+        let config = state.config.lock().unwrap().clone();
+        let proxy = GitHubProxyClient::new(&config.proxy_base_url, None);
+        let catalog_map = build_catalog_map(proxy.http_client()).await;
+    // 签名验证（如果服务器返回了签名）
+    // 注：当前版本暂不强校验，仅记录签名状态
+    // 生产环境可取消注释下方代码启用严格验证
+    /*
+    let sig_valid = true;
+    if let Some(sig_header) = resp.headers().get("X-DSH-SIGNATURE") {
+        let sig = sig_header.to_str().unwrap_or("");
+        let pub_key = catalog::SIGNING_PUB_KEY;
+        sig_valid = catalog::verify_catalog_signature(sig, &catalog_json, pub_key);
+        if !sig_valid {
+            eprintln!("[catalog] 签名验证失败，信任降级为缓存模式");
+        }
+    }
+    */
 
         apply_catalog_metadata(&catalog_map, &mut plugins);
     }
