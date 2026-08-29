@@ -36,6 +36,7 @@ pub fn scan_plugin_directory(root_dir: &str) -> AppResult<Vec<PluginInfo>> {
                 category: None,
                 stars: None,
                 downloads: None,
+            sha256: None,
             });
         }
     }
@@ -291,6 +292,7 @@ fn scan_cordis_plugin(dir: &Path) -> Option<PluginInfo> {
         category: None,
         stars: None,
         downloads: None,
+    sha256: None,
     })
 }
 
@@ -337,6 +339,7 @@ fn scan_single_plugin(dir: &Path) -> Option<PluginInfo> {
             category: None,
             stars: None,
             downloads: None,
+        sha256: None,
         }),
         Err(_) => None,
     }
@@ -363,6 +366,7 @@ fn scan_nested_plugin(dir: &Path) -> Option<PluginInfo> {
                         category: None,
                         stars: None,
                         downloads: None,
+                    sha256: None,
                     });
                 }
             }

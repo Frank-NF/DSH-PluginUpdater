@@ -93,6 +93,8 @@ pub struct MarketPlugin {
     pub npm: Option<String>,
     #[serde(default)]
     pub url: Option<String>,
+    #[serde(default)]
+    pub sha256: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -115,6 +117,8 @@ pub struct PluginInfo {
     pub stars: Option<u64>,
     #[serde(default)]
     pub downloads: Option<u64>,
+    #[serde(default)]
+    pub sha256: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

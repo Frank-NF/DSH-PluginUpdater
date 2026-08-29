@@ -43,6 +43,7 @@ async fn list_catalog_plugins(state: State<'_, AppState>) -> AppResult<Vec<error
             category: e.category,
             stars: e.stars,
             downloads: e.downloads,
+            sha256: None,
             desc_zh: e.description.as_ref().and_then(|d| d.zh.clone()),
             desc_en: e.description.as_ref().and_then(|d| d.en.clone()),
             npm: e.npm,
@@ -328,6 +329,7 @@ async fn sync_to_server(
                     category: e.category,
                     stars: e.stars,
                     downloads: e.downloads,
+                    sha256: None,
                     desc_zh: e.description.as_ref().and_then(|d| d.zh.clone()),
                     desc_en: e.description.as_ref().and_then(|d| d.en.clone()),
                     npm: e.npm,
@@ -876,6 +878,7 @@ async fn update_plugin(
         .clone()
         .ok_or_else(|| error::AppError::Other("未获取到最新版本".to_string()))?;
 
+    let expected_sha256 = plugin.sha256.clone();
     let plugin_path = plugin.install_path.clone();
     let proxy = GitHubProxyClient::new(&config.proxy_base_url, None);
     let file_manager = PluginFileManager::new(&config.plugin_directory);
@@ -894,12 +897,15 @@ async fn update_plugin(
     };
 
     // 1. 备份旧插件
-    if config.backup_before_update {
+    let backup_path: Option<String> = if config.backup_before_update {
         emit_progress("backup", 5, "正在备份旧版本...");
-        file_manager
+        Some(file_manager
             .backup_plugin(&plugin_path, &plugin_id)
-            .map_err(|e| error::AppError::Other(format!("备份失败: {}", e)))?;
-    }
+            .map_err(|e| error::AppError::Other(format!("备份失败: {}", e)))?
+        )
+    } else {
+        None
+    };
 
     // 2. 下载更新包
     emit_progress("download", 10, "正在下载更新包...");
@@ -941,22 +947,46 @@ async fn update_plugin(
         .await
         .map_err(|e| error::AppError::Other(format!("下载失败: {}", e)))?;
 
-    // 3. 解压更新包
+    // 3. SHA256 校验（如果服务器提供了预期值）
+    if let Some(expected) = &expected_sha256 {
+        emit_progress("verify", 70, "正在校验文件完整性...");
+        let actual = file_ops::calculate_sha256(&zip_path_str)
+            .map_err(|e| error::AppError::Other(format!("SHA256 计算失败: {}", e)))?;
+        
+        if actual != *expected {
+            // 校验失败：清理临时文件，回滚备份
+            file_ops::clean_temp_file(&zip_path_str);
+            
+            if let Some(backup) = &backup_path {
+                emit_progress("rollback", 75, "文件校验失败，正在回滚...");
+                if let Err(rollback_err) = file_manager.restore_backup(backup, &plugin_path) {
+                    eprintln!("[update_plugin] 回滚失败: {}", rollback_err);
+                }
+            }
+            
+            return Err(error::AppError::Other(
+                format!("文件完整性校验失败：期望 {:?}，实际 {:?}", expected, actual)
+            ));
+        }
+        emit_progress("verify", 72, "校验通过");
+    }
+
+    // 4. 解压更新包
     emit_progress("extract", 75, "正在解压更新包...");
     file_manager
         .extract_update_package(&zip_path_str, &plugin_path)
         .map_err(|e| error::AppError::Other(format!("解压失败: {}", e)))?;
 
-    // 4. 更新版本号
+    // 5. 更新版本号
     emit_progress("version", 90, "正在更新版本信息...");
     file_manager
         .update_plugin_version(&plugin_path, &latest_version)
         .map_err(|e| error::AppError::Other(format!("版本更新失败: {}", e)))?;
 
-    // 5. 清理临时文件
+    // 6. 清理临时文件
     file_ops::clean_temp_file(&zip_path_str);
 
-    // 5.5 同步 cordis profile 的依赖声明与锁文件（让 DSH 重启后识别新版本）
+    // 6.5 同步 cordis profile 的依赖声明与锁文件（让 DSH 重启后识别新版本）
     {
         // node_modules/<pkg> 的上一级上一级 = profile 根（node_modules 目录）
         let mut profile_root: Option<std::path::PathBuf> = None;
@@ -1007,7 +1037,7 @@ async fn update_plugin(
         }
     }
 
-    // 6. 更新内存中的插件信息
+    // 7. 更新内存中的插件信息
     {
         let mut state_plugins = state.plugins.lock().unwrap();
         if let Some(p) = state_plugins.iter_mut().find(|p| p.manifest.id == plugin_id) {
@@ -1020,7 +1050,6 @@ async fn update_plugin(
     emit_progress("complete", 100, "更新完成！");
     Ok(latest_version)
 }
-
 #[tauri::command]
 fn uninstall_plugin(plugin_id: String, state: State<'_, AppState>) -> AppResult<()> {
     let config = state.config.lock().unwrap().clone();

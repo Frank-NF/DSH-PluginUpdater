@@ -1,4 +1,5 @@
 use crate::error::{AppError, AppResult, PluginManifest};
+use std::io::Read;
 use crate::manifest::write_manifest;
 use chrono::Local;
 use std::fs;
@@ -349,3 +350,23 @@ pub fn open_in_file_manager(path: &str) -> AppResult<()> {
 pub fn clean_temp_file(path: &str) {
     let _ = fs::remove_file(path);
 }
+/// 计算文件的 SHA256 校验和（返回小写 hex 字符串）
+pub fn calculate_sha256(file_path: &str) -> AppResult<String> {
+    use sha2::{Digest, Sha256};
+    
+    let mut file = fs::File::open(file_path)?;
+    let mut hasher = Sha256::new();
+    let mut buffer = [0u8; 8192];
+    
+    loop {
+        let bytes_read = file.read(&mut buffer)?;
+        if bytes_read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..bytes_read]);
+    }
+    
+    let result = hasher.finalize();
+    Ok(format!("{:x}", result))
+}
+
