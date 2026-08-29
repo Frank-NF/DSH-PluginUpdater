@@ -12,6 +12,7 @@
       @check-updates="handleCheckUpdates"
       @auto-scan="handleAutoScan"
       @open-settings="showSettings = true"
+      @open-admin="showAdmin = true"
       @open-website="openWebsite"
       @open-repair="showRepair = true"
     />
@@ -68,12 +69,14 @@ import { pluginApi } from './api'
 import HeaderBar from './components/HeaderBar.vue'
 import PluginTable from './components/PluginTable.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
+import AdminPanel from './components/AdminPanel.vue'
 import ReleaseNotesDialog from './components/ReleaseNotesDialog.vue'
 import RepairDialog from './components/RepairDialog.vue'
 import type { PluginInfo, AppConfig } from './types'
 
 const pluginStore = usePluginStore()
 const showSettings = ref(false)
+const showAdmin = ref(false)
 const isAutoScanning = ref(false)
 const showReleaseNotes = ref(false)
 const showRepair = ref(false)
