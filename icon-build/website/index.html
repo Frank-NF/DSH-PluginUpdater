@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DSH Plugin Updater — DSH 插件更新器</title>
+<meta name="description" content="DSH Plugin Updater：DSH Desktop 插件市场与更新管理工具。2189+ 插件目录、一键安装、国内镜像加速、自动更新检查。">
+<link rel="icon" type="image/png" href="icon.png">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  :root {
+    --indigo: #5b5ce2; --indigo-deep: #4032c8; --ink: #1e2130;
+    --muted: #6b7186; --card: #ffffff; --line: #e8eaf2;
+  }
+  body {
+    font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    color: var(--ink); background: #f6f7fb; line-height: 1.6;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+
+  header { position: sticky; top: 0; z-index: 10; backdrop-filter: blur(12px);
+    background: rgba(255,255,255,.82); border-bottom: 1px solid var(--line); }
+  .nav { display: flex; align-items: center; justify-content: space-between; height: 64px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; }
+  .brand img { width: 34px; height: 34px; border-radius: 8px; }
+  .brand .en { color: var(--muted); font-weight: 500; font-size: 13px; margin-left: 2px; }
+  .nav a.dl {
+    display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 10px;
+    background: linear-gradient(135deg, var(--indigo), var(--indigo-deep));
+    color: #fff; text-decoration: none; font-weight: 600; font-size: 14px;
+    box-shadow: 0 4px 14px rgba(91,92,226,.35); transition: transform .15s;
+  }
+  .nav a.dl:hover { transform: translateY(-1px); }
+
+  .hero { text-align: center; padding: 84px 0 64px;
+    background: radial-gradient(1200px 420px at 50% -80px, rgba(91,92,226,.14), transparent); }
+  .hero img { width: 108px; height: 108px; border-radius: 26px;
+    box-shadow: 0 18px 48px rgba(64,50,200,.30); }
+  .hero h1 { font-size: 42px; margin: 26px 0 10px; letter-spacing: .5px; }
+  .hero h1 .grad { background: linear-gradient(120deg, var(--indigo), #9a4de8);
+    -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .hero p.sub { color: var(--muted); font-size: 17px; max-width: 620px; margin: 0 auto 34px; }
+  .hero .cta { display: inline-flex; gap: 14px; flex-wrap: wrap; justify-content: center; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px; padding: 13px 30px; border-radius: 12px;
+    font-size: 16px; font-weight: 600; text-decoration: none; transition: transform .15s, box-shadow .15s;
+  }
+  .btn.primary { background: linear-gradient(135deg, var(--indigo), var(--indigo-deep));
+    color: #fff; box-shadow: 0 8px 24px rgba(91,92,226,.4); }
+  .btn.ghost { background: #fff; color: var(--indigo); border: 1.5px solid #d9dbf5; }
+  .btn:hover { transform: translateY(-2px); }
+  .hero .ver { margin-top: 16px; color: #9aa0b5; font-size: 13px; }
+
+  section.feat { padding: 26px 0 70px; }
+  section.feat h2 { text-align: center; font-size: 28px; margin-bottom: 34px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 18px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 22px 24px;
+    transition: box-shadow .2s, transform .2s; }
+  .card:hover { box-shadow: 0 10px 30px rgba(30,33,48,.08); transform: translateY(-2px); }
+  .card .ic { font-size: 26px; margin-bottom: 10px; }
+  .card h3 { font-size: 16.5px; margin-bottom: 6px; }
+  .card p { color: var(--muted); font-size: 14px; }
+  .tag { display: inline-block; font-size: 11.5px; color: var(--indigo); background: #eeeefc;
+    border-radius: 999px; padding: 2px 10px; margin-left: 6px; vertical-align: 2px; }
+
+  footer { border-top: 1px solid var(--line); padding: 26px 0 34px; color: #9aa0b5; font-size: 13.5px; }
+  footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  footer a { color: var(--indigo); text-decoration: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <div class="brand">
+      <img src="icon.png" alt="DSH Plugin Updater">
+      DSH 插件更新器 <span class="en">DSH Plugin Updater</span>
+    </div>
+    <a class="dl" href="dsh-plugin-updater.exe">⬇ 下载 Windows 版</a>
+  </div>
+</header>
+
+<div class="hero">
+  <div class="wrap">
+    <img src="icon.png" alt="应用图标">
+    <h1>DSH <span class="grad">Plugin Updater</span></h1>
+    <p class="sub">DSH Desktop 的第三方插件市场与更新管理器 —— 2189+ 官方目录插件、一键安装、国内镜像加速、自动更新检查，全部在一个桌面应用里完成。</p>
+    <div class="cta">
+      <a class="btn primary" href="dsh-plugin-updater.exe">⬇ 免费下载（Windows）</a>
+      <a class="btn ghost" href="plugins.json">插件目录数据</a>
+    </div>
+    <div class="ver">绿色免安装 · 单文件 exe · 无需管理员权限</div>
+  </div>
+</div>
+
+<section class="feat">
+  <div class="wrap">
+    <h2>核心功能</h2>
+    <div class="grid">
+      <div class="card"><div class="ic">🛍️</div><h3>插件市场 <span class="tag">2189+ 款</span></h3>
+        <p>内置官方目录全量插件，双语描述、21 种分类、星标与下载量，分类筛选 + 分页浏览，一眼找到想要的插件。</p></div>
+      <div class="card"><div class="ic">⚡</div><h3>一键安装 <span class="tag">镜像加速</span></h3>
+        <p>选好目标 profile 一键安装，可切换国内 npmmirror 镜像源，自动处理依赖冲突（legacy-peer-deps），比官方源快 20 倍。</p></div>
+      <div class="card"><div class="ic">🔄</div><h3>自动更新检查</h3>
+        <p>启动即扫描本地插件并对照 npm registry 检查新版本，不走 GitHub API，无配额限制；更新前自动备份，可随时回滚。</p></div>
+      <div class="card"><div class="ic">🛡️</div><h3>进程管理 <span class="tag">UAC 提权</span></h3>
+        <p>更新前检测 DSH 是否运行，普通强杀失败自动弹 UAC 授权提权重杀，标准用户输一次管理员密码即可，不要求预装管理员环境。</p></div>
+      <div class="card"><div class="ic">🔗</div><h3>官方 / 镜像链接</h3>
+        <p>每个插件卡片提供 GitHub 仓库、npm 官方页、npmmirror 国内镜像直达链接，系统浏览器打开，无地址的插件自动隐藏入口。</p></div>
+      <div class="card"><div class="ic">🧰</div><h3>修复中心 <span class="tag">14 类指南</span></h3>
+        <p>7 项环境体检（目录/进程/Node/npm/profiles/配置/可写性）+ 常见报错双语修复指南，安装出问题先来这里。</p></div>
+      <div class="card"><div class="ic">🌐</div><h3>服务器同步</h3>
+        <p>SSH 密钥直连自有服务器，软件包与插件目录一键同步部署，支持 HTTPS 域名分发。</p></div>
+      <div class="card"><div class="ic">💾</div><h3>配置持久化</h3>
+        <p>插件目录、镜像源、代理、服务器等全部设置本地持久保存，重启不丢失；双语文界面一键中英切换。</p></div>
+      <div class="card"><div class="ic">🗂️</div><h3>备份与回滚</h3>
+        <p>每次更新前自动备份插件目录（智能跳过 junction/符号链接），列出全部历史备份，一键恢复。</p></div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div>DSH Plugin Updater · DSH Desktop 插件更新器</div>
+    <div>目录数据 <a href="plugins.json">plugins.json</a> · 本页部署于 dsh.huilinsh.cn</div>
+  </div>
+</footer>
+
+</body>
+</html>

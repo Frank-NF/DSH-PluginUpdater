@@ -1,0 +1,55 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "DSH Plugin Updater",
+  "version": "1.0.0",
+  "identifier": "com.dsh.plugin-updater",
+  "build": {
+    "beforeDevCommand": "cd ../src-vue && npm run dev",
+    "beforeBuildCommand": "cd ../src-vue && npm run build",
+    "devUrl": "http://localhost:1420",
+    "frontendDist": "../src-vue/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "DSH 插件升级管理工具",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 900,
+        "minHeight": 600,
+        "resizable": true,
+        "fullscreen": false
+      }
+    ],
+    "security": {
+    "csp": null
+  },
+  "windows": [
+    {
+      "label": "main",
+      "title": "DSH 插件升级管理工具",
+      "width": 1200,
+      "height": 800,
+      "minWidth": 900,
+      "minHeight": 600,
+      "resizable": true,
+      "fullscreen": false,
+      "visible": true
+    }
+  ]
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "category": "DeveloperTool",
+    "shortDescription": "DSH 插件升级管理工具",
+    "longDescription": "独立运行的 DSH 插件升级管理工具，支持扫描、更新、启用、禁用、卸载插件，通过香港中转代理访问 GitHub。"
+  }
+}

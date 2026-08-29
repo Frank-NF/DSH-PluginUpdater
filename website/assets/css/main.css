@@ -1,0 +1,288 @@
+/* ============================================================
+   DSH 官网 — UI 设计系统 v2
+   现代极简 + 玻璃拟态 + 深色主题优先
+   （与桌面客户端 / 在线版同一套设计 token）
+   ============================================================ */
+
+:root {
+  /* 主色板（靛蓝） */
+  --primary: #6366f1;
+  --primary-light: #818cf8;
+  --primary-dark: #4f46e5;
+
+  /* 语义色 */
+  --accent: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --info: #38bdf8;
+
+  /* 背景层级 */
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
+
+  /* 文字层级 */
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+
+  /* 玻璃拟态 */
+  --glass-bg: rgba(30, 41, 59, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+
+  /* 圆角 */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  /* 动效 */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur: 0.24s;
+
+  /* 布局 */
+  --container: 1200px;
+}
+
+/* ---------- 基础 ---------- */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+html,
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', 'Microsoft YaHei', sans-serif;
+  color: var(--text-primary);
+  background: var(--bg-primary);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--primary-light);
+  text-decoration: none;
+  transition: color var(--dur) var(--ease);
+}
+
+a:hover {
+  color: var(--primary);
+}
+
+code,
+pre,
+.mono {
+  font-family: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
+}
+
+/* 焦点可见性（无障碍） */
+:focus-visible {
+  outline: 2px solid var(--primary-light);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ---------- 滚动条（深色） ---------- */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.28);
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(148, 163, 184, 0.5);
+  background-clip: content-box;
+}
+
+/* ---------- 布局容器 ---------- */
+.container {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ---------- 玻璃拟态 ---------- */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+}
+
+/* ---------- 按钮 ---------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 26px;
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
+    background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+.btn:active {
+  transform: scale(0.96);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  color: #fff;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.45);
+  color: #fff;
+}
+
+.btn-outline {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+}
+
+.btn-outline:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: var(--text-primary);
+}
+
+.btn-sm {
+  padding: 8px 16px;
+  font-size: 13px;
+  border-radius: var(--radius-sm);
+}
+
+/* ---------- 区块标题 ---------- */
+.section-title {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.section-title h2 {
+  font-size: 34px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.section-title p {
+  font-size: 16px;
+  color: var(--text-muted);
+}
+
+/* ---------- 通用卡片 ---------- */
+.card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--glass-shadow);
+  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
+    border-color var(--dur) var(--ease);
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+  border-color: rgba(99, 102, 241, 0.4);
+}
+
+/* ---------- 状态徽章 ---------- */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.badge-success {
+  color: var(--accent);
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(16, 185, 129, 0.32);
+}
+
+.badge-warning {
+  color: var(--warning);
+  background: rgba(245, 158, 11, 0.16);
+  border: 1px solid rgba(245, 158, 11, 0.32);
+}
+
+.badge-primary {
+  color: var(--primary-light);
+  background: rgba(99, 102, 241, 0.16);
+  border: 1px solid rgba(99, 102, 241, 0.32);
+}
+
+.badge-muted {
+  color: var(--text-muted);
+  background: rgba(148, 163, 184, 0.16);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+}
+
+/* ---------- 工具类 ---------- */
+.text-muted {
+  color: var(--text-muted);
+}
+.text-secondary {
+  color: var(--text-secondary);
+}
+.text-accent {
+  color: var(--primary-light);
+}
+.text-warning {
+  color: var(--warning);
+}
+.mono {
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+}
+
+/* ---------- 骨架屏 ---------- */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 25%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.05) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+}

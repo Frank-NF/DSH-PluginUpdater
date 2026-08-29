@@ -1,0 +1,224 @@
+﻿<!DOCTYPE html>
+<html lang='zh-CN'>
+<head>
+    <meta charset='UTF-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <title>DSH 插件升级管理工具 - 原型</title>
+    <link href='https://unpkg.com/element-plus/dist/index.css' rel='stylesheet'>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', sans-serif; }
+        
+        /* HeaderBar */
+        .header-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 24px;
+            background: #fff;
+            border-bottom: 1px solid #e4e7ed;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+        }
+        .logo { display: flex; align-items: center; gap: 10px; }
+        .logo-icon { width: 36px; height: 36px; background: linear-gradient(135deg, #409EFF 0%, #66b1ff 100%); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 14px; }
+        .logo-text h2 { font-size: 16px; font-weight: 600; color: #303133; margin: 0; }
+        .logo-text .subtitle { font-size: 11px; color: #909399; }
+        
+        .directory-input { display: flex; gap: 8px; flex: 1; max-width: 600px; margin: 0 24px; }
+        .directory-input .el-input { flex: 1; }
+        
+        .stats { display: flex; gap: 16px; margin-right: 16px; }
+        .stat-item { display: flex; flex-direction: column; align-items: center; min-width: 40px; }
+        .stat-label { font-size: 11px; color: #909399; }
+        .stat-value { font-size: 18px; font-weight: 600; color: #303133; }
+        .stat-item.update .stat-value { color: #e6a23c; }
+        
+        /* StatusBar */
+        .status-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 6px 24px;
+            background: #f5f7fa;
+            border-bottom: 1px solid #e4e7ed;
+            font-size: 12px;
+            color: #909399;
+        }
+        
+        /* Main Content */
+        .main-content { padding: 16px 24px; background: #f5f7fa; min-height: calc(100vh - 84px); }
+        
+        /* Plugin Table */
+        .plugin-table-container { background: #fff; border-radius: 8px; overflow: hidden; }
+        .el-table .row-update { background: #fdf6ec !important; }
+        .el-table .row-disabled { background: #f4f4f5 !important; opacity: 0.7; }
+        .el-table .row-core { background: #ecf5ff !important; }
+        
+        .status-cell { display: flex; justify-content: center; }
+        .plugin-name-cell { display: flex; flex-direction: column; gap: 2px; }
+        .plugin-name { display: flex; align-items: center; gap: 6px; font-weight: 500; color: #303133; }
+        .core-plugin { color: #409eff; font-weight: 600; }
+        .plugin-id { font-size: 11px; padding-left: 22px; color: #909399; }
+        .plugin-desc { color: #606266; font-size: 13px; }
+        .github-cell { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; }
+        .version-cell { display: flex; flex-direction: column; gap: 2px; align-items: center; }
+        .current-version, .latest-version { display: flex; align-items: center; gap: 4px; font-size: 12px; }
+        .version-label { color: #909399; font-size: 11px; }
+        .version-num { font-family: 'Consolas', monospace; font-weight: 500; }
+        .latest-version.has-update .version-num { color: #e6a23c; font-weight: 600; }
+        .action-cell { display: flex; align-items: center; justify-content: center; gap: 4px; flex-wrap: wrap; }
+        
+        /* Empty State */
+        .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px; color: #909399; background: #fff; border-radius: 8px; }
+        .empty-state h3 { margin: 16px 0 8px; font-size: 18px; color: #606266; }
+        .empty-state p { font-size: 14px; }
+        
+        /* Loading Overlay */
+        .loading-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.8); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #409eff; font-size: 14px; z-index: 10; }
+        
+        .table-wrapper { position: relative; }
+    </style>
+</head>
+<body>
+    <div class='app-container'>
+        <!-- HeaderBar -->
+        <div class='header-bar'>
+            <div class='header-left'>
+                <div class='logo'>
+                    <div class='logo-icon'>DSH</div>
+                    <div class='logo-text'>
+                        <h2>插件升级管理</h2>
+                        <span class='subtitle'>独立运行 · 香港中转加速</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class='header-center'>
+                <div class='directory-input'>
+                    <el-input placeholder='请输入插件目录路径，例如: C:\DSH\plugins' clearable>
+                        <template #prefix><span>📁</span></template>
+                    </el-input>
+                    <el-button type='primary' size='large'>🔍 扫描</el-button>
+                </div>
+            </div>
+            
+            <div class='header-right'>
+                <div class='stats'>
+                    <div class='stat-item'>
+                        <span class='stat-label'>插件</span>
+                        <span class='stat-value'>12</span>
+                    </div>
+                    <div class='stat-item update'>
+                        <span class='stat-label'>可更新</span>
+                        <span class='stat-value'>3</span>
+                    </div>
+                </div>
+                
+                <el-button size='large'>⚙️ 设置</el-button>
+                <el-button size='large'>🌐 官网</el-button>
+            </div>
+        </div>
+        
+        <!-- StatusBar -->
+        <div class='status-bar'>
+            <span>🕐 上次扫描: 2026-08-28 10:30:00</span>
+            <span>📂 C:\DSH\plugins</span>
+        </div>
+        
+        <!-- Main Content -->
+        <div class='main-content'>
+            <div class='table-wrapper'>
+                <el-table :data='plugins' style='width: 100%' stripe border row-key='id'>
+                    <el-table-column label='状态' width='80' align='center'>
+                        <template #default='{ row }'>
+                            <el-tag v-if='row.update_available' type='warning' size='small' effect='light'>可更新</el-tag>
+                            <el-tag v-else-if='!row.enabled' type='info' size='small' effect='light'>已禁用</el-tag>
+                            <el-tag v-else-if='row.is_core' type='primary' size='small' effect='light'>本体</el-tag>
+                            <el-tag v-else type='success' size='small' effect='light'>最新</el-tag>
+                        </template>
+                    </el-table-column>
+                    
+                    <el-table-column label='插件名称' min-width='180'>
+                        <template #default='{ row }'>
+                            <div class='plugin-name-cell'>
+                                <div class='plugin-name'>
+                                    <span>{ row.is_core ? '🖥️' : '📦' }</span>
+                                    <span :class='{ core: row.is_core }'>{ row.name }</span>
+                                </div>
+                                <div class='plugin-id'>{ row.id }</div>
+                            </div>
+                        </template>
+                    </el-table-column>
+                    
+                    <el-table-column label='功能介绍' min-width='220' show-overflow-tooltip>
+                        <template #default='{ row }'>
+                            <span class='plugin-desc'>{ row.description || '暂无介绍' }</span>
+                        </template>
+                    </el-table-column>
+                    
+                    <el-table-column label='GitHub' min-width='180'>
+                        <template #default='{ row }'>
+                            <div class='github-cell' v-if='row.github_repo'>
+                                <a :href=\"'https://github.com/' + row.github_repo\" target='_blank' class='link'>🔗 { row.github_repo }</a>
+                            </div>
+                        </template>
+                    </el-table-column>
+                    
+                    <el-table-column label='版本' width='160' align='center'>
+                        <template #default='{ row }'>
+                            <div class='version-cell'>
+                                <div class='current-version'>
+                                    <span class='version-label'>当前</span>
+                                    <span class='version-num'>{ row.current_version }</span>
+                                </div>
+                                <div v-if='row.latest_version' :class=\"['latest-version', row.update_available ? 'has-update' : '']\">
+                                    <span class='version-label'>最新</span>
+                                    <span class='version-num'>{ row.latest_version }</span>
+                                </div>
+                            </div>
+                        </template>
+                    </el-table-column>
+                    
+                    <el-table-column label='操作' width='320' align='center' fixed='right'>
+                        <template #default='{ row }'>
+                            <div class='action-cell'>
+                                <el-button v-if='row.update_available' type='primary' size='small'>⬆️ 更新</el-button>
+                                <el-button :type='row.enabled ? 'warning' : 'success'' size='small'>{ row.enabled ? '⏸️ 禁用' : '▶️ 启用' }</el-button>
+                                <el-button size='small'>📂 目录</el-button>
+                                <el-dropdown>
+                                    <el-button size='small'>更多 ⌄</el-button>
+                                    <template #dropdown>
+                                        <el-dropdown-menu>
+                                            <el-dropdown-item>重新检查</el-dropdown-item>
+                                            <el-dropdown-item v-if='row.release_notes'>查看日志</el-dropdown-item>
+                                            <el-dropdown-item v-if='!row.is_core' divided style='color: #f56c6c'>卸载</el-dropdown-item>
+                                        </el-dropdown-menu>
+                                    </template>
+                                </el-dropdown>
+                            </div>
+                        </template>
+                    </el-table-column>
+                </el-table>
+            </div>
+        </div>
+    </div>
+    
+    <script src='https://unpkg.com/vue@3/dist/vue.global.js'></script>
+    <script src='https://unpkg.com/element-plus/dist/index.full.js'></script>
+    <script>
+        const { createApp, ref } = Vue;
+        const app = createApp({
+            setup() {
+                const plugins = ref([
+                    { id: 'dsh-agent-core', name: 'DSH Agent 本体', description: '核心程序，提供基础运行环境', github_repo: 'DSH-Team/DSH-Agent', current_version: '1.0.0', latest_version: '1.0.0', update_available: false, enabled: true, is_core: true },
+                    { id: 'dsh-plugin-comfyui', name: 'ComfyUI 集成', description: '集成 ComfyUI 工作流，支持 AI 绘图', github_repo: 'DSH-Team/dsh-plugin-comfyui', current_version: '0.9.0', latest_version: '1.0.0', update_available: true, enabled: true, is_core: false },
+                    { id: 'dsh-plugin-memory', name: '长期记忆插件', description: '向量数据库支持的长期记忆存储', github_repo: 'DSH-Team/dsh-plugin-memory', current_version: '0.8.0', latest_version: '0.8.0', update_available: false, enabled: false, is_core: false },
+                ]);
+                return { plugins };
+            }
+        });
+        app.use(ElementPlus);
+        app.mount('#app');
+    </script>
+</body>
+</html>
