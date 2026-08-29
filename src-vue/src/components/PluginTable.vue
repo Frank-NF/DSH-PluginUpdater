@@ -16,6 +16,22 @@
             </template>
           </el-input>
           <span v-if="marketSearch" class="search-count">{{ t('market.searchCount', { n: marketTotal }) }}</span>
+          <!-- 排序下拉 -->
+          <el-dropdown trigger="click" @command="onSortChange">
+            <el-button size="default" :class="{ 'sort-active': marketSort !== 'default' }">
+              <el-icon><Sort /></el-icon>
+              <span class="sort-label">{{ sortLabel }}</span>
+              <el-icon class="el-icon--right"><ArrowDown /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item :command="'default'" :disabled="marketSort === 'default'">{{ t('market.sortDefault') }}</el-dropdown-item>
+                <el-dropdown-item :command="'stars'" :disabled="marketSort === 'stars'">{{ t('market.sortStars') }}</el-dropdown-item>
+                <el-dropdown-item :command="'downloads'" :disabled="marketSort === 'downloads'">{{ t('market.sortDownloads') }}</el-dropdown-item>
+                <el-dropdown-item :command="'latest'" :disabled="marketSort === 'latest'">{{ t('market.sortLatest') }}</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
         <div class="category-filter">
           <span
@@ -518,6 +534,10 @@
               </div>
               <div class="card-status"><StatusTag :row="row" /></div>
             </div>
+            <!-- 插件介绍 -->
+            <div class="card-desc" :title="row.manifest.description || row.description_zh || row.description_en">
+              {{ localeDescription(row) }}
+            </div>
             <div class="card-versions">
               <div class="version-item">
                 <span class="version-label">{{ t('table.current') }}</span>
@@ -529,14 +549,43 @@
                 <span class="version-num highlight">v{{ row.latest_version }}</span>
               </div>
             </div>
+            <!-- 链接和操作 -->
             <div class="card-links">
-              <el-button
+              <el-link
+                v-if="row.manifest.github_repo"
                 type="primary"
-                size="small"
-                :icon="Upload"
-                :loading="isUpdating(row.manifest.id)"
-                @click="emit('update', row)"
-              >{{ t('table.update') }}</el-button>
+                :underline="false"
+                @click.prevent="openExternal('https://github.com/' + row.manifest.github_repo)"
+              >
+                <el-icon><Link /></el-icon>
+                <span class="repo-name">{{ row.manifest.github_repo }}</span>
+              </el-link>
+              <el-link
+                v-if="row.release_url"
+                type="success"
+                :underline="false"
+                @click.prevent="openExternal(row.release_url)"
+              >
+                <el-icon><Document /></el-icon>
+                {{ t('notes.viewOnGithub') }}
+              </el-link>
+              <el-link
+                type="warning"
+                :underline="false"
+                @click.prevent="openExternal(npmMirrorUrl(row.manifest.id))"
+              >
+                <el-icon><Link /></el-icon>
+                <span class="repo-name">{{ t('market.mirrorTag') }}</span>
+              </el-link>
+              <div class="card-actions" style="margin-left: auto;">
+                <el-button
+                  type="primary"
+                  size="small"
+                  :icon="Upload"
+                  :loading="isUpdating(row.manifest.id)"
+                  @click="emit('update', row)"
+                >{{ t('table.update') }}</el-button>
+              </div>
             </div>
           </div>
         </div>
@@ -590,6 +639,7 @@ import {
   MagicStick,
   Expand,
   ArrowDown,
+  Sort,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { usePluginStore } from '../stores/pluginStore'
@@ -715,21 +765,25 @@ const marketCatFilter = ref<string | null>(null)
 const marketSearch = ref('')
 const marketPage = ref(1)
 const marketPageSize = 48
+const marketSort = ref<'default' | 'stars' | 'downloads' | 'latest'>('default')
 
-// 搜索词变化时回到第一页
-watch(marketSearch, () => { marketPage.value = 1 })
-watch(marketCatFilter, () => { marketPage.value = 1 })
-
-/** 市场中出现的分类（按数量降序） */
-const marketCategories = computed(() => {
-  const map = new Map<string, number>()
-  for (const mp of props.marketPlugins) {
-    if (mp.category) map.set(mp.category, (map.get(mp.category) || 0) + 1)
+// 排序标签（根据当前排序模式显示）
+const sortLabel = computed(() => {
+  const map: Record<string, string> = {
+    default: t('market.sortDefault'),
+    stars: t('market.sortStars'),
+    downloads: t('market.sortDownloads'),
+    latest: t('market.sortLatest'),
   }
-  return [...map.entries()].sort((a, b) => b[1] - a[1])
+  return map[marketSort.value] || t('market.sortDefault')
 })
 
-/** 市场插件按分类 + 关键词过滤（名称/双语描述/分类名） */
+function onSortChange(cmd: string) {
+  marketSort.value = cmd as typeof marketSort.value
+  marketPage.value = 1
+}
+
+/** 市场插件过滤 + 排序 */
 const marketFiltered = computed(() => {
   let list = props.marketPlugins
   if (marketCatFilter.value) {
@@ -747,15 +801,36 @@ const marketFiltered = computed(() => {
       )
     })
   }
+  // 排序
+  if (marketSort.value === 'stars') {
+    list = [...list].sort((a, b) => (b.stars ?? 0) - (a.stars ?? 0))
+  } else if (marketSort.value === 'downloads') {
+    list = [...list].sort((a, b) => (b.downloads ?? 0) - (a.downloads ?? 0))
+  } else if (marketSort.value === 'latest') {
+    // 按名称字母序（作为最新发布代理）
+    list = [...list].sort((a, b) => a.name.localeCompare(b.name))
+  }
   return list
 })
 
+// 搜索词变化时回到第一页
+watch(marketSearch, () => { marketPage.value = 1 })
+watch(marketCatFilter, () => { marketPage.value = 1 })
+
+/** 市场中出现的分类（按数量降序） */
+const marketCategories = computed(() => {
+  const map = new Map<string, number>()
+  for (const mp of props.marketPlugins) {
+    if (mp.category) map.set(mp.category, (map.get(mp.category) || 0) + 1)
+  }
+  return [...map.entries()].sort((a, b) => b[1] - a[1])
+})
+
+
+
 const marketTotal = computed(() => marketFiltered.value.length)
 
-/** 当前页市场插件 */
-const pagedMarket = computed(() =>
-  marketFiltered.value.slice((marketPage.value - 1) * marketPageSize, marketPage.value * marketPageSize)
-)
+
 
 /** 已安装插件 key 集合（id 小写 + 去 scope 短名） */
 const installedKeys = computed(() => {
@@ -1377,6 +1452,16 @@ function handleMoreCommand(command: string, row: PluginInfo) {
 .search-count {
   font-size: 12px;
   color: var(--text-secondary, #8b93a7);
+}
+
+.sort-label {
+  margin: 0 4px;
+  font-size: 13px;
+}
+
+.sort-active {
+  color: var(--el-color-primary);
+  border-color: var(--el-color-primary);
 }
 
 .install-progress-row {

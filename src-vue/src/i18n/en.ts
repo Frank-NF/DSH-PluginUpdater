@@ -105,6 +105,12 @@ export const en: Record<string, string> = {
   'table.disabledTag': 'Disabled',
   'table.latestTag': 'Latest',
 
+  // Market sorting
+  'market.sortDefault': 'Default sort',
+  'market.sortStars': 'By stars',
+  'market.sortDownloads': 'By downloads',
+  'market.sortLatest': 'Latest release',
+
   // Settings
   'settings.title': 'Settings',
   'settings.network': 'Proxy',

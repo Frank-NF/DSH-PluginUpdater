@@ -105,6 +105,12 @@ export const zh: Record<string, string> = {
   'table.disabledTag': '已禁用',
   'table.latestTag': '最新',
 
+  // 市场排序
+  'market.sortDefault': '默认排序',
+  'market.sortStars': '按 Star 数',
+  'market.sortDownloads': '按下载量',
+  'market.sortLatest': '最新发布',
+
   // 设置
   'settings.title': '设置',
   'settings.network': '代理设置',
