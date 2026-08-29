@@ -28,9 +28,13 @@ export default defineNuxtConfig({
   ],
 
   runtimeConfig: {
+    githubClientSecret: process.env.GITHUB_CLIENT_SECRET || '',
+    // 超级管理员邮箱白名单（逗号分隔），GitHub 登录时匹配则自动提升为 admin
+    superAdminEmails: process.env.SUPER_ADMIN_EMAILS || '',
     public: {
       proxyBaseUrl: process.env.PROXY_BASE_URL || '',
       appVersion: '1.0.0',
+      githubClientId: process.env.GITHUB_CLIENT_ID || '',
     },
   },
 

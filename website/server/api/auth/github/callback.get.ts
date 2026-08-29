@@ -46,6 +46,14 @@ export default defineEventHandler(async (event) => {
 
   // 3. upsert 本地用户
   const db = getDB()
+
+  // 超级管理员邮箱白名单：命中则自动提升为 admin（唯一超级管理员机制）
+  const configSuperAdmins = (config.superAdminEmails || '')
+    .split(',')
+    .map((s: string) => s.trim().toLowerCase())
+    .filter(Boolean)
+  const isSuperAdmin = !!primaryEmail && configSuperAdmins.includes(primaryEmail.toLowerCase())
+
   let userId: number
 
   const existing = db
@@ -53,9 +61,16 @@ export default defineEventHandler(async (event) => {
     .get(githubId) as { id: number } | undefined
 
   if (existing) {
-    db.prepare(
-      'UPDATE users SET github_login = ?, display_name = ?, avatar_url = ?, last_login_at = datetime(\'now\') WHERE id = ?'
-    ).run(ghUser.login, displayName, avatarUrl, existing.id)
+    // 超级管理员：命中白名单则升级 role（普通用户保持原角色，绝不移除已有 admin）
+    if (isSuperAdmin) {
+      db.prepare(
+        'UPDATE users SET github_login = ?, display_name = ?, avatar_url = ?, role = ?, last_login_at = datetime(\'now\') WHERE id = ?'
+      ).run(ghUser.login, displayName, avatarUrl, 'admin', existing.id)
+    } else {
+      db.prepare(
+        'UPDATE users SET github_login = ?, display_name = ?, avatar_url = ?, last_login_at = datetime(\'now\') WHERE id = ?'
+      ).run(ghUser.login, displayName, avatarUrl, existing.id)
+    }
     userId = existing.id
   } else {
     // 邮箱可能与已注册账号冲突 → 合并到该账号
@@ -67,28 +82,32 @@ export default defineEventHandler(async (event) => {
       mergedId = byEmail?.id
     }
     if (mergedId) {
-      db.prepare(
-        'UPDATE users SET github_id = ?, github_login = ?, avatar_url = ?, last_login_at = datetime(\'now\') WHERE id = ?'
-      ).run(githubId, ghUser.login, avatarUrl, mergedId)
+      // 超级管理员：合并时同步升级 role
+      if (isSuperAdmin) {
+        db.prepare(
+          'UPDATE users SET github_id = ?, github_login = ?, avatar_url = ?, role = ?, last_login_at = datetime(\'now\') WHERE id = ?'
+        ).run(githubId, ghUser.login, avatarUrl, 'admin', mergedId)
+      } else {
+        db.prepare(
+          'UPDATE users SET github_id = ?, github_login = ?, avatar_url = ?, last_login_at = datetime(\'now\') WHERE id = ?'
+        ).run(githubId, ghUser.login, avatarUrl, mergedId)
+      }
       userId = mergedId
     } else {
       const result = db
         .prepare(
-          'INSERT INTO users (email, github_id, github_login, display_name, avatar_url, last_login_at) VALUES (?, ?, ?, ?, ?, datetime(\'now\'))'
+          'INSERT INTO users (email, github_id, github_login, display_name, avatar_url, role, last_login_at) VALUES (?, ?, ?, ?, ?, ?, datetime(\'now\'))'
         )
-        .run(primaryEmail, githubId, ghUser.login, displayName, avatarUrl)
+        .run(primaryEmail, githubId, ghUser.login, displayName, avatarUrl, isSuperAdmin ? 'admin' : 'user')
       userId = Number(result.lastInsertRowid)
     }
   }
 
-  // 4. 发 JWT + 跳回首页
-  const user: AuthUser = {
-    id: userId,
-    email: primaryEmail,
-    display_name: displayName,
-    avatar_url: avatarUrl,
-    role: 'user',
-  }
+  // 4. 发 JWT + 跳回首页（role 从 DB 读取，保证超级管理员权限生效）
+  const dbUser = db
+    .prepare('SELECT id, email, display_name, avatar_url, role FROM users WHERE id = ?')
+    .get(userId) as AuthUser
+  const user: AuthUser = dbUser
 
   setCookie(event, 'dsh_token', signToken(user), {
     httpOnly: true,
