@@ -412,13 +412,6 @@ async fn build_catalog_map(
             .collect(),
         Err(_) => std::collections::HashMap::new(),
     }
-
-        // Ed25519 签名验证（基础检查）
-        // 完整验证需服务器在响应头中携带 X-DSH-SIGNATURE
-        let _trustworthy = cat.source.contains("huilinsh") || cat.source.contains("npm");
-        if !_trustworthy {
-            eprintln!("[catalog] 警告：目录来源不可信，请检查配置");
-        }
 }
 
 /// 用官方目录元数据填充插件（双语描述 + 分类 + star + 下载量，无需任何翻译 API）
