@@ -10,6 +10,7 @@ export const en: Record<string, string> = {
   'header.subtitle': 'Standalone · Official channel',
   'header.dirPlaceholder': 'Plugin directory path, e.g. C:\\Users\\niufe\\.dsh\\profiles\\web',
   'header.scan': 'Scan',
+  'header.market': 'Market',
   'header.plugins': 'plugins',
   'header.updatable': 'updatable',
   'header.autoScan': 'Auto Scan',
