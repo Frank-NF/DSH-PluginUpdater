@@ -1,13 +1,13 @@
 <template>
   <div ref="rootEl" class="plugin-view">
     <!-- ============ 顶部 Tab（桌面） ============ -->
-    <div class="weui-navbar w-navbar w-hide-mobile">
+    <div class="w-tabs">
       <a
         v-for="tab in tabs"
         :key="tab.name"
         href="javascript:"
-        class="weui-navbar__item"
-        :class="{ 'weui-bar__item_on': activeTab === tab.name }"
+        class="w-tab-btn"
+        :class="{ 'is-active': activeTab === tab.name }"
         :aria-current="activeTab === tab.name ? 'page' : undefined"
         @click="switchTab(tab.name)"
       >
@@ -1045,9 +1045,6 @@ onMounted(() => animateCards())
 }
 
 /* ---------- 顶部 Tab ---------- */
-.w-navbar {
-  margin-bottom: var(--sp-4);
-}
 
 /* ---------- 搜索 ---------- */
 .w-search {
