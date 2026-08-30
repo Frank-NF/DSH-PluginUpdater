@@ -485,9 +485,9 @@ button {
 /* ---------- 11. 顶部 Tab（独立横排按钮，勿挂 w-hide-mobile 之外的 WeUI navbar 类：
    .w-hide-mobile 的 display:revert 会覆盖同特异性 display 规则导致竖排溢出） ---------- */
 .w-tabs {
-  display: inline-flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
   align-items: center;
   width: fit-content;
   max-width: 100%;
@@ -530,7 +530,7 @@ button {
 /* 窄窗隐藏顶部 Tab（专用规则，不用 w-hide-mobile，避开 revert 竞态） */
 @media (max-width: 767.98px) {
   .w-tabs {
-    display: none;
+    display: none !important;
   }
 }
 
