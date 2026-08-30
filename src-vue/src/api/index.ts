@@ -1,5 +1,13 @@
 import { invoke } from '@tauri-apps/api/core'
-import type { PluginInfo, AppConfig, BackupInfo, UpdateProgress } from '../types'
+import type {
+  PluginInfo,
+  AppConfig,
+  BackupInfo,
+  UpdateProgress,
+  EnvCheckItem,
+  MarketPlugin,
+  SelfUpdateInfo,
+} from '../types'
 import { listen } from '@tauri-apps/api/event'
 
 /**
@@ -16,10 +24,18 @@ const isTauri =
  * ============================================================ */
 
 const mockConfig: AppConfig = {
+  server_host: '',
+  server_port: 22,
+  server_user: '',
+  server_key: '',
+  server_remote_dir: '',
+  server_dsh_dir: '',
+  server_update_cmd: '',
   proxy_base_url: '',
   plugin_directory: 'C:\\DSH\\plugins',
   auto_check_updates: true,
   backup_before_update: true,
+  install_registry: '',
 }
 
 const makePlugin = (
@@ -201,6 +217,20 @@ const mockApi = {
   },
   listBackups: async (): Promise<BackupInfo[]> => [],
   restoreBackup: async () => {},
+
+  /* 以下方法在浏览器预览模式无真实后端，返回安全空值，不阻塞界面 */
+  testServerConnection: async (): Promise<string> => '预览模式：未连接真实服务器',
+  syncToServer: async (): Promise<string> => '预览模式：同步已跳过',
+  checkEnvironment: async (): Promise<EnvCheckItem[]> => [],
+  checkSelfUpdate: async (): Promise<SelfUpdateInfo> => ({
+    available: false,
+    current_version: '1.0.0',
+    latest_version: null,
+    changelog: [],
+    release_url: null,
+    is_mandatory: false,
+  }),
+  selfUpdate: async (): Promise<string> => '预览模式：暂不支持自更新',
 }
 
 /* 进度事件监听器（Mock 用） */
@@ -272,6 +302,10 @@ export const pluginApi = isTauri
         invoke('restore_backup', { backupId }),
 
       isDshRunning: (): Promise<boolean> => invoke('is_dsh_running'),
+
+      checkSelfUpdate: (): Promise<SelfUpdateInfo> => invoke('check_self_update'),
+
+      selfUpdate: (): Promise<string> => invoke('self_update'),
 
       onUpdateProgress: (callback: (progress: UpdateProgress) => void) =>
         listen<UpdateProgress>('update_progress', (event) => {

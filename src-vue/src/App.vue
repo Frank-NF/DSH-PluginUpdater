@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container">
+  <div class="w-app">
     <HeaderBar
       :plugin-directory="pluginStore.config?.plugin_directory || ''"
       :is-scanning="pluginStore.isScanning"
@@ -8,41 +8,82 @@
       :plugin-count="pluginStore.plugins.length"
       :updatable-count="pluginStore.updatablePlugins.length"
       :last-scan-time="pluginStore.lastScanTime"
+      :theme="theme"
       @scan="handleScan"
       @check-updates="handleCheckUpdates"
       @auto-scan="handleAutoScan"
       @open-settings="showSettings = true"
-      @open-admin="showAdmin = true"
-      @open-website="openWebsite"
       @open-repair="showRepair = true"
+      @open-website="openWebsite"
+      @toggle-locale="toggleLocale"
+      @toggle-theme="toggleTheme"
     />
 
-    <div class="main-content">
-      <!-- 背景光晕（纯装饰，不拦截交互） -->
-      <div class="bg-glow" aria-hidden="true"></div>
+    <div ref="bodyEl" class="w-body">
+      <div class="w-page">
+        <!-- 错误提示条 -->
+        <div v-if="pluginStore.errorMessage" class="w-alert">
+          <WIcon name="alert" :size="16" />
+          <span class="w-flex-1">{{ pluginStore.errorMessage }}</span>
+          <WButton size="mini" icon="refresh" @click="handleAutoScan">
+            {{ t('common.retry') }}
+          </WButton>
+        </div>
 
-      <div v-if="pluginStore.errorMessage" class="error-banner">
-        <el-alert
-          :title="pluginStore.errorMessage"
-          type="error"
-          show-icon
-          :closable="false"
+        <!-- 首次启动：加载中 -->
+        <WEmpty
+          v-if="booting"
+          type="loading"
+          :title="t('app.loadingTitle')"
+          :desc="t('app.loadingDesc')"
+        />
+
+        <!-- 空状态：既没扫到插件，也没有市场数据 -->
+        <WEmpty
+          v-else-if="!hasContent"
+          type="empty"
+          :title="t('empty.title')"
+          :desc="t('empty.hint1')"
+          icon="inbox"
+        >
+          <template #action>
+            <WButton
+              type="primary"
+              icon="wand"
+              :loading="isAutoScanning"
+              @click="handleAutoScan"
+            >
+              {{ t('header.autoScan') }}
+            </WButton>
+            <WButton icon="settings" @click="showSettings = true">
+              {{ t('empty.openSettings') }}
+            </WButton>
+          </template>
+          <template #tips>
+            <span class="w-text-2">{{ t('empty.tips') }}</span>
+          </template>
+        </WEmpty>
+
+        <!-- 主内容：插件列表 -->
+        <PluginTable
+          v-else
+          :plugins="pluginStore.plugins"
+          :market-plugins="pluginStore.marketPlugins"
+          :is-checking-updates="pluginStore.isCheckingUpdates"
+          @update="handleUpdatePlugin"
+          @uninstall="handleUninstallPlugin"
+          @toggle-enabled="handleToggleEnabled"
+          @open-folder="handleOpenFolder"
+          @check-single="handleCheckSingle"
+          @view-release-notes="handleViewReleaseNotes"
         />
       </div>
-
-      <PluginTable
-        v-if="pluginStore.plugins.length > 0 || pluginStore.marketPlugins.length > 0"
-        :plugins="pluginStore.plugins"
-        :market-plugins="pluginStore.marketPlugins"
-        :is-checking-updates="pluginStore.isCheckingUpdates"
-        @update="handleUpdatePlugin"
-        @uninstall="handleUninstallPlugin"
-        @toggle-enabled="handleToggleEnabled"
-        @open-folder="handleOpenFolder"
-        @check-single="handleCheckSingle"
-        @view-release-notes="handleViewReleaseNotes"
-        />
     </div>
+
+    <!-- 全局宿主：轻提示 / 确认框 / 动作面板 -->
+    <WToast />
+    <WConfirmHost />
+    <WActionHost />
 
     <SettingsDialog
       v-model="showSettings"
@@ -53,6 +94,7 @@
     <ReleaseNotesDialog
       v-model="showReleaseNotes"
       :plugin="currentReleaseNotesPlugin"
+      @update="handleUpdatePlugin"
     />
 
     <RepairDialog v-model="showRepair" />
@@ -60,51 +102,74 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { FolderOpened, MagicStick, Tools } from '@element-plus/icons-vue'
+import { computed, nextTick, onMounted, ref } from 'vue'
 import { usePluginStore } from './stores/pluginStore'
-import { t, locale } from './i18n'
+import { t, toggleLocale, locale } from './i18n'
 import { pluginApi } from './api'
+import { useToast } from './composables/useToast'
+import { useConfirm } from './composables/useConfirm'
+import { useActionSheet } from './composables/useActionSheet'
+import { useTheme } from './composables/useTheme'
+import { fadeSlideIn } from './composables/useMotion'
+import type { PluginInfo, AppConfig } from './types'
+
 import HeaderBar from './components/HeaderBar.vue'
 import PluginTable from './components/PluginTable.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
-import AdminPanel from './components/AdminPanel.vue'
 import ReleaseNotesDialog from './components/ReleaseNotesDialog.vue'
 import RepairDialog from './components/RepairDialog.vue'
-import type { PluginInfo, AppConfig } from './types'
+import WToast from './components/WToast.vue'
+import WConfirmHost from './components/WConfirmHost.vue'
+import WActionHost from './components/WActionHost.vue'
+import WEmpty from './components/WEmpty.vue'
+import WButton from './components/WButton.vue'
+import WIcon from './components/WIcon.vue'
 
 const pluginStore = usePluginStore()
+const toast = useToast()
+const { confirm } = useConfirm()
+const { actionSheet } = useActionSheet()
+const { theme, toggleTheme } = useTheme()
+
+const booting = ref(true)
 const showSettings = ref(false)
-const showAdmin = ref(false)
+const showRepair = ref(false)
 const isAutoScanning = ref(false)
 const showReleaseNotes = ref(false)
-const showRepair = ref(false)
 const currentReleaseNotesPlugin = ref<PluginInfo | null>(null)
+const bodyEl = ref<HTMLElement | null>(null)
+
+/** 有内容可展示 = 扫到了插件，或市场数据已到位 */
+const hasContent = computed(
+  () => pluginStore.plugins.length > 0 || pluginStore.marketPlugins.length > 0
+)
 
 onMounted(async () => {
+  await boot()
+  booting.value = false
+  // 内容区淡入（GSAP）
+  nextTick(() => fadeSlideIn(bodyEl.value?.querySelector('.w-page') ?? null, { y: 12 }))
+})
+
+async function boot() {
   await pluginStore.loadConfig()
   pluginStore.setupEventListeners()
 
-  // 打开即加载插件市场全部插件
+  // 打开即加载插件市场
   await pluginStore.fetchMarket()
 
-  // 自动定位并扫描已安装插件（若已配置目录则直接扫描）
-  if (!pluginStore.config?.plugin_directory) {
-    try {
+  // 自动定位并扫描已安装插件
+  try {
+    if (!pluginStore.config?.plugin_directory) {
       await pluginStore.autoScanPlugins()
-    } catch {
-      /* 扫描失败不阻塞，市场仍可浏览 */
-    }
-  } else {
-    try {
+    } else {
       await pluginStore.scanPlugins(pluginStore.config.plugin_directory)
-    } catch {
-      /* 忽略 */
     }
+  } catch {
+    /* 扫描失败不阻塞，市场仍可浏览 */
   }
 
-  // 打开即自动检查更新（已装插件）
+  // 打开即自动检查更新
   if (pluginStore.plugins.length > 0) {
     try {
       await pluginStore.checkAllUpdates()
@@ -112,54 +177,54 @@ onMounted(async () => {
       /* 忽略 */
     }
   }
-})
+}
 
 async function handleAutoScan() {
-    isAutoScanning.value = true
-    try {
-      await pluginStore.autoScanPlugins()
-      ElMessage.success(t('scan.autoDone'))
-    } catch (e) {
-      ElMessage.error(e?.toString() || t('scan.autoFailed'))
-    } finally {
-      isAutoScanning.value = false
-    }
+  isAutoScanning.value = true
+  try {
+    await pluginStore.autoScanPlugins()
+    toast.success(t('scan.autoDone'))
+  } catch (e) {
+    toast.error(e?.toString() || t('scan.autoFailed'))
+  } finally {
+    isAutoScanning.value = false
   }
+}
 
-    async function handleScan(directory: string) {
+async function handleScan(directory: string) {
   try {
     await pluginStore.scanPlugins(directory)
-    ElMessage.success(t('scan.done', { n: pluginStore.plugins.length }))
+    toast.success(t('scan.done', { n: pluginStore.plugins.length }))
 
-    // 如果配置了自动检查更新，则自动检查
     if (pluginStore.config?.auto_check_updates && pluginStore.plugins.length > 0) {
       await pluginStore.checkAllUpdates()
     }
-  } catch (e: any) {
-    ElMessage.error(e?.toString() || t('scan.failed'))
+  } catch (e: unknown) {
+    toast.error(toMessage(e, t('scan.failed')))
   }
 }
 
 async function handleCheckUpdates() {
   if (pluginStore.plugins.length === 0) {
-    ElMessage.warning(t('scan.needFirst'))
+    toast.warn(t('scan.needFirst'))
     return
   }
   try {
     await pluginStore.checkAllUpdates()
     const count = pluginStore.updatablePlugins.length
-    if (count > 0) {
-      ElMessage.info(t('check.found', { n: count }))
-    } else {
-      ElMessage.success(t('check.allLatest'))
-    }
-  } catch (e: any) {
-    ElMessage.error(e?.toString() || t('check.failed'))
+    if (count > 0) toast.text(t('check.found', { n: count }))
+    else toast.success(t('check.allLatest'))
+  } catch (e: unknown) {
+    toast.error(toMessage(e, t('check.failed')))
   }
 }
 
+/**
+ * 更新插件
+ * - DSH 运行中 → 动作面板三选一（强杀后更新 / 仍要继续 / 放弃）
+ * - 否则 → 确认框
+ */
 async function handleUpdatePlugin(plugin: PluginInfo) {
-  // 防护：检测 DSH 桌面端是否运行（运行时锁定插件目录，更新会失败）
   let dshRunning = false
   try {
     dshRunning = await pluginApi.isDshRunning()
@@ -167,137 +232,155 @@ async function handleUpdatePlugin(plugin: PluginInfo) {
     dshRunning = false
   }
 
-  let confirmMessage = t('update.confirmMsg', {
+  const detail = t('update.confirmMsg', {
     name: plugin.manifest.name,
     current: plugin.manifest.current_version,
     latest: plugin.latest_version || '?',
   })
-  confirmMessage += dshRunning ? t('update.dshRunningHint') : t('update.normalHint')
-
-  // DSH 运行中：三按钮（确认=强杀 DSH 并更新 / 取消=仍要继续不推荐 / 关闭=放弃）
-  let action: 'confirm' | 'cancel' | 'close' = 'close'
-  try {
-    await ElMessageBox.confirm(confirmMessage, dshRunning ? t('update.dshRunningTitle') : t('update.confirmTitle'), {
-      confirmButtonText: dshRunning ? t('update.killAndContinue') : t('update.confirmBtn'),
-      cancelButtonText: dshRunning ? t('update.continueAnyway') : t('common.cancel'),
-      distinguishCancelAndClose: true,
-      type: 'warning',
-    })
-    action = 'confirm'
-  } catch (act) {
-    action = act === 'cancel' ? 'cancel' : 'close'
-  }
-
-  if (!dshRunning && action !== 'confirm') return
-  if (action === 'close') return
 
   let force = false
+
   if (dshRunning) {
-    if (action === 'cancel') {
+    const message =
+      detail +
+      t('update.dshRunningHint')
+    const choice = await actionSheet({
+      title: t('update.dshRunningTitle'),
+      message,
+      items: [
+        { label: t('update.killAndContinue'), value: 'kill' },
+        { label: t('update.continueAnyway'), value: 'force', type: 'warn' },
+      ],
+    })
+    if (!choice) return
+
+    if (choice === 'force') {
       // 仍要继续（不推荐）→ 后端 force 放行
       force = true
     } else {
-      // 强杀 DSH 进程树后更新（后端会再校验一次 DSH 已退出）
-      try {
-        const killed = await pluginApi.killDshProcesses()
-        if (!killed) {
-          // 普通权限强杀失败（目标可能提权运行）→ 提供 UAC 提权强杀，标准用户也可在系统弹窗授权
-          try {
-            await ElMessageBox.confirm(t('update.elevatePrompt'), t('update.dshRunningTitle'), {
-              confirmButtonText: t('update.killAndContinue'),
-              cancelButtonText: t('common.cancel'),
-              type: 'warning',
-            })
-          } catch {
-            return
-          }
-          await pluginApi.killDshProcessesElevated()
-          ElMessage.info(t('update.elevating'))
-          // 轮询确认 DSH 退出（给用户时间点 UAC 弹窗）
-          let gone = false
-          for (let i = 0; i < 27; i++) {
-            await new Promise((r) => setTimeout(r, 1500))
-            try {
-              if (!(await pluginApi.isDshRunning())) {
-                gone = true
-                break
-              }
-            } catch {
-              // 轮询失败继续等
-            }
-          }
-          if (!gone) {
-            ElMessage.error(t('update.elevateFailed'))
-            return
-          }
-        } else {
-          ElMessage.success(t('update.killDone', { n: killed }))
-          await new Promise((r) => setTimeout(r, 800))
-        }
-      } catch (e: any) {
-        ElMessage.error(e?.toString() || t('update.killFailed'))
-        return
-      }
+      const ok = await killDsh()
+      if (!ok) return
     }
+  } else {
+    const ok = await confirm({
+      title: t('update.confirmTitle'),
+      message: detail + t('update.normalHint'),
+      confirmText: t('update.confirmBtn'),
+      cancelText: t('common.cancel'),
+      type: 'warn',
+    })
+    if (!ok) return
   }
 
   try {
     const newVersion = await pluginStore.updatePlugin(plugin.manifest.id, force)
-    ElMessage.success(t('update.done', { name: plugin.manifest.name, version: newVersion }))
-  } catch (e: any) {
-    ElMessage.error(e?.toString() || t('update.failed'))
+    toast.success(
+      t('update.done', {
+        name: plugin.manifest.name,
+        version: newVersion ?? plugin.latest_version ?? '',
+      })
+    )
+  } catch (e: unknown) {
+    toast.error(toMessage(e, t('update.failed')))
+  }
+}
+
+/** 强杀 DSH 进程树；必要时走 UAC 提权。返回是否成功 */
+async function killDsh(): Promise<boolean> {
+  try {
+    const killed = await pluginApi.killDshProcesses()
+    if (killed > 0) {
+      toast.success(t('update.killDone', { n: killed }))
+      await sleep(800)
+      return true
+    }
+
+    // 普通权限强杀失败（目标可能提权运行）→ 请求 UAC 提权
+    const ok = await confirm({
+      title: t('update.dshRunningTitle'),
+      message: t('update.elevatePrompt'),
+      confirmText: t('update.killAndContinue'),
+      cancelText: t('common.cancel'),
+      type: 'warn',
+    })
+    if (!ok) return false
+
+    await pluginApi.killDshProcessesElevated()
+    toast.text(t('update.elevating'))
+
+    // 轮询确认 DSH 已退出（给用户时间点 UAC 弹窗）
+    for (let i = 0; i < 27; i++) {
+      await sleep(1500)
+      try {
+        if (!(await pluginApi.isDshRunning())) return true
+      } catch {
+        /* 轮询失败继续等 */
+      }
+    }
+    toast.error(t('update.elevateFailed'))
+    return false
+  } catch (e: unknown) {
+    toast.error(toMessage(e, t('update.killFailed')))
+    return false
   }
 }
 
 async function handleUninstallPlugin(plugin: PluginInfo) {
   if (plugin.manifest.type === 'agent-core') {
-    ElMessage.warning(t('uninstall.coreBlocked'))
+    toast.warn(t('uninstall.coreBlocked'))
     return
   }
 
-  try {
-    await ElMessageBox.confirm(
-      t('uninstall.confirmMsg', { name: plugin.manifest.name }),
-      t('uninstall.confirmTitle'),
-      {
-        confirmButtonText: t('uninstall.confirmBtn'),
-        cancelButtonText: t('common.cancel'),
-        type: 'error',
-      }
-    )
+  const ok = await confirm({
+    title: t('uninstall.confirmTitle'),
+    message: t('uninstall.confirmMsg', { name: plugin.manifest.name }),
+    confirmText: t('uninstall.confirmBtn'),
+    cancelText: t('common.cancel'),
+    type: 'danger',
+  })
+  if (!ok) return
 
+  try {
     await pluginStore.uninstallPlugin(plugin.manifest.id)
-    ElMessage.success(t('uninstall.done', { name: plugin.manifest.name }))
-  } catch (e: any) {
-    if (e !== 'cancel') {
-      ElMessage.error(e?.toString() || t('error.uninstall'))
-    }
+    toast.success(t('uninstall.done', { name: plugin.manifest.name }))
+  } catch (e: unknown) {
+    toast.error(toMessage(e, t('error.uninstall')))
   }
 }
 
 async function handleToggleEnabled(plugin: PluginInfo) {
+  const next = !plugin.manifest.enabled
   try {
-    await pluginStore.setPluginEnabled(plugin.manifest.id, !plugin.manifest.enabled)
-    ElMessage.success(t('app.enabledToggled', { name: plugin.manifest.name, state: plugin.manifest.enabled ? (locale.value === 'zh' ? '禁用' : 'disabled') : (locale.value === 'zh' ? '启用' : 'enabled') }))
-  } catch (e: any) {
-    ElMessage.error(e?.toString() || t('app.operationFailed'))
+    await pluginStore.setPluginEnabled(plugin.manifest.id, next)
+    const stateText = next
+      ? locale.value === 'zh'
+        ? '启用'
+        : 'enabled'
+      : locale.value === 'zh'
+        ? '禁用'
+        : 'disabled'
+    toast.success(
+      t('app.enabledToggled', { name: plugin.manifest.name, state: stateText })
+    )
+  } catch (e: unknown) {
+    toast.error(toMessage(e, t('app.operationFailed')))
   }
 }
 
 async function handleOpenFolder(plugin: PluginInfo) {
   try {
     await pluginStore.openPluginFolder(plugin.manifest.id)
-  } catch (e: any) {
-    ElMessage.error(e?.toString() || t('error.openFolder'))
+  } catch (e: unknown) {
+    toast.error(toMessage(e, t('error.openFolder')))
   }
 }
 
 async function handleCheckSingle(plugin: PluginInfo) {
   try {
     await pluginStore.checkSingleUpdate(plugin.manifest.id)
-    ElMessage.success(t('app.checkDone', { name: plugin.manifest.name }))
-  } catch (e: any) {
-    ElMessage.error(e?.toString() || t('table.checkFailed'))
+    toast.success(t('app.checkDone', { name: plugin.manifest.name }))
+  } catch (e: unknown) {
+    toast.error(toMessage(e, t('table.checkFailed')))
   }
 }
 
@@ -309,122 +392,48 @@ function handleViewReleaseNotes(plugin: PluginInfo) {
 async function handleSaveConfig(config: AppConfig) {
   try {
     await pluginStore.saveConfig(config)
-    ElMessage.success(t('settings.saved'))
+    toast.success(t('settings.saved'))
     showSettings.value = false
-  } catch (e: any) {
-    ElMessage.error(e?.toString() || t('error.saveConfig'))
+  } catch (e: unknown) {
+    toast.error(toMessage(e, t('error.saveConfig')))
   }
 }
 
 function openWebsite() {
   // 官网走系统浏览器统一入口（webview 内 window.open 不可靠）
-  pluginApi.openExternal('https://dsh.huilinsh.cn').catch(() => {})
+  pluginApi.openExternal(WEBSITE_URL).catch(() => {})
+}
+
+/* ---------- 工具 ---------- */
+const WEBSITE_URL = 'https://dsh.huilinsh.cn'
+
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms))
+}
+
+function toMessage(e: unknown, fallback: string): string {
+  if (e == null) return fallback
+  if (typeof e === 'string') return e
+  if (e instanceof Error) return e.message || fallback
+  return String(e)
 }
 </script>
 
 <style scoped>
-.app-container {
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
-  background: var(--bg-primary);
-}
-
-.main-content {
-  position: relative;
-  flex: 1;
-  overflow: auto;
-  padding: 20px 24px 32px;
-}
-
-/* 背景光晕：靛蓝径向渐变，纯装饰 */
-.bg-glow {
-  position: fixed;
-  top: -20%;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 900px;
-  height: 900px;
-  background: radial-gradient(
-    circle,
-    rgba(99, 102, 241, 0.13) 0%,
-    rgba(99, 102, 241, 0.05) 35%,
-    transparent 70%
-  );
-  pointer-events: none;
-  z-index: 0;
-}
-
-.main-content > *:not(.bg-glow) {
-  position: relative;
-  z-index: 1;
-}
-
-.error-banner {
-  margin-bottom: 16px;
-}
-
-/* ---------- v2 空状态 ---------- */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 72px 24px;
-  text-align: center;
-}
-
-.empty-icon-wrap {
-  width: 96px;
-  height: 96px;
+/* 错误提示条 */
+.w-alert {
   display: flex;
   align-items: center;
-  justify-content: center;
-  border-radius: 24px;
-  background: rgba(99, 102, 241, 0.1);
-  border: 1px solid rgba(99, 102, 241, 0.22);
-  color: var(--primary-light);
-  margin-bottom: 24px;
-}
-
-.empty-state h3 {
-  margin: 0 0 8px;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.empty-state p {
-  font-size: 14px;
+  gap: var(--sp-2);
+  padding: 12px var(--sp-4);
+  margin-bottom: var(--sp-4);
+  border-radius: var(--r-md);
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  color: #f87171;
+  font-size: 13px;
   line-height: 1.6;
-  color: var(--text-secondary);
-  max-width: 440px;
-  margin-bottom: 24px;
-}
-
-.empty-actions {
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-
-.empty-actions .el-button {
-  border-radius: var(--radius-md);
-  padding: 10px 20px;
-}
-
-/* 非主要按钮在空态下用描边样式 */
-.empty-actions .el-button:not(.el-button--primary) {
-  background: transparent;
-  border: 1px solid var(--glass-border);
-  color: var(--text-secondary);
-}
-
-.empty-actions .el-button:not(.el-button--primary):hover {
-  background: rgba(255, 255, 255, 0.06);
-  color: var(--text-primary);
-  border-color: rgba(255, 255, 255, 0.22);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 </style>

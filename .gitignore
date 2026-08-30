@@ -69,3 +69,6 @@ website/pages.bak/
 src-tauri/keys/
 scripts/ed25519-*.pem
 scripts/key-info.json
+**/dist-preview/
+**/dist-v3/
+**/.dsh-vision-router/

@@ -1,61 +1,69 @@
 <template>
-  <el-dialog
-    v-model="visible"
-    :title="t('notes.title')"
-    width="660px"
-    :close-on-click-modal="true"
-  >
-    <div v-if="plugin" class="release-notes">
+  <WDialog v-model="visible" :title="t('notes.title')">
+    <div v-if="plugin" class="w-notes">
       <!-- 头部：插件 + 版本对比 -->
-      <div class="plugin-header">
-        <div class="plugin-info">
+      <div class="w-notes-head">
+        <div class="w-flex-1">
           <h3>{{ plugin.manifest.name }}</h3>
-          <span class="plugin-id">{{ plugin.manifest.id }}</span>
+          <p class="w-notes-id mono">{{ plugin.manifest.id }}</p>
         </div>
-        <div class="version-compare">
-          <span class="ver-from">v{{ plugin.manifest.current_version }}</span>
-          <el-icon class="ver-arrow"><Right /></el-icon>
-          <span class="ver-to">v{{ plugin.latest_version }}</span>
+        <div class="w-version" :class="{ 'is-update': plugin.update_available }">
+          <span class="mono w-text-2">v{{ plugin.manifest.current_version }}</span>
+          <WIcon name="arrowRight" :size="13" class="w-text-warn" />
+          <span class="mono w-text-warn">v{{ plugin.latest_version }}</span>
         </div>
       </div>
 
-      <!-- 日志内容 -->
-      <div class="notes-body">
-        <div v-if="plugin.release_notes" class="notes-text">{{ plugin.release_notes }}</div>
-        <div v-else class="empty-notes">
-          <el-icon :size="40"><Document /></el-icon>
-          <p>{{ t('notes.empty') }}</p>
-        </div>
+      <!-- 日志正文 -->
+      <div class="w-notes-body">
+        <div v-if="plugin.release_notes" class="w-notes-text">{{ plugin.release_notes }}</div>
+        <WEmpty
+          v-else
+          type="empty"
+          icon="fileText"
+          :title="t('notes.empty')"
+          :icon-size="44"
+          align-top
+        />
       </div>
 
       <!-- GitHub 链接 -->
-      <div class="release-links" v-if="plugin.release_url">
-        <el-link type="primary" :href="plugin.release_url" target="_blank">
-          <el-icon><Link /></el-icon>
-          {{ t('notes.viewOnGithub') }}
-        </el-link>
-      </div>
+      <a
+        v-if="plugin.release_url"
+        class="weui-cell weui-cell_access w-notes-link"
+        href="javascript:"
+        @click="openRelease"
+      >
+        <div class="weui-cell__bd">{{ t('notes.viewOnGithub') }}</div>
+        <div class="weui-cell__ft w-text-2">
+          <WIcon name="external" :size="14" />
+        </div>
+      </a>
     </div>
 
     <template #footer>
-      <el-button @click="visible = false">{{ t('common.close') }}</el-button>
-      <el-button
+      <WButton @click="visible = false">{{ t('common.close') }}</WButton>
+      <WButton
         v-if="plugin?.update_available"
         type="primary"
+        icon="upload"
         @click="handleUpdate"
       >
-        <el-icon><Upload /></el-icon>
         {{ t('notes.updateNow') }}
-      </el-button>
+      </WButton>
     </template>
-  </el-dialog>
+  </WDialog>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { Document, Link, Upload, Right } from '@element-plus/icons-vue'
-import type { PluginInfo } from '../types'
+import WDialog from './WDialog.vue'
+import WButton from './WButton.vue'
+import WIcon from './WIcon.vue'
+import WEmpty from './WEmpty.vue'
+import { pluginApi } from '../api'
 import { t } from '../i18n'
+import type { PluginInfo } from '../types'
 
 const props = defineProps<{
   modelValue: boolean
@@ -76,9 +84,7 @@ watch(
   }
 )
 
-watch(visible, (val) => {
-  emit('update:modelValue', val)
-})
+watch(visible, (val) => emit('update:modelValue', val))
 
 function handleUpdate() {
   if (props.plugin) {
@@ -86,114 +92,62 @@ function handleUpdate() {
     visible.value = false
   }
 }
+
+function openRelease() {
+  if (props.plugin?.release_url) {
+    pluginApi.openExternal(props.plugin.release_url).catch(() => {})
+  }
+}
 </script>
 
 <style scoped>
-.release-notes {
-  max-height: 62vh;
-  overflow-y: auto;
-}
-
-/* ---------- 头部 ---------- */
-.plugin-header {
+.w-notes-head {
   display: flex;
-  justify-content: space-between;
   align-items: flex-start;
-  gap: 16px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--glass-border);
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--border);
 }
 
-.plugin-info {
-  min-width: 0;
-}
-
-.plugin-info h3 {
-  margin: 0 0 4px;
-  font-size: 17px;
+.w-notes-head h3 {
+  font-size: 16px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--fg);
+  line-height: 1.4;
 }
 
-.plugin-id {
+.w-notes-id {
   font-size: 12px;
-  color: var(--text-muted);
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  color: var(--fg-2);
+  margin-top: 2px;
+  word-break: break-all;
 }
 
-/* 版本对比 */
-.version-compare {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-  padding: 6px 14px;
-  border-radius: 20px;
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
-  font-size: 13px;
-}
-
-.ver-from {
-  color: var(--text-muted);
-}
-
-.ver-arrow {
-  color: var(--warning);
-  font-size: 13px;
-}
-
-.ver-to {
-  color: var(--warning);
-  font-weight: 700;
-}
-
-/* ---------- 日志内容 ---------- */
-.notes-body {
-  margin: 16px 0;
-  padding: 16px;
-  border-radius: var(--radius-md);
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid var(--glass-border);
-  min-height: 140px;
-  max-height: 320px;
+.w-notes-body {
+  margin: var(--sp-3) 0;
+  padding: var(--sp-3);
+  border-radius: var(--r-md);
+  background: var(--bg-group);
+  max-height: 46vh;
   overflow-y: auto;
 }
 
-.notes-text {
+.w-notes-text {
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', sans-serif;
   font-size: 13px;
   line-height: 1.75;
-  color: var(--text-secondary);
-  margin: 0;
+  color: var(--fg-1);
 }
 
-.empty-notes {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 32px;
-  color: var(--text-muted);
-  gap: 10px;
+.w-notes-link {
+  padding: var(--sp-2) 0;
+  border-radius: var(--r-sm);
 }
 
-.empty-notes p {
-  margin: 0;
-  font-size: 13px;
-}
-
-/* ---------- 底部链接 ---------- */
-.release-links {
-  padding-top: 14px;
-  border-top: 1px solid var(--glass-border);
-  text-align: center;
-}
-
-.release-links :deep(.el-link) {
-  font-size: 13px;
+.w-notes-link::before {
+  display: none;
 }
 </style>

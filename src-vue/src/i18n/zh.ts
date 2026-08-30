@@ -196,4 +196,37 @@ export const zh: Record<string, string> = {
   'app.operationFailed': '操作失败',
   'app.checkDone': '「{name}」更新检查完成',
   'app.coreTag': '本体',
+
+  // 通用补充（WeUI 版新增）
+  'common.clear': '清空',
+  'common.more': '更多',
+  'common.retry': '重试',
+  'common.loadMore': '加载更多',
+
+  // HeaderBar 补充
+  'header.theme': '切换主题',
+
+  // App 启动态
+  'app.loadingTitle': '正在加载插件数据',
+  'app.loadingDesc': '正在从官方目录获取插件信息，请稍候…',
+  'empty.tips': '也可以在上方输入插件目录后点击「扫描」',
+
+  // Tab 短标签（移动端底部导航）
+  'tab.marketShort': '市场',
+  'tab.installedShort': '已装',
+  'tab.updatesShort': '更新',
+
+  // 市场状态
+  'market.loading': '正在加载插件市场…',
+  'market.emptyTitle': '插件市场暂时无法加载',
+  'market.emptyDesc': '请检查网络连接后重试',
+  'market.noResult': '没有找到匹配的插件',
+  'market.noResultDesc': '换个关键词，或清除筛选条件试试',
+  'market.resetFilter': '清除筛选',
+  'market.sortTitle': '排序方式',
+
+  // 已安装 / 可更新空状态
+  'installed.emptyTitle': '还没有扫描到已安装插件',
+  'installed.emptyDesc': '先扫描插件目录，或从「市场」一键安装需要的插件',
+  'updates.allLatestDesc': '所有已安装插件都已是最新版本，无需更新',
 }
