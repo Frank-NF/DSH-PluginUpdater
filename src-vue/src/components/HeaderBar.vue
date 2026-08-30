@@ -6,7 +6,7 @@
         <div class="w-logo" aria-hidden="true">
           <WIcon name="package" :size="20" />
         </div>
-        <div class="w-header__titles w-hide-mobile">
+        <div class="w-header__titles">
           <h1>{{ t('header.title') }}</h1>
           <p>{{ t('header.subtitle') }}</p>
         </div>
@@ -452,6 +452,14 @@ function onSheetSelect(value: string) {
 
   .w-header__status {
     padding: 6px var(--sp-4);
+  }
+
+  .w-header__titles h1 {
+    font-size: 15px;
+  }
+
+  .w-header__titles p {
+    font-size: 10px;
   }
 }
 </style>
