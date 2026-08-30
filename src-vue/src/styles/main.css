@@ -485,6 +485,12 @@ button {
   white-space: nowrap;
 }
 
+/* WeUI 原生 .weui-btn + .weui-btn { margin-top:16px } 是竖排堆叠规则，
+   在横排 flex 容器里会把第二个按钮下压 8px（center 对齐下偏移 16/2）——统一重置 */
+.weui-btn + .weui-btn {
+  margin-top: 0;
+}
+
 /* ---------- 按钮悬浮提示（data-tip，即时显示） ---------- */
 .weui-btn {
   position: relative;
