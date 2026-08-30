@@ -380,6 +380,12 @@ button {
   pointer-events: none;
 }
 
+/* WeUI 默认 .weui-search-bar__box { visibility:hidden }（官方交互依赖 label 点击聚焦），
+   本项目 label 无点击逻辑 → box 永久隐藏 = 搜索框永远无法聚焦输入。强制可见打破死锁。 */
+.weui-search-bar .weui-search-bar__box {
+  visibility: visible !important;
+}
+
 /* ---------- 下拉菜单 ---------- */
 .w-menu-wrap {
   display: inline-flex;

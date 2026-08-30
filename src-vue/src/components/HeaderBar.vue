@@ -12,19 +12,6 @@
         </div>
       </div>
 
-      <!-- 扫描（点击弹出目录选择） -->
-      <div class="w-header__search">
-        <WButton
-          type="primary"
-          icon="folder"
-          :loading="isScanning"
-          :title="t('header.scanTip')"
-          @click="handleScan"
-        >
-          {{ t('header.scan') }}
-        </WButton>
-      </div>
-
       <!-- 操作区 -->
       <div class="w-header__actions">
         <!-- 统计（桌面） -->
@@ -138,7 +125,6 @@ import { computed, ref } from 'vue'
 import WButton from './WButton.vue'
 import WIcon from './WIcon.vue'
 import WSheet from './WSheet.vue'
-import { pluginApi } from '../api'
 import { t } from '../i18n'
 import type { ThemeMode } from '../composables/useTheme'
 
@@ -155,7 +141,6 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  scan: [directory: string]
   'check-updates': []
   'auto-scan': []
   'open-settings': []
@@ -177,16 +162,6 @@ const sheetItems = computed(() => [
   { label: t('header.website'), value: 'website' },
   { label: t('header.langSwitch'), value: 'locale' },
 ])
-
-async function handleScan() {
-  try {
-    const dir = await pluginApi.pickDirectory()
-    if (!dir) return
-    emit('scan', dir)
-  } catch (e) {
-    console.error('pick_directory failed', e)
-  }
-}
 
 function onSheetSelect(value: string) {
   switch (value) {

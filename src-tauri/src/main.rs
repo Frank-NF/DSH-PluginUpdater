@@ -1303,60 +1303,82 @@ fn format_size(bytes: u64) -> String {
 #[tauri::command]
 async fn auto_scan_plugins(state: State<'_, AppState>) -> AppResult<Vec<PluginInfo>> {
     let config = state.config.lock().unwrap().clone();
-    
-    // 如果已有配置的插件目录，直接使用
-    if !config.plugin_directory.is_empty() {
-        let scanned = scan_plugin_directory(&config.plugin_directory)?;
-        if !scanned.is_empty() {
-            return scan_plugins(config.plugin_directory, state).await;
-        }
-    }
-    
-    // 构建候选插件目录列表
+
+    // 扫描源顺序：用户设置目录优先，其后全盘候选
     let home = dirs::home_dir().map(|p| p.to_string_lossy().to_string()).unwrap_or_default();
     let data_local = dirs::data_local_dir().map(|p| p.to_string_lossy().to_string()).unwrap_or_default();
-    
-    let mut candidates: Vec<String> = Vec::new();
-    
-    // 1. DSH profile 目录（实际插件安装位置）
-    for profile in ["web", "desktop", "cli", "mobile"] {
-        candidates.push(format!("{}/.dsh/profiles/{}", home, profile));
-        candidates.push(format!("{}/.dsh/profiles/{}/plugin-sources", home, profile));
+
+    let mut sources: Vec<String> = Vec::new();
+    if !config.plugin_directory.is_empty() {
+        sources.push(config.plugin_directory.clone());
     }
-    // 2. 直接指向插件集合的目录
-    candidates.push(format!("{}/.dsh/profiles", home));
-    candidates.push(format!("{}/.dsh/plugins", home));
-    candidates.push(format!("{}/.dsh/extensions", home));
-    // 3. 常见目录
-    candidates.push(format!("{}/DSH/plugins", data_local));
-    candidates.push(format!("{}/DSH-PluginUpdater/plugins", data_local));
-    candidates.push("C:/DSH/plugins".to_string());
-    candidates.push("C:/Program Files/DSH/plugins".to_string());
-    
-    let mut last_error: Option<String> = None;
-    
-    for path in &candidates {
-        let p = std::path::Path::new(&path);
+    for profile in ["web", "desktop", "cli", "mobile"] {
+        sources.push(format!("{}/.dsh/profiles/{}", home, profile));
+        sources.push(format!("{}/.dsh/profiles/{}/plugin-sources", home, profile));
+    }
+    sources.push(format!("{}/.dsh/profiles", home));
+    sources.push(format!("{}/.dsh/plugins", home));
+    sources.push(format!("{}/.dsh/extensions", home));
+    sources.push(format!("{}/DSH/plugins", data_local));
+    sources.push(format!("{}/DSH-PluginUpdater/plugins", data_local));
+    sources.push("C:/DSH/plugins".to_string());
+    sources.push("C:/Program Files/DSH/plugins".to_string());
+
+    // 全量扫描 + 按 manifest.id 去重合并（先到先得，设置目录优先占位）
+    let mut merged: Vec<PluginInfo> = Vec::new();
+    let mut seen_ids: std::collections::HashSet<String> = std::collections::HashSet::new();
+    let mut first_hit_dir: Option<String> = None;
+    let mut attempted = 0usize;
+
+    for path in &sources {
+        let p = std::path::Path::new(path);
         if !p.exists() || !p.is_dir() {
             continue;
         }
-        
-        match scan_plugin_directory(&path) {
-            Ok(plugins) if !plugins.is_empty() => {
-                // 找到插件，保存配置并返回
-                return scan_plugins(path.clone(), state).await;
-            }
-            Ok(_) => {
-                last_error = Some(format!("{} 无插件", path));
-            }
-            Err(e) => {
-                last_error = Some(e.to_string());
+        attempted += 1;
+        if let Ok(plugins) = scan_plugin_directory(path) {
+            for plugin in plugins {
+                let id = plugin.manifest.id.clone();
+                if seen_ids.insert(id) {
+                    if first_hit_dir.is_none() {
+                        first_hit_dir = Some(path.clone());
+                    }
+                    merged.push(plugin);
+                }
             }
         }
     }
-    
-    let detail = last_error.unwrap_or_default();
-    Err(AppError::Other(format!("未找到插件目录（已尝试 {} 个位置：{}），请在设置中手动指定", candidates.len(), detail)))
+
+    if merged.is_empty() {
+        return Err(AppError::Other(format!(
+            "未找到插件（已扫描 {} 个存在的目录），请在设置中手动指定",
+            attempted
+        )));
+    }
+
+    // 官方目录元数据补全
+    let proxy = GitHubProxyClient::new(&config.proxy_base_url, None);
+    let catalog_map = build_catalog_map(proxy.http_client()).await;
+    apply_catalog_metadata(&catalog_map, &mut merged);
+
+    // 保存状态；插件目录保持用户设置，未设置时记录首个命中目录
+    {
+        let mut cfg = state.config.lock().unwrap();
+        if cfg.plugin_directory.is_empty() {
+            if let Some(dir) = first_hit_dir {
+                cfg.plugin_directory = dir;
+            }
+        }
+        let snapshot = cfg.clone();
+        drop(cfg);
+        let _ = save_config_to_disk(&snapshot);
+    }
+    {
+        let mut state_plugins = state.plugins.lock().unwrap();
+        *state_plugins = merged.clone();
+    }
+
+    Ok(merged)
 }
 /// 弹出系统目录选择框，返回所选路径（取消返回 None）
 #[tauri::command]
