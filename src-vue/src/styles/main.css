@@ -354,6 +354,137 @@ button {
   background: rgba(251, 191, 36, 0.13);
 }
 
+/* ---------- 工具栏一行（Tab+搜索+排序+视图） ---------- */
+.w-toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: nowrap;
+  margin: 0 0 var(--sp-4);
+}
+.w-toolbar-row .w-tabs {
+  margin: 0;
+  flex: 0 0 auto;
+}
+.w-toolbar-row__search {
+  flex: 1 1 220px;
+  min-width: 160px;
+}
+.w-toolbar-row__spacer {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 搜索占位装饰层不拦截点击（否则检索框无法聚焦输入） */
+.weui-search-bar__label {
+  pointer-events: none;
+}
+
+/* ---------- 下拉菜单 ---------- */
+.w-menu-wrap {
+  display: inline-flex;
+  flex: 0 0 auto;
+}
+.w-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 8999;
+  background: transparent;
+}
+.w-menu {
+  position: fixed;
+  z-index: 9000;
+  min-width: 168px;
+  max-width: 320px;
+  padding: 6px;
+  background: var(--bg-group);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  animation: wMenuIn 0.14s var(--ease-out);
+}
+@keyframes wMenuIn {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+.w-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 9px 12px;
+  border-radius: var(--r-sm);
+  font-size: 13.5px;
+  color: var(--fg-1);
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+.w-menu__item:hover {
+  background: var(--bg-hover);
+}
+.w-menu__item.is-warn {
+  color: var(--danger);
+}
+.w-menu__item.is-active {
+  color: var(--brand-2);
+  font-weight: 600;
+}
+.w-menu__check {
+  margin-left: auto;
+  color: var(--brand-2);
+}
+.w-menu__label {
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---------- 紧凑列表行（市场/可更新） ---------- */
+.w-cell__title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.w-cell__name {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--fg-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.w-cell__desc {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--fg-2);
+}
+.w-cell__version {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--fg-2);
+}
+.w-cell__ft-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: nowrap;
+}
+.w-metric {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--fg-2);
+  white-space: nowrap;
+}
+
 /* ---------- 9. 现代按钮（覆盖 WeUI） ---------- */
 .weui-btn {
   display: inline-flex;

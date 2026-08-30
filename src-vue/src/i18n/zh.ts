@@ -63,7 +63,7 @@ export const zh: Record<string, string> = {
   // 插件表格
   'table.total': '共 {n} 个插件',
   'table.allCategories': '全部',
-  'tab.market': '全部市场',
+  'tab.market': '插件市场',
   'tab.installed': '已安装',
   'tab.updates': '可更新',
   'tab.installedTag': '已安装',

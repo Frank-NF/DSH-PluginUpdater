@@ -1,26 +1,24 @@
 <template>
   <div ref="rootEl" class="plugin-view">
-    <!-- ============ 顶部 Tab（桌面） ============ -->
-    <div class="w-tabs">
-      <a
-        v-for="tab in tabs"
-        :key="tab.name"
-        href="javascript:"
-        class="w-tab-btn"
-        :class="{ 'is-active': activeTab === tab.name }"
-        :aria-current="activeTab === tab.name ? 'page' : undefined"
-        @click="switchTab(tab.name)"
-      >
-        {{ tab.label }}
-      </a>
-    </div>
+    <!-- ============ 工具栏一行：Tab + 搜索 + 排序 + 视图 ============ -->
+    <div class="w-toolbar-row">
+      <div class="w-tabs">
+        <a
+          v-for="tab in tabs"
+          :key="tab.name"
+          href="javascript:"
+          class="w-tab-btn"
+          :class="{ 'is-active': activeTab === tab.name }"
+          :aria-current="activeTab === tab.name ? 'page' : undefined"
+          @click="switchTab(tab.name)"
+        >
+          {{ tab.label }}
+        </a>
+      </div>
 
-    <!-- ============ 全部市场 ============ -->
-    <section ref="marketPanel" v-show="activeTab === 'market'" class="w-panel">
-      <div class="w-toolbar">
-        <!-- 搜索（WeUI Searchbar） -->
+      <template v-if="activeTab === 'market'">
         <div
-          class="weui-search-bar w-search"
+          class="weui-search-bar w-search w-toolbar-row__search"
           :class="{ 'weui-search-bar_focusing': searchFocused || !!marketSearch }"
         >
           <div class="weui-search-bar__form">
@@ -50,11 +48,25 @@
           </div>
         </div>
 
-        <WButton size="inline" icon="sort" @click="sortSheet = true">
-          {{ sortLabel }}
-        </WButton>
-      </div>
+        <WMenu :items="sortItems" :model-value="marketSort" align="right" @select="onSortChange">
+          <template #trigger>
+            <WButton size="inline" icon="sort">{{ sortLabel }}</WButton>
+          </template>
+        </WMenu>
+      </template>
 
+      <div class="w-toolbar-row__spacer"></div>
+
+      <WButton
+        size="inline"
+        :icon="viewMode === 'grid' ? 'grid' : 'list'"
+        :title="viewMode === 'grid' ? t('table.list') : t('table.grid')"
+        @click="toggleView"
+      />
+    </div>
+
+    <!-- ============ 插件市场 ============ -->
+    <section ref="marketPanel" v-show="activeTab === 'market'" class="w-panel">
       <!-- 分类筛选 -->
       <div v-if="marketCategories.length" class="w-chips">
         <button
@@ -111,8 +123,8 @@
         </template>
       </WEmpty>
 
-      <!-- 市场卡片 -->
-      <div v-else class="w-grid w-grid-market">
+      <!-- 市场卡片（网格） -->
+      <div v-else-if="viewMode === 'grid'" class="w-grid w-grid-market">
         <article
           v-for="mp in pagedMarket"
           :key="mp.name"
@@ -157,14 +169,63 @@
             >
               {{ t('market.install') }}
             </WButton>
-            <WButton
-              size="mini"
-              icon="link"
-              :title="t('market.links')"
-              @click="openMarketSheet(mp)"
-            />
+            <WMenu
+              :items="marketLinkItemsFor(mp)"
+              align="right"
+              @select="(cmd: string) => onMarketLinkSelect(cmd, mp)"
+            >
+              <template #trigger>
+                <WButton size="mini" icon="link" :title="t('market.links')" />
+              </template>
+            </WMenu>
           </div>
         </article>
+      </div>
+
+      <!-- 市场列表（紧凑行） -->
+      <div v-else class="weui-cells w-cells w-market-cells">
+        <div v-for="mp in pagedMarket" :key="mp.name" class="weui-cell w-cell">
+          <div class="weui-cell__hd">
+            <span class="w-plugin-icon"><WIcon name="plugin" :size="18" /></span>
+          </div>
+          <div class="weui-cell__bd">
+            <div class="w-cell__title-row">
+              <span class="w-cell__name">{{ marketTitle(mp) }}</span>
+              <span
+                v-if="mp.category"
+                class="w-badge"
+                :style="badgeStyle(mp.category)"
+              >{{ categoryName(mp.category) }}</span>
+              <span v-if="isInstalled(mp)" class="w-tag w-tag_success">
+                {{ t('tab.installedTag') }}
+              </span>
+            </div>
+            <p class="w-cell__desc w-truncate" :title="marketDesc(mp)">{{ marketDesc(mp) }}</p>
+          </div>
+          <div class="weui-cell__ft w-cell__ft-actions">
+            <span class="w-metric"><WIcon name="star" :size="12" />{{ formatCount(mp.stars) }}</span>
+            <span class="w-metric"><WIcon name="download" :size="12" />{{ formatCount(mp.downloads) }}</span>
+            <WButton
+              v-if="!isInstalled(mp) && mp.npm"
+              type="primary"
+              size="mini"
+              icon="download"
+              :loading="pluginStore.installingNpm === mp.npm"
+              @click="openInstall(mp)"
+            >
+              {{ t('market.install') }}
+            </WButton>
+            <WMenu
+              :items="marketLinkItemsFor(mp)"
+              align="right"
+              @select="(cmd: string) => onMarketLinkSelect(cmd, mp)"
+            >
+              <template #trigger>
+                <WButton size="mini" icon="link" :title="t('market.links')" />
+              </template>
+            </WMenu>
+          </div>
+        </div>
       </div>
 
       <!-- 加载更多 -->
@@ -315,6 +376,7 @@
               <WButton
                 size="mini"
                 :icon="row.manifest.enabled ? 'power' : 'check'"
+                :title="row.manifest.enabled ? t('table.disable') : t('table.enable')"
                 @click="emit('toggle-enabled', row)"
               >
                 {{ row.manifest.enabled ? t('table.disable') : t('table.enable') }}
@@ -325,12 +387,15 @@
                 :title="t('table.folder')"
                 @click="emit('open-folder', row)"
               />
-              <WButton
-                size="mini"
-                icon="more"
-                :title="t('common.more')"
-                @click="openMore(row)"
-              />
+              <WMenu
+                :items="moreItemsFor(row)"
+                align="right"
+                @select="(cmd: string) => onMoreSelect(cmd, row)"
+              >
+                <template #trigger>
+                  <WButton size="mini" icon="more" :title="t('common.more')" />
+                </template>
+              </WMenu>
             </template>
           </div>
         </article>
@@ -402,12 +467,15 @@
                 :title="t('table.folder')"
                 @click="emit('open-folder', row)"
               />
-              <WButton
-                size="mini"
-                icon="more"
-                :title="t('common.more')"
-                @click="openMore(row)"
-              />
+              <WMenu
+                :items="moreItemsFor(row)"
+                align="right"
+                @select="(cmd: string) => onMoreSelect(cmd, row)"
+              >
+                <template #trigger>
+                  <WButton size="mini" icon="more" :title="t('common.more')" />
+                </template>
+              </WMenu>
             </template>
           </div>
         </div>
@@ -435,8 +503,8 @@
         :desc="t('updates.allLatestDesc')"
       />
 
-      <!-- 可更新列表 -->
-      <div v-else class="w-grid w-grid-plugin">
+      <!-- 可更新列表（网格） -->
+      <div v-else-if="viewMode === 'grid'" class="w-grid w-grid-plugin">
         <article v-for="row in updatableList" :key="row.manifest.id" class="w-card w-plugin-card is-update">
           <div class="weui-media-box weui-media-box_appmsg">
             <div class="weui-media-box__hd">
@@ -486,6 +554,50 @@
             </WButton>
           </div>
         </article>
+      </div>
+
+      <!-- 可更新列表（紧凑行） -->
+      <div v-else class="weui-cells w-cells w-updates-cells">
+        <div v-for="row in updatableList" :key="row.manifest.id" class="weui-cell w-cell">
+          <div class="weui-cell__hd">
+            <span class="w-plugin-icon is-update">
+              <WIcon :name="row.manifest.type === 'agent-core' ? 'core' : 'plugin'" :size="18" />
+            </span>
+          </div>
+          <div class="weui-cell__bd">
+            <div class="w-cell__title-row">
+              <span class="w-cell__name">{{ row.manifest.name }}</span>
+              <span v-if="row.manifest.type === 'agent-core'" class="w-tag w-tag_brand">
+                {{ t('app.coreTag') }}
+              </span>
+            </div>
+            <p class="w-cell__desc w-truncate" :title="localeDescription(row)">
+              {{ localeDescription(row) }}
+            </p>
+            <div class="w-cell__version mono">
+              v{{ row.manifest.current_version }} → v{{ row.latest_version }}
+            </div>
+          </div>
+          <div class="weui-cell__ft w-cell__ft-actions">
+            <WButton
+              type="primary"
+              size="mini"
+              icon="upload"
+              :loading="isUpdating(row.manifest.id)"
+              @click="emit('update', row)"
+            >
+              {{ t('table.update') }}
+            </WButton>
+            <WButton
+              v-if="row.release_notes"
+              size="mini"
+              icon="fileText"
+              @click="emit('view-release-notes', row)"
+            >
+              {{ t('table.releaseNotes') }}
+            </WButton>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -553,29 +665,6 @@
       </template>
     </WDialog>
 
-    <!-- 排序面板 -->
-    <WSheet
-      v-model="sortSheet"
-      :title="t('market.sortTitle')"
-      :items="sortItems"
-      @select="onSortChange"
-    />
-
-    <!-- 插件更多操作 -->
-    <WSheet
-      v-model="moreSheet"
-      :title="currentPlugin?.manifest.name"
-      :items="moreItems"
-      @select="onMoreSelect"
-    />
-
-    <!-- 市场链接 -->
-    <WSheet
-      v-model="marketSheet"
-      :title="currentMarket?.name"
-      :items="marketLinkItems"
-      @select="onMarketLinkSelect"
-    />
   </div>
 </template>
 
@@ -583,7 +672,7 @@
 import { computed, nextTick, onMounted, ref, watch, h, defineComponent, type PropType } from 'vue'
 import WButton from './WButton.vue'
 import WIcon from './WIcon.vue'
-import WSheet from './WSheet.vue'
+import WMenu from './WMenu.vue'
 import WDialog from './WDialog.vue'
 import WEmpty from './WEmpty.vue'
 import WLoading from './WLoading.vue'
@@ -618,7 +707,7 @@ const toast = useToast()
 const rootEl = ref<HTMLElement | null>(null)
 
 /* ---------------- Tab ---------------- */
-const activeTab = ref<TabName>('market')
+const activeTab = ref<TabName>('installed')
 
 const tabs = computed(() => [
   {
@@ -673,7 +762,6 @@ const marketPage = ref(1)
 const marketPageSize = 48
 const marketSort = ref<'default' | 'stars' | 'downloads' | 'latest'>('default')
 const searchFocused = ref(false)
-const sortSheet = ref(false)
 
 /** 市场数据是否仍在加载（父组件传入空数组且未标结束） */
 const marketLoading = computed(() => props.marketPlugins.length === 0)
@@ -860,13 +948,8 @@ async function confirmInstall() {
   }
 }
 
-/* ---------------- 更多操作（替代下拉菜单） ---------------- */
-const moreSheet = ref(false)
-const currentPlugin = ref<PluginInfo | null>(null)
-
-const moreItems = computed(() => {
-  const row = currentPlugin.value
-  if (!row) return []
+/* ---------------- 更多操作（下拉菜单） ---------------- */
+function moreItemsFor(row: PluginInfo): { label: string; value: string; type?: 'warn'; desc?: string }[] {
   const items: { label: string; value: string; type?: 'warn'; desc?: string }[] = [
     { label: t('table.recheck'), value: 'check', desc: '' },
   ]
@@ -878,17 +961,10 @@ const moreItems = computed(() => {
     items.push({ label: t('table.uninstall'), value: 'uninstall', type: 'warn', desc: '' })
   }
   return items
-})
-
-function openMore(row: PluginInfo) {
-  currentPlugin.value = row
-  moreSheet.value = true
 }
 
-function onMoreSelect(value: string) {
-  const row = currentPlugin.value
-  if (!row) return
-  switch (value) {
+function onMoreSelect(cmd: string, row: PluginInfo) {
+  switch (cmd) {
     case 'check':
       emit('check-single', row)
       break
@@ -902,38 +978,24 @@ function onMoreSelect(value: string) {
       emit('uninstall', row)
       break
   }
-  currentPlugin.value = null
 }
 
-/* ---------------- 市场链接 ---------------- */
-const marketSheet = ref(false)
-const currentMarket = ref<MarketPlugin | null>(null)
-
-const marketLinkItems = computed(() => {
-  const mp = currentMarket.value
-  if (!mp) return []
+/* ---------------- 市场链接（下拉菜单） ---------------- */
+function marketLinkItemsFor(mp: MarketPlugin): { label: string; value: string }[] {
   const items: { label: string; value: string }[] = []
   if (mp.url) items.push({ label: t('market.linkGithub'), value: 'github' })
   if (mp.npm) items.push({ label: t('market.linkNpm'), value: 'npm' })
   if (mp.npm) items.push({ label: t('market.linkMirror'), value: 'mirror' })
   return items
-})
-
-function openMarketSheet(mp: MarketPlugin) {
-  currentMarket.value = mp
-  marketSheet.value = true
 }
 
-function onMarketLinkSelect(cmd: string) {
-  const mp = currentMarket.value
-  if (!mp) return
+function onMarketLinkSelect(cmd: string, mp: MarketPlugin) {
   const npm = (mp.npm || '').trim()
   let url = ''
   if (cmd === 'github') url = mp.url || ''
   else if (cmd === 'npm') url = npm ? `https://www.npmjs.com/package/${npm}` : ''
   else if (cmd === 'mirror') url = npm ? `https://npmmirror.com/package/${npm}` : ''
   if (url) pluginApi.openExternal(url).catch(() => {})
-  currentMarket.value = null
 }
 
 /* ---------------- 更新进度 ---------------- */
