@@ -26,6 +26,7 @@ export interface PluginData extends RegistryEntry {
   github_url: string
   topics: string[]
   fetched: boolean // GitHub 数据是否获取成功
+  downloads: number | null // npm 月下载量（目录源提供；注册表源为 null）
 }
 
 /** catalog 分类 key → 中文显示名（与桌面端 21 种分类一致） */
@@ -183,6 +184,7 @@ export async function getPlugins(): Promise<PluginData[]> {
         github_url: e.url || `https://github.com/${e.owner}/${e.name}`,
         topics: e.npm ? [e.npm] : [],
         fetched: true,
+        downloads: typeof e.downloads === 'number' ? e.downloads : null,
       }))
     }
   } catch {
@@ -204,6 +206,7 @@ export async function getPlugins(): Promise<PluginData[]> {
           github_url: `https://github.com/${entry.repo}`,
           topics: r?.topics ?? [],
           fetched: r?.fetched ?? false,
+          downloads: null,
         }
       })
     )
