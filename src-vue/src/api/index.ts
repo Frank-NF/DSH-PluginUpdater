@@ -215,6 +215,20 @@ const mockApi = {
     await delay(100)
     return null
   },
+  listCatalogPlugins: async (): Promise<MarketPlugin[]> => {
+    await delay(300)
+    const cats = ['界面', '记忆', '工具', '工作流', '会话', '技能', '娱乐', '市场', '开发', '主题']
+    return Array.from({ length: 48 }, (_, i) => ({
+      name: `mock-plugin-${i + 1}`,
+      npm: `@mock/plugin-${i + 1}`,
+      url: `https://github.com/mock/plugin-${i + 1}`,
+      desc_zh: `模拟插件 ${i + 1}：用于浏览器预览验证的市场条目描述。`,
+      desc_en: `Mock plugin ${i + 1} for preview verification.`,
+      category: cats[i % cats.length],
+      stars: 1000 + i * 37,
+      downloads: i % 3 === 0 ? null : 5000 + i * 111,
+    }))
+  },
   killDshProcessesElevated: async (): Promise<number> => {
     await delay(300)
     return 0
@@ -353,6 +367,9 @@ export const pluginApi = isTauri
 
 export const eventApi = {
   onUpdateProgress: (callback: (progress: UpdateProgress) => void) => {
+    if (!isTauri) {
+      return Promise.resolve(() => {})
+    }
     return listen<UpdateProgress>('update_progress', (event) => {
       callback(event.payload)
     })

@@ -10,7 +10,6 @@
       :market-count="pluginStore.marketPlugins.length"
       :last-scan-time="pluginStore.lastScanTime"
       :theme="theme"
-      @scan="handleScan"
       @check-updates="handleCheckUpdates"
       @auto-scan="handleAutoScan"
       @open-settings="showSettings = true"
@@ -154,18 +153,15 @@ onMounted(async () => {
 
 async function boot() {
   await pluginStore.loadConfig()
-  pluginStore.setupEventListeners()
 
-  // 打开即加载插件市场
+  // 打开即加载插件市场（放在事件监听之前：listen 在非 Tauri 环境可能挂起，勿阻塞市场数据）
   await pluginStore.fetchMarket()
 
-  // 自动定位并扫描已安装插件
+  pluginStore.setupEventListeners()
+
+  // 自动扫描：设置目录优先，其余候选目录全盘合并（后端统一处理）
   try {
-    if (!pluginStore.config?.plugin_directory) {
-      await pluginStore.autoScanPlugins()
-    } else {
-      await pluginStore.scanPlugins(pluginStore.config.plugin_directory)
-    }
+    await pluginStore.autoScanPlugins()
   } catch {
     /* 扫描失败不阻塞，市场仍可浏览 */
   }
@@ -189,19 +185,6 @@ async function handleAutoScan() {
     toast.error(e?.toString() || t('scan.autoFailed'))
   } finally {
     isAutoScanning.value = false
-  }
-}
-
-async function handleScan(directory: string) {
-  try {
-    await pluginStore.scanPlugins(directory)
-    toast.success(t('scan.done', { n: pluginStore.plugins.length }))
-
-    if (pluginStore.config?.auto_check_updates && pluginStore.plugins.length > 0) {
-      await pluginStore.checkAllUpdates()
-    }
-  } catch (e: unknown) {
-    toast.error(toMessage(e, t('scan.failed')))
   }
 }
 

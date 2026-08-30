@@ -25,6 +25,7 @@
             <div class="weui-search-bar__box">
               <i class="weui-icon-search" aria-hidden="true" />
               <input
+                ref="marketSearchInput"
                 v-model="marketSearch"
                 type="search"
                 class="weui-search-bar__input"
@@ -41,7 +42,7 @@
                 @click="marketSearch = ''"
               />
             </div>
-            <label v-if="!searchFocused && !marketSearch" class="weui-search-bar__label">
+            <label v-if="!searchFocused && !marketSearch" class="weui-search-bar__label" @click.prevent="focusMarketSearch">
               <i class="weui-icon-search" aria-hidden="true" />
               <span>{{ t('market.searchPlaceholder') }}</span>
             </label>
@@ -749,6 +750,11 @@ function switchTab(name: TabName) {
 /* ---------------- 市场 ---------------- */
 const marketCatFilter = ref<string | null>(null)
 const marketSearch = ref('')
+const marketSearchInput = ref<HTMLInputElement | null>(null)
+
+function focusMarketSearch() {
+  marketSearchInput.value?.focus()
+}
 const marketPage = ref(1)
 const marketPageSize = 48
 const marketSort = ref<'default' | 'stars' | 'downloads' | 'latest'>('default')
