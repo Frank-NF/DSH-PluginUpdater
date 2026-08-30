@@ -196,4 +196,37 @@ export const en: Record<string, string> = {
   'app.operationFailed': 'Operation failed',
   'app.checkDone': 'Update check done for "{name}"',
   'app.coreTag': 'Core',
+
+  // Common (added for WeUI version)
+  'common.clear': 'Clear',
+  'common.more': 'More',
+  'common.retry': 'Retry',
+  'common.loadMore': 'Load more',
+
+  // HeaderBar
+  'header.theme': 'Toggle theme',
+
+  // App boot states
+  'app.loadingTitle': 'Loading plugins',
+  'app.loadingDesc': 'Fetching plugin data from the official catalog…',
+  'empty.tips': 'Or enter a plugin directory above and tap Scan',
+
+  // Tab short labels (mobile tabbar)
+  'tab.marketShort': 'Market',
+  'tab.installedShort': 'Installed',
+  'tab.updatesShort': 'Updates',
+
+  // Market states
+  'market.loading': 'Loading plugin market…',
+  'market.emptyTitle': 'Market unavailable',
+  'market.emptyDesc': 'Check your network connection and try again',
+  'market.noResult': 'No matching plugins',
+  'market.noResultDesc': 'Try another keyword or clear the filters',
+  'market.resetFilter': 'Clear filters',
+  'market.sortTitle': 'Sort by',
+
+  // Installed / updates empty states
+  'installed.emptyTitle': 'No installed plugins found',
+  'installed.emptyDesc': 'Scan a plugin directory, or install plugins from Market',
+  'updates.allLatestDesc': 'All installed plugins are up to date',
 }

@@ -1,130 +1,163 @@
 <template>
-  <header class="header-shell">
-    <div class="header-bar glass">
-      <!-- 左：品牌标识 -->
-      <div class="header-left">
-        <div class="logo">
-          <div class="logo-mark">DSH</div>
-          <div class="logo-text">
-            <h1>{{ t('header.title') }}</h1>
-            <span class="subtitle">{{ t('header.subtitle') }}</span>
-          </div>
+  <header class="w-header">
+    <div class="w-header__inner">
+      <!-- 品牌 -->
+      <div class="w-header__brand">
+        <div class="w-logo" aria-hidden="true">
+          <WIcon name="package" :size="20" />
+        </div>
+        <div class="w-header__titles w-hide-mobile">
+          <h1>{{ t('header.title') }}</h1>
+          <p>{{ t('header.subtitle') }}</p>
         </div>
       </div>
 
-      <!-- 中：目录输入 + 扫描 -->
-      <div class="header-center">
-        <div class="directory-input">
-          <el-input
-            v-model="localDirectory"
-            :placeholder="t('header.dirPlaceholder')"
-            clearable
-            @keyup.enter="handleScan"
-          >
-            <template #prefix>
-              <el-icon><Folder /></el-icon>
-            </template>
-          </el-input>
-          <el-button type="primary" :loading="isScanning" @click="handleScan">
-            <el-icon><Search /></el-icon>
-            {{ t('header.scan') }}
-          </el-button>
+      <!-- 插件目录输入 + 扫描 -->
+      <div class="w-header__search">
+        <div class="weui-search-bar weui-search-bar_focusing">
+          <div class="weui-search-bar__form">
+            <div class="weui-search-bar__box">
+              <i class="weui-icon-search" aria-hidden="true" />
+              <input
+                v-model="localDirectory"
+                type="search"
+                class="weui-search-bar__input"
+                :placeholder="t('header.dirPlaceholder')"
+                :aria-label="t('header.dirPlaceholder')"
+                @keyup.enter="handleScan"
+              />
+              <a
+                v-if="localDirectory"
+                href="javascript:"
+                class="weui-icon-clear"
+                :aria-label="t('common.clear')"
+                @click="clearDir"
+              />
+            </div>
+          </div>
         </div>
+
+        <WButton
+          type="primary"
+          icon="search"
+          :loading="isScanning"
+          @click="handleScan"
+        >
+          {{ t('header.scan') }}
+        </WButton>
       </div>
 
-      <!-- 右：统计 + 操作 -->
-      <div class="header-right">
-        <div class="stats" v-if="pluginCount > 0">
-          <div class="stat-pill">
-            <span class="stat-value">{{ pluginCount }}</span>
-            <span class="stat-label">{{ t('header.plugins') }}</span>
+      <!-- 操作区 -->
+      <div class="w-header__actions">
+        <!-- 统计（桌面） -->
+        <div v-if="pluginCount > 0" class="w-header__stats w-hide-mobile">
+          <div class="w-header__stat">
+            <span class="w-header__stat-value">{{ pluginCount }}</span>
+            <span class="w-header__stat-label">{{ t('header.plugins') }}</span>
           </div>
-          <div class="stat-pill update" v-if="updatableCount > 0">
-            <span class="stat-value">{{ updatableCount }}</span>
-            <span class="stat-label">{{ t('header.updatable') }}</span>
+          <div v-if="updatableCount > 0" class="w-header__stat is-warn">
+            <span class="w-header__stat-value">{{ updatableCount }}</span>
+            <span class="w-header__stat-label">{{ t('header.updatable') }}</span>
           </div>
         </div>
 
-        <div class="action-group">
-          <el-button :loading="autoScanning" @click="handleAutoScan">
-            <el-icon><MagicStick /></el-icon> {{ t('header.autoScan') }} </el-button>
+        <!-- 主要操作 -->
+        <WButton
+          icon="wand"
+          :loading="autoScanning"
+          :title="t('header.autoScan')"
+          @click="$emit('auto-scan')"
+        >
+          <span class="w-hide-mobile">{{ t('header.autoScan') }}</span>
+        </WButton>
 
-          <el-button
-            type="primary"
-            :loading="isCheckingUpdates"
-            :disabled="pluginCount === 0"
-            @click="$emit('check-updates')"
-          >
-            <el-icon><Refresh /></el-icon>
-            {{ t('header.checkUpdates') }}
-          </el-button>
+        <WButton
+          type="primary"
+          icon="refresh"
+          :loading="isCheckingUpdates"
+          :disabled="pluginCount === 0"
+          :title="t('header.checkUpdates')"
+          @click="$emit('check-updates')"
+        >
+          <span class="w-hide-mobile">{{ t('header.checkUpdates') }}</span>
+        </WButton>
 
-          <el-button
-            class="icon-only lang-switch"
-            :title="locale === 'zh' ? 'Switch to English' : '切换到中文'"
-            @click="toggleLocale"
-          >
-            <span class="lang-label">{{ t('header.langSwitch') }}</span>
-          </el-button>
-
-          <el-button
-            class="icon-only"
+        <!-- 次要操作：桌面直接展示图标按钮 -->
+        <div class="w-header__icon-group w-hide-mobile">
+          <WButton
+            size="mini"
+            :icon="themeIcon"
+            :title="t('header.theme')"
+            :aria-label="t('header.theme')"
+            @click="$emit('toggle-theme')"
+          />
+          <WButton
+            size="mini"
+            icon="wrench"
             :title="t('repair.title')"
             :aria-label="t('repair.title')"
             @click="$emit('open-repair')"
-          >
-            <el-icon><FirstAidKit /></el-icon>
-          </el-button>
-
-          <el-button
-            class="icon-only"
+          />
+          <WButton
+            size="mini"
+            icon="settings"
             :title="t('header.settings')"
             :aria-label="t('header.settings')"
             @click="$emit('open-settings')"
-          >
-            <el-icon><Tools /></el-icon>
-          </el-button>
-
-          <el-button
-            class="icon-only"
+          />
+          <WButton
+            size="mini"
+            icon="globe"
             :title="t('header.website')"
             :aria-label="t('header.website')"
             @click="$emit('open-website')"
-          >
-            <el-icon><Link /></el-icon>
-          </el-button>
+          />
+          <WButton size="mini" :title="t('header.langSwitch')" @click="$emit('toggle-locale')">
+            {{ t('header.langSwitch') }}
+          </WButton>
         </div>
+
+        <!-- 移动端：更多 -->
+        <WButton
+          class="w-hide-desktop"
+          icon="more"
+          :title="t('common.more')"
+          :aria-label="t('common.more')"
+          @click="sheetOpen = true"
+        />
       </div>
     </div>
 
     <!-- 状态栏 -->
-    <div class="status-bar" v-if="lastScanTime">
-      <span class="scan-time">
-        <el-icon><Clock /></el-icon>
-        {{ t('header.lastScan') }} {{ lastScanTime }}
+    <div v-if="lastScanTime" class="w-header__status">
+      <span class="w-status-item">
+        <WIcon name="clock" :size="13" />
+        <span class="w-hide-mobile">{{ t('header.lastScan') }}</span>
+        {{ lastScanTime }}
       </span>
-      <span class="directory-path" :title="pluginDirectory">
-        <el-icon><FolderOpened /></el-icon>
-        {{ pluginDirectory }}
+      <span class="w-status-item w-truncate" :title="pluginDirectory">
+        <WIcon name="folder" :size="13" />
+        <span class="w-truncate">{{ pluginDirectory }}</span>
       </span>
     </div>
+
+    <!-- 移动端更多操作 -->
+    <WSheet
+      v-model="sheetOpen"
+      :title="t('common.more')"
+      :items="sheetItems"
+      @select="onSheetSelect"
+    />
   </header>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
-import {
-  Folder,
-  Search,
-  Refresh,
-  Tools,
-  Link,
-  Clock,
-  FolderOpened,
-  MagicStick,
-  FirstAidKit,
-} from '@element-plus/icons-vue'
-import { t, toggleLocale, locale } from '../i18n'
+import { computed, ref, watch } from 'vue'
+import WButton from './WButton.vue'
+import WIcon from './WIcon.vue'
+import WSheet from './WSheet.vue'
+import { t } from '../i18n'
+import type { ThemeMode } from '../composables/useTheme'
 
 const props = defineProps<{
   pluginDirectory: string
@@ -134,6 +167,7 @@ const props = defineProps<{
   pluginCount: number
   updatableCount: number
   lastScanTime: string
+  theme: ThemeMode
 }>()
 
 const emit = defineEmits<{
@@ -143,9 +177,12 @@ const emit = defineEmits<{
   'open-settings': []
   'open-website': []
   'open-repair': []
+  'toggle-locale': []
+  'toggle-theme': []
 }>()
 
 const localDirectory = ref(props.pluginDirectory)
+const sheetOpen = ref(false)
 
 watch(
   () => props.pluginDirectory,
@@ -154,228 +191,267 @@ watch(
   }
 )
 
+const themeIcon = computed(() => (props.theme === 'dark' ? 'sun' : 'moon'))
+
+const sheetItems = computed(() => [
+  { label: t('header.autoScan'), value: 'auto', desc: '' },
+  { label: t('header.theme'), value: 'theme' },
+  { label: t('repair.title'), value: 'repair' },
+  { label: t('header.settings'), value: 'settings' },
+  { label: t('header.website'), value: 'website' },
+  { label: t('header.langSwitch'), value: 'locale' },
+])
+
 function handleScan() {
-  if (!localDirectory.value.trim()) {
-    return
-  }
-  emit('scan', localDirectory.value.trim())
+  const dir = localDirectory.value.trim()
+  if (!dir) return
+  emit('scan', dir)
 }
 
-function handleAutoScan() {
-  emit('auto-scan')
+function clearDir() {
+  localDirectory.value = ''
+}
+
+function onSheetSelect(value: string) {
+  switch (value) {
+    case 'auto':
+      emit('auto-scan')
+      break
+    case 'theme':
+      emit('toggle-theme')
+      break
+    case 'repair':
+      emit('open-repair')
+      break
+    case 'settings':
+      emit('open-settings')
+      break
+    case 'website':
+      emit('open-website')
+      break
+    case 'locale':
+      emit('toggle-locale')
+      break
+  }
 }
 </script>
 
 <style scoped>
-.header-shell {
+.w-header {
   position: sticky;
   top: 0;
-  z-index: 100;
+  z-index: 900;
+  flex-shrink: 0;
+  background: var(--bg-card);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.w-header__inner {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  padding: 14px var(--sp-5);
+}
+
+/* ---------- 品牌 ---------- */
+.w-header__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
   flex-shrink: 0;
 }
 
-.header-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 14px 24px;
-  /* 玻璃拟态：由 .glass 提供背景/模糊/边框/阴影 */
-}
-
-/* ---------- 品牌区 ---------- */
-.header-left {
-  flex-shrink: 0;
-}
-
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.logo-mark {
+.w-logo {
   width: 40px;
   height: 40px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  border-radius: var(--r-md);
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-3) 100%);
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 4px 14px var(--brand-glow);
+}
+
+.w-header__titles h1 {
+  font-size: 16px;
   font-weight: 700;
-  font-size: 13px;
-  color: #fff;
-  letter-spacing: 0.3px;
-  box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
-}
-
-.logo-text h1 {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--text-primary);
-  margin: 0;
   line-height: 1.25;
+  color: var(--fg);
+  letter-spacing: 0.2px;
 }
 
-.subtitle {
+.w-header__titles p {
   font-size: 11px;
-  color: var(--text-muted);
+  color: var(--fg-2);
+  line-height: 1.3;
 }
 
 /* ---------- 目录输入 ---------- */
-.header-center {
-  flex: 1;
-  min-width: 0;
-  max-width: 520px;
-}
-
-.directory-input {
+.w-header__search {
   display: flex;
-  gap: 8px;
-}
-
-.directory-input .el-input {
-  flex: 1;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: 1 1 280px;
   min-width: 0;
 }
 
-.directory-input .el-input :deep(.el-input__wrapper) {
-  border-radius: var(--radius-md);
+.w-header__search .weui-search-bar {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  background: transparent;
+  border-radius: var(--r-md);
 }
 
-.directory-input .el-button {
-  flex-shrink: 0;
-  border-radius: var(--radius-md);
+.w-header__search .weui-search-bar::after,
+.w-header__search .weui-search-bar::before {
+  display: none;
+}
+
+.w-header__search .weui-search-bar__form {
+  border-radius: var(--r-md);
+  background: transparent;
+}
+
+.w-header__search .weui-search-bar__box {
+  height: 40px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+
+.w-header__search .weui-search-bar__input {
+  font-size: 13px;
+  color: var(--fg);
 }
 
 /* ---------- 操作区 ---------- */
-.header-right {
+.w-header__actions {
   display: flex;
   align-items: center;
-  gap: 14px;
-  flex-shrink: 0;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-left: auto;
 }
 
-/* 统计胶囊 */
-.stats {
+.w-header__stats {
   display: flex;
-  gap: 8px;
+  gap: var(--sp-2);
+  padding-right: var(--sp-2);
+  border-right: 1px solid var(--border);
 }
 
-.stat-pill {
+.w-header__stat {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-width: 52px;
+  align-items: baseline;
+  gap: 4px;
   padding: 4px 10px;
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid var(--glass-border);
+  border-radius: var(--r-sm);
+  background: var(--bg-group);
+  border: 1px solid var(--border);
 }
 
-.stat-value {
-  font-size: 16px;
-  font-weight: 700;
-  line-height: 1.2;
-  color: var(--primary-light);
-}
-
-.stat-label {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.stat-pill.update {
+.w-header__stat.is-warn {
   background: rgba(245, 158, 11, 0.12);
-  border-color: rgba(245, 158, 11, 0.3);
+  border-color: rgba(245, 158, 11, 0.25);
 }
 
-.stat-pill.update .stat-value {
-  color: var(--warning);
+.w-header__stat-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fg);
 }
 
-/* 按钮组 */
-.action-group {
+.w-header__stat.is-warn .w-header__stat-value {
+  color: var(--c-warn);
+}
+
+.w-header__stat-label {
+  font-size: 11px;
+  color: var(--fg-2);
+}
+
+.w-header__icon-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--sp-1);
+  padding: 3px;
+  border-radius: var(--r-md);
+  background: var(--bg-group);
+  border: 1px solid var(--border);
 }
 
-.action-group .el-button {
-  border-radius: var(--radius-md);
-  font-weight: 500;
+/* 组内按钮（图标/EN 文字）统一 ghost 风格，消除双重视觉噪音 */
+.w-header__icon-group .weui-btn {
+  min-width: 32px;
+  height: 32px;
+  padding: 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  background: transparent;
+  border: none;
+  color: var(--fg-2);
+  border-radius: var(--r-sm);
+  box-shadow: none;
 }
 
-/* 非主按钮：玻璃描边风格 */
-.action-group .el-button:not(.el-button--primary) {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--glass-border);
-  color: var(--text-secondary);
-}
-
-.action-group .el-button:not(.el-button--primary):hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.22);
-  color: var(--text-primary);
-}
-
-/* 纯图标按钮 */
-.icon-only {
-  padding: 8px 10px;
+.w-header__icon-group .weui-btn:not(:disabled):hover {
+  background: var(--bg-hover);
+  color: var(--brand-2);
+  box-shadow: none;
 }
 
 /* ---------- 状态栏 ---------- */
-.status-bar {
+.w-header__status {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 7px 24px;
-  background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  font-size: 12px;
-  color: var(--text-muted);
+  gap: var(--sp-4);
+  padding: 7px var(--sp-5);
+  background: rgba(0, 0, 0, 0.12);
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--fg-2);
 }
 
-.scan-time,
-.directory-path {
-  display: flex;
+[data-theme='light'] .w-header__status {
+  background: rgba(255, 255, 255, 0.35);
+}
+
+.w-status-item {
+  display: inline-flex;
   align-items: center;
   gap: 5px;
   min-width: 0;
 }
 
-.directory-path {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.w-status-item:last-child {
   max-width: 52%;
 }
 
-/* ---------- 窄屏适配（渐进增强：小屏隐藏次要元素） ---------- */
-@media (max-width: 1280px) {
-  .action-group .el-button :deep(span) {
-    /* 保持文字，但收紧内边距 */
+@media (max-width: 767px) {
+  .w-header__inner {
+    padding: 10px var(--sp-4);
+    gap: var(--sp-3);
   }
-  .action-group {
-    gap: 6px;
-  }
-}
 
-@media (max-width: 1080px) {
-  .logo-text,
-  .stats {
-    display: none;
+  .w-header__search {
+    order: 3;
+    flex-basis: 100%;
   }
-  .header-center {
-    max-width: none;
+
+  .w-header__actions {
+    margin-left: auto;
   }
-}
-.lang-label {
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
+
+  .w-header__status {
+    padding: 6px var(--sp-4);
+  }
 }
 </style>

@@ -1,651 +1,588 @@
 <template>
-  <div class="plugin-view-container">
-    <el-tabs v-model="activeTab" class="market-tabs">
-      <!-- ============ 全部市场 ============ -->
-      <el-tab-pane :label="t('tab.market') + ' (' + marketPlugins.length + ')'" name="market">
-        <div class="market-search-row">
-          <el-input
-            v-model="marketSearch"
-            :placeholder="t('market.searchPlaceholder')"
-            clearable
-            size="default"
-            class="market-search"
-          >
-            <template #prefix>
-              <el-icon><Search /></el-icon>
-            </template>
-          </el-input>
-          <span v-if="marketSearch" class="search-count">{{ t('market.searchCount', { n: marketTotal }) }}</span>
-          <!-- 排序下拉 -->
-          <el-dropdown trigger="click" @command="onSortChange">
-            <el-button size="default" :class="{ 'sort-active': marketSort !== 'default' }">
-              <el-icon><Sort /></el-icon>
-              <span class="sort-label">{{ sortLabel }}</span>
-              <el-icon class="el-icon--right"><ArrowDown /></el-icon>
-            </el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item :command="'default'" :disabled="marketSort === 'default'">{{ t('market.sortDefault') }}</el-dropdown-item>
-                <el-dropdown-item :command="'stars'" :disabled="marketSort === 'stars'">{{ t('market.sortStars') }}</el-dropdown-item>
-                <el-dropdown-item :command="'downloads'" :disabled="marketSort === 'downloads'">{{ t('market.sortDownloads') }}</el-dropdown-item>
-                <el-dropdown-item :command="'latest'" :disabled="marketSort === 'latest'">{{ t('market.sortLatest') }}</el-dropdown-item>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </div>
-        <div class="category-filter">
-          <span
-            class="cat-chip"
-            :class="{ active: marketCatFilter === null }"
-            @click="marketCatFilter = null"
-          >{{ t('table.allCategories') }}</span>
-          <span
-            v-for="[cat, count] in marketCategories"
-            :key="cat"
-            class="cat-chip"
-            :class="{ active: marketCatFilter === cat }"
-            :style="{ '--cat-color': categoryColor(cat) }"
-            @click="marketCatFilter = marketCatFilter === cat ? null : cat"
-          >
-            {{ categoryName(cat) }} {{ count }}
-          </span>
-        </div>
-        <div v-if="marketPlugins.length === 0" class="updates-empty">
-          <el-icon :size="36"><Loading class="is-loading" /></el-icon>
-          <p>{{ t('repair.checking') }}</p>
-        </div>
-        <div v-else class="plugin-grid">
-          <div
-            v-for="mp in pagedMarket"
-            :key="mp.name"
-            class="plugin-card market-card"
-            :class="{ 'card-installed': isInstalled(mp) }"
-          >
-            <div class="card-header">
-              <div class="card-icon">
-                <el-icon :size="22" color="var(--accent)"><Grid /></el-icon>
-              </div>
-              <div class="card-title">
-                <div class="card-name">
-                  <span>{{ marketTitle(mp) }}</span>
-                </div>
-                <div class="card-id">
-                  <span
-                    v-if="mp.category"
-                    class="cat-badge"
-                    :style="{ background: categoryColor(mp.category) + '22', color: categoryColor(mp.category), borderColor: categoryColor(mp.category) + '55' }"
-                  >{{ categoryName(mp.category) }}</span>
-                  {{ mp.name }}
-                </div>
-              </div>
-              <div class="card-status">
-                <el-tag v-if="isInstalled(mp)" size="small" type="success" effect="plain">{{ t('tab.installedTag') }}</el-tag>
-                <el-button
-                  v-else-if="mp.npm"
-                  size="small"
-                  type="primary"
-                  :loading="pluginStore.installingNpm === mp.npm"
-                  @click.stop="openInstall(mp)"
-                >{{ t('market.install') }}</el-button>
-                <!-- 官方/镜像链接下拉（无任何地址的插件自动隐藏） -->
-                <el-dropdown v-if="hasMarketLink(mp)" trigger="click" @command="(cmd: string) => openMarketLink(cmd, mp)">
-                  <el-button size="small" class="link-btn" :title="t('market.links')">
-                    <el-icon><Link /></el-icon>
-                    <el-icon class="el-icon--right"><ArrowDown /></el-icon>
-                  </el-button>
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item v-if="mp.url" command="github">{{ t('market.linkGithub') }}</el-dropdown-item>
-                      <el-dropdown-item v-if="mp.npm" command="npm">{{ t('market.linkNpm') }}</el-dropdown-item>
-                      <el-dropdown-item v-if="mp.npm" command="mirror">{{ t('market.linkMirror') }}</el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-              </div>
+  <div ref="rootEl" class="plugin-view">
+    <!-- ============ 顶部 Tab（桌面） ============ -->
+    <div class="weui-navbar w-navbar w-hide-mobile">
+      <a
+        v-for="tab in tabs"
+        :key="tab.name"
+        href="javascript:"
+        class="weui-navbar__item"
+        :class="{ 'weui-bar__item_on': activeTab === tab.name }"
+        :aria-current="activeTab === tab.name ? 'page' : undefined"
+        @click="switchTab(tab.name)"
+      >
+        {{ tab.label }}
+      </a>
+    </div>
+
+    <!-- ============ 全部市场 ============ -->
+    <section ref="marketPanel" v-show="activeTab === 'market'" class="w-panel">
+      <div class="w-toolbar">
+        <!-- 搜索（WeUI Searchbar） -->
+        <div
+          class="weui-search-bar w-search"
+          :class="{ 'weui-search-bar_focusing': searchFocused || !!marketSearch }"
+        >
+          <div class="weui-search-bar__form">
+            <div class="weui-search-bar__box">
+              <i class="weui-icon-search" aria-hidden="true" />
+              <input
+                v-model="marketSearch"
+                type="search"
+                class="weui-search-bar__input"
+                :placeholder="t('market.searchPlaceholder')"
+                :aria-label="t('market.searchPlaceholder')"
+                @focus="searchFocused = true"
+                @blur="searchFocused = false"
+              />
+              <a
+                v-if="marketSearch"
+                href="javascript:"
+                class="weui-icon-clear"
+                :aria-label="t('common.clear')"
+                @click="marketSearch = ''"
+              />
             </div>
-            <div class="card-desc" :title="marketDesc(mp)">{{ marketDesc(mp) }}</div>
-            <div class="card-metrics">
-              <span class="metric">
-                <el-icon><Star /></el-icon>
-                {{ formatCount(mp.stars) }}
-              </span>
-              <span class="metric">
-                <el-icon><Download /></el-icon>
-                {{ formatCount(mp.downloads) }}
-              </span>
-            </div>
+            <label v-if="!searchFocused && !marketSearch" class="weui-search-bar__label">
+              <i class="weui-icon-search" aria-hidden="true" />
+              <span>{{ t('market.searchPlaceholder') }}</span>
+            </label>
           </div>
         </div>
-        <div class="market-pager" v-if="marketTotal > marketPageSize">
-          <el-pagination
-            layout="prev, pager, next"
-            :total="marketTotal"
-            :page-size="marketPageSize"
-            v-model:current-page="marketPage"
-            background
-            small
+
+        <WButton size="inline" icon="sort" @click="sortSheet = true">
+          {{ sortLabel }}
+        </WButton>
+      </div>
+
+      <!-- 分类筛选 -->
+      <div v-if="marketCategories.length" class="w-chips">
+        <button
+          class="w-chip"
+          :class="{ active: marketCatFilter === null }"
+          @click="marketCatFilter = null"
+        >
+          {{ t('table.allCategories') }}
+        </button>
+        <button
+          v-for="[cat, count] in marketCategories"
+          :key="cat"
+          class="w-chip"
+          :class="{ active: marketCatFilter === cat }"
+          :style="{ '--chip-color': categoryColor(cat) }"
+          @click="marketCatFilter = marketCatFilter === cat ? null : cat"
+        >
+          {{ categoryName(cat) }} {{ count }}
+        </button>
+      </div>
+
+      <p v-if="marketSearch" class="w-count">
+        {{ t('market.searchCount', { n: marketTotal }) }}
+      </p>
+
+      <!-- 加载中 -->
+      <WLoading v-if="marketLoading" block :text="t('market.loading')" />
+
+      <!-- 空：市场整体无数据 -->
+      <WEmpty
+        v-else-if="!marketPlugins.length"
+        type="empty"
+        icon="wifiOff"
+        :title="t('market.emptyTitle')"
+        :desc="t('market.emptyDesc')"
+      >
+        <template #action>
+          <WButton icon="refresh" @click="emit('refresh-market')">
+            {{ t('common.retry') }}
+          </WButton>
+        </template>
+      </WEmpty>
+
+      <!-- 空：筛选无结果 -->
+      <WEmpty
+        v-else-if="!pagedMarket.length"
+        type="empty"
+        icon="searchOff"
+        :title="t('market.noResult')"
+        :desc="t('market.noResultDesc')"
+      >
+        <template #action>
+          <WButton @click="resetMarketFilter">{{ t('market.resetFilter') }}</WButton>
+        </template>
+      </WEmpty>
+
+      <!-- 市场卡片 -->
+      <div v-else class="w-grid w-grid-market">
+        <article
+          v-for="mp in pagedMarket"
+          :key="mp.name"
+          class="w-card w-plugin-card"
+          :class="{ 'is-installed': isInstalled(mp) }"
+        >
+          <div class="weui-media-box weui-media-box_appmsg">
+            <div class="weui-media-box__hd">
+              <span class="w-plugin-icon"><WIcon name="plugin" :size="20" /></span>
+            </div>
+            <div class="weui-media-box__bd">
+              <h4 class="weui-media-box__title">
+                <span class="w-truncate">{{ marketTitle(mp) }}</span>
+                <span v-if="isInstalled(mp)" class="w-tag w-tag_success">
+                  {{ t('tab.installedTag') }}
+                </span>
+              </h4>
+              <p class="weui-media-box__desc w-clamp-2" :title="marketDesc(mp)">
+                <span
+                  v-if="mp.category"
+                  class="w-badge"
+                  :style="badgeStyle(mp.category)"
+                >{{ categoryName(mp.category) }}</span>
+                {{ marketDesc(mp) }}
+              </p>
+            </div>
+          </div>
+
+          <div class="w-card-metrics">
+            <span><WIcon name="star" :size="12" /> {{ formatCount(mp.stars) }}</span>
+            <span><WIcon name="download" :size="12" /> {{ formatCount(mp.downloads) }}</span>
+          </div>
+
+          <div class="weui-panel__ft w-card-ft">
+            <WButton
+              v-if="!isInstalled(mp) && mp.npm"
+              type="primary"
+              size="mini"
+              icon="download"
+              :loading="pluginStore.installingNpm === mp.npm"
+              @click="openInstall(mp)"
+            >
+              {{ t('market.install') }}
+            </WButton>
+            <WButton
+              size="mini"
+              icon="link"
+              :title="t('market.links')"
+              @click="openMarketSheet(mp)"
+            />
+          </div>
+        </article>
+      </div>
+
+      <!-- 加载更多 -->
+      <div v-if="marketTotal > pagedMarket.length" class="w-more">
+        <WButton size="inline" icon="chevronDown" @click="marketPage++">
+          {{ t('common.loadMore') }}
+        </WButton>
+      </div>
+    </section>
+
+    <!-- ============ 已安装 ============ -->
+    <section ref="installedPanel" v-show="activeTab === 'installed'" class="w-panel">
+      <div class="w-toolbar">
+        <div class="w-flex w-items-center w-gap-2 w-flex-1">
+          <span class="w-text-2">{{ t('table.total', { n: plugins.length }) }}</span>
+          <span v-if="updatableCount > 0" class="w-tag w-tag_warn">
+            {{ t('table.updatable', { n: updatableCount }) }}
+          </span>
+        </div>
+
+        <div class="w-flex w-items-center w-gap-2">
+          <WButton
+            size="inline"
+            :icon="viewMode === 'grid' ? 'grid' : 'list'"
+            :title="viewMode === 'grid' ? t('table.list') : t('table.grid')"
+            @click="toggleView"
           />
         </div>
-      </el-tab-pane>
-
-      <!-- ============ 已安装 ============ -->
-      <el-tab-pane :label="t('tab.installed') + ' (' + plugins.length + ')'" name="installed">
-    <!-- 工具行 -->
-    <div class="grid-toolbar">
-      <div class="toolbar-left">
-        <span class="plugin-count">{{ t('table.total', { n: plugins.length }) }}</span>
-        <span v-if="updatableCount > 0" class="updatable-count">
-          {{ t('table.updatable', { n: updatableCount }) }}
-        </span>
       </div>
-      <div class="category-filter">
-        <span
-          class="cat-chip"
+
+      <!-- 分类筛选 -->
+      <div v-if="categories.length" class="w-chips">
+        <button
+          class="w-chip"
           :class="{ active: categoryFilter === null }"
           @click="categoryFilter = null"
-        >{{ t('table.allCategories') }}</span>
-        <span
+        >
+          {{ t('table.allCategories') }}
+        </button>
+        <button
           v-for="[cat, count] in categories"
           :key="cat"
-          class="cat-chip"
+          class="w-chip"
           :class="{ active: categoryFilter === cat }"
-          :style="{ '--cat-color': categoryColor(cat) }"
+          :style="{ '--chip-color': categoryColor(cat) }"
           @click="categoryFilter = categoryFilter === cat ? null : cat"
         >
           {{ categoryName(cat) }} {{ count }}
-        </span>
+        </button>
       </div>
-      <div class="toolbar-right">
-        <!-- 布局切换 -->
-        <el-radio-group v-model="viewMode" size="small">
-          <el-radio-button value="grid">
-            <el-icon><Grid /></el-icon>
-            <span class="view-label"> {{ t('table.grid') }} </span>
-          </el-radio-button>
-          <el-radio-button value="table">
-            <el-icon><Expand /></el-icon>
-            <span class="view-label"> {{ t('table.list') }} </span>
-          </el-radio-button>
-        </el-radio-group>
-        <el-button
-          size="small"
-          :icon="MagicStick"
-            :disabled="plugins.length === 0"
-          >
-  
-        </el-button>
-      </div>
-    </div>
 
-    <!-- ============ 网格视图 ============ -->
-    <div v-if="viewMode === 'grid'" class="plugin-grid">
-      <div
-        v-for="row in filteredPlugins"
-        :key="row.manifest.id"
-        class="plugin-card"
-        :class="{
-          'card-update': row.update_available,
-          'card-disabled': !row.manifest.enabled,
-          'card-core': row.manifest.type === 'agent-core',
-        }"
+      <!-- 空：未安装任何插件 -->
+      <WEmpty
+        v-if="!plugins.length"
+        type="empty"
+        icon="inbox"
+        :title="t('installed.emptyTitle')"
+        :desc="t('installed.emptyDesc')"
+      />
+
+      <!-- 空：筛选无结果 -->
+      <WEmpty
+        v-else-if="!filteredPlugins.length"
+        type="empty"
+        icon="searchOff"
+        :title="t('market.noResult')"
+        :desc="t('market.noResultDesc')"
       >
-        <div class="card-header">
-          <div class="card-icon">
-            <el-icon :size="22" :color="row.manifest.type === 'agent-core' ? 'var(--primary)' : 'var(--accent)'">
-              <Cpu v-if="row.manifest.type === 'agent-core'" />
-              <Grid v-else />
-            </el-icon>
-          </div>
-          <div class="card-title">
-            <div class="card-name">
-              <span :class="{ 'core-name': row.manifest.type === 'agent-core' }">
-                {{ row.manifest.name }}
-              </span>
-              <el-tag
-                v-if="row.manifest.type === 'agent-core'"
-                size="small"
-                type="primary"
-                effect="plain"
-              >{{ t('table.notSet') }}</el-tag>
-            </div>
-            <div class="card-id">
+        <template #action>
+          <WButton @click="categoryFilter = null">{{ t('market.resetFilter') }}</WButton>
+        </template>
+      </WEmpty>
+
+      <!-- 网格视图 -->
+      <div v-else-if="viewMode === 'grid'" class="w-grid w-grid-plugin">
+        <article
+          v-for="row in filteredPlugins"
+          :key="row.manifest.id"
+          class="w-card w-plugin-card"
+          :class="{
+            'is-update': row.update_available,
+            'is-disabled': !row.manifest.enabled,
+            'is-core': row.manifest.type === 'agent-core',
+          }"
+        >
+          <div class="weui-media-box weui-media-box_appmsg">
+            <div class="weui-media-box__hd">
               <span
-                v-if="row.category"
-                class="cat-badge"
-                :style="{ background: categoryColor(row.category) + '22', color: categoryColor(row.category), borderColor: categoryColor(row.category) + '55' }"
-              >{{ categoryName(row.category) }}</span>
-              {{ row.manifest.id }}
+                class="w-plugin-icon"
+                :class="{ 'is-core': row.manifest.type === 'agent-core', 'is-update': row.update_available }"
+              >
+                <WIcon :name="row.manifest.type === 'agent-core' ? 'core' : 'plugin'" :size="20" />
+              </span>
+            </div>
+            <div class="weui-media-box__bd">
+              <h4 class="weui-media-box__title">
+                <span class="w-truncate">{{ row.manifest.name }}</span>
+                <span v-if="row.manifest.type === 'agent-core'" class="w-tag w-tag_brand">
+                  {{ t('app.coreTag') }}
+                </span>
+              </h4>
+              <p class="weui-media-box__desc w-clamp-2" :title="row.manifest.description">
+                {{ localeDescription(row) }}
+              </p>
+            </div>
+            <div class="w-card-status">
+              <StatusTag :row="row" />
             </div>
           </div>
-          <div class="card-status">
-            <StatusTag :row="row" />
+
+          <!-- 版本 -->
+          <div class="w-version" :class="{ 'is-update': row.update_available }">
+            <span class="w-version__label">{{ t('table.current') }}</span>
+            <span class="w-version__num mono">v{{ row.manifest.current_version }}</span>
+            <template v-if="row.update_available && row.latest_version">
+              <WIcon name="arrowRight" :size="13" class="w-text-warn" />
+              <span class="w-version__label">{{ t('table.latest') }}</span>
+              <span class="w-version__num mono is-latest">v{{ row.latest_version }}</span>
+            </template>
+            <template v-else-if="row.latest_version">
+              <WIcon name="check" :size="13" class="w-text-success" />
+              <span class="w-version__label">{{ t('table.latest') }}</span>
+              <span class="w-version__num mono">v{{ row.latest_version }}</span>
+            </template>
+            <span v-else-if="row.check_error" class="w-version__err" :title="row.check_error">
+              <WIcon name="alert" :size="13" />{{ t('table.checkFailed') }}
+            </span>
+          </div>
+
+          <!-- 操作 -->
+          <div class="weui-panel__ft w-card-ft">
+            <template v-if="isUpdating(row.manifest.id)">
+              <UpdateProgress
+                :percent="getProgressPercent(row.manifest.id)"
+                :message="getProgressMessage(row.manifest.id)"
+              />
+            </template>
+            <template v-else>
+              <WButton
+                v-if="row.update_available"
+                type="primary"
+                size="mini"
+                icon="upload"
+                @click="emit('update', row)"
+              >
+                {{ t('table.update') }}
+              </WButton>
+              <WButton
+                size="mini"
+                :icon="row.manifest.enabled ? 'power' : 'check'"
+                @click="emit('toggle-enabled', row)"
+              >
+                {{ row.manifest.enabled ? t('table.disable') : t('table.enable') }}
+              </WButton>
+              <WButton
+                size="mini"
+                icon="folder"
+                :title="t('table.folder')"
+                @click="emit('open-folder', row)"
+              />
+              <WButton
+                size="mini"
+                icon="more"
+                :title="t('common.more')"
+                @click="openMore(row)"
+              />
+            </template>
+          </div>
+        </article>
+      </div>
+
+      <!-- 列表视图（WeUI Cells） -->
+      <div v-else class="weui-cells w-cells">
+        <div
+          v-for="row in filteredPlugins"
+          :key="row.manifest.id"
+          class="weui-cell w-cell"
+          :class="{ 'is-disabled': !row.manifest.enabled }"
+        >
+          <div class="weui-cell__hd">
+            <span
+              class="w-plugin-icon sm"
+              :class="{ 'is-core': row.manifest.type === 'agent-core', 'is-update': row.update_available }"
+            >
+              <WIcon :name="row.manifest.type === 'agent-core' ? 'core' : 'plugin'" :size="16" />
+            </span>
+          </div>
+
+          <div class="weui-cell__bd">
+            <p class="w-cell-title">
+              {{ row.manifest.name }}
+              <span v-if="row.manifest.type === 'agent-core'" class="w-tag w-tag_brand">
+                {{ t('app.coreTag') }}
+              </span>
+              <StatusTag :row="row" />
+            </p>
+            <p class="w-cell-desc w-clamp-2">{{ localeDescription(row) }}</p>
+            <p class="w-cell-meta">
+              <span class="mono">v{{ row.manifest.current_version }}</span>
+              <template v-if="row.update_available && row.latest_version">
+                <WIcon name="arrowRight" :size="11" />
+                <span class="mono w-text-warn">v{{ row.latest_version }}</span>
+              </template>
+              <span v-if="row.stars != null" class="w-cell-metric">
+                <WIcon name="star" :size="11" />{{ formatCount(row.stars) }}
+              </span>
+            </p>
+          </div>
+
+          <div class="weui-cell__ft w-cell-ft">
+            <template v-if="isUpdating(row.manifest.id)">
+              <UpdateProgress
+                :percent="getProgressPercent(row.manifest.id)"
+                :message="getProgressMessage(row.manifest.id)"
+              />
+            </template>
+            <template v-else>
+              <WButton
+                v-if="row.update_available"
+                type="primary"
+                size="mini"
+                icon="upload"
+                @click="emit('update', row)"
+              >
+                {{ t('table.update') }}
+              </WButton>
+              <WButton
+                size="mini"
+                :icon="row.manifest.enabled ? 'power' : 'check'"
+                @click="emit('toggle-enabled', row)"
+              />
+              <WButton
+                size="mini"
+                icon="folder"
+                :title="t('table.folder')"
+                @click="emit('open-folder', row)"
+              />
+              <WButton
+                size="mini"
+                icon="more"
+                :title="t('common.more')"
+                @click="openMore(row)"
+              />
+            </template>
           </div>
         </div>
+      </div>
+    </section>
 
-        <div class="card-desc" :title="row.manifest.description">
-          {{ localeDescription(row) }}
-        </div>
+    <!-- ============ 可更新 ============ -->
+    <section ref="updatesPanel" v-show="activeTab === 'updates'" class="w-panel">
+      <!-- 检查中 -->
+      <WLoading v-if="isCheckingUpdates" block :text="t('check.inProgress')" />
 
-        <div class="card-versions">
-          <div class="version-item">
-            <span class="version-label"> {{ t('table.current') }} </span>
-            <span class="version-num">v{{ row.manifest.current_version }}</span>
-          </div>
-          <template v-if="row.update_available && row.latest_version">
-            <el-icon class="version-arrow" color="var(--warning)"><Right /></el-icon>
-            <div class="version-item latest">
-              <span class="version-label"> {{ t('table.latest') }} </span>
-              <span class="version-num highlight">v{{ row.latest_version }}</span>
+      <!-- 全部最新 -->
+      <WEmpty
+        v-else-if="!updatableList.length"
+        type="success"
+        :title="t('check.allLatest')"
+        :desc="t('updates.allLatestDesc')"
+      />
+
+      <!-- 可更新列表 -->
+      <div v-else class="w-grid w-grid-plugin">
+        <article v-for="row in updatableList" :key="row.manifest.id" class="w-card w-plugin-card is-update">
+          <div class="weui-media-box weui-media-box_appmsg">
+            <div class="weui-media-box__hd">
+              <span class="w-plugin-icon is-update">
+                <WIcon name="upload" :size="20" />
+              </span>
             </div>
-          </template>
-          <template v-else-if="row.latest_version">
-            <el-icon class="version-arrow" color="var(--accent)"><Check /></el-icon>
-            <div class="version-item latest">
-              <span class="version-label">{{ t('table.latest') }}</span>
-              <span class="version-num">v{{ row.latest_version }}</span>
+            <div class="weui-media-box__bd">
+              <h4 class="weui-media-box__title">
+                <span class="w-truncate">{{ row.manifest.name }}</span>
+              </h4>
+              <p class="weui-media-box__desc w-clamp-2">{{ localeDescription(row) }}</p>
             </div>
-          </template>
-          <div v-else-if="row.check_error" class="version-error" :title="row.check_error">
-            <el-icon color="var(--danger)"><Warning /></el-icon>
-            {{ t('table.checkFailed') }}
+            <div class="w-card-status"><StatusTag :row="row" /></div>
           </div>
-        </div>
 
-        <div class="card-metrics" v-if="row.stars != null || row.downloads != null">
-          <span class="metric" v-if="row.stars != null">
-            <el-icon><Star /></el-icon>
-            {{ formatCount(row.stars) }}
-          </span>
-          <span class="metric" v-if="row.downloads != null">
-            <el-icon><Download /></el-icon>
-            {{ formatCount(row.downloads) }}
-          </span>
-        </div>
-
-        <div class="card-links">
-          <el-link
-            v-if="row.manifest.github_repo"
-            type="primary"
-            :underline="false"
-            @click.prevent="openExternal('https://github.com/' + row.manifest.github_repo)"
-          >
-            <el-icon><Link /></el-icon>
-            <span class="repo-name">{{ row.manifest.github_repo }}</span>
-          </el-link>
-          <el-link
-            v-if="row.release_url"
-            type="success"
-            :underline="false"
-            @click.prevent="openExternal(row.release_url)"
-          >
-            <el-icon><Document /></el-icon>
-            Release
-          </el-link>
-          <el-link
-            type="warning"
-            :underline="false"
-            @click.prevent="openExternal(npmMirrorUrl(row.manifest.id))"
-          >
-            <el-icon><Link /></el-icon>
-            <span class="repo-name">{{ t('market.mirrorTag') }}</span>
-          </el-link>
-          <span v-if="!row.manifest.github_repo" class="text-muted">{{ t('table.noRepo') }}</span>
-        </div>
-
-        <div class="card-footer">
-          <div v-if="isUpdating(row.manifest.id)" class="update-progress">
-            <el-progress
-              :percentage="getProgressPercent(row.manifest.id)"
-              :stroke-width="8"
-              :status="getProgressStatus(row.manifest.id)"
-            />
-            <span class="progress-text">{{ getProgressMessage(row.manifest.id) }}</span>
+          <div class="w-version is-update">
+            <span class="w-version__label">{{ t('table.current') }}</span>
+            <span class="w-version__num mono">v{{ row.manifest.current_version }}</span>
+            <WIcon name="arrowRight" :size="13" class="w-text-warn" />
+            <span class="w-version__label">{{ t('table.latest') }}</span>
+            <span class="w-version__num mono is-latest">v{{ row.latest_version }}</span>
           </div>
-          <div v-else class="card-actions">
-            <el-button
-              v-if="row.update_available"
+
+          <div class="weui-panel__ft w-card-ft">
+            <WButton
               type="primary"
-              size="small"
-              :icon="Upload"
-              @click="$emit('update', row)"
+              size="mini"
+              icon="upload"
+              :loading="isUpdating(row.manifest.id)"
+              @click="emit('update', row)"
             >
               {{ t('table.update') }}
-            </el-button>
-            <el-button
-              size="small"
-              :type="row.manifest.enabled ? 'warning' : 'success'"
-              :icon="SwitchButton"
-              @click="$emit('toggle-enabled', row)"
+            </WButton>
+            <WButton
+              v-if="row.release_notes"
+              size="mini"
+              icon="fileText"
+              @click="emit('view-release-notes', row)"
             >
-              {{ row.manifest.enabled ? t('table.disable') : t('table.enable') }}
-            </el-button>
-            <el-button size="small" :icon="FolderOpened" @click="$emit('open-folder', row)">
-              {{ t('table.folder') }}
-            </el-button>
-            <el-dropdown trigger="click" @command="(cmd: string) => handleMoreCommand(cmd, row)">
-              <el-button size="small">
-                <el-icon><MoreFilled /></el-icon>
-              </el-button>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item command="check" :icon="Refresh">
-                    {{ t('table.recheck') }}
-                  </el-dropdown-item>
-                  <el-dropdown-item v-if="row.release_notes" command="notes" :icon="Document">
-                    {{ t('table.releaseNotes') }}
-                  </el-dropdown-item>
-                  <el-dropdown-item
-                    v-if="row.manifest.type !== 'agent-core'"
-                    command="uninstall"
-                    :icon="Delete"
-                    divided
-                  >
-                    <span style="color: var(--danger)">卸载</span>
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
+              {{ t('table.releaseNotes') }}
+            </WButton>
           </div>
-        </div>
+        </article>
       </div>
+    </section>
+
+    <!-- ============ 底部 Tab（移动） ============ -->
+    <div class="weui-tabbar w-tabbar w-hide-desktop">
+      <a
+        v-for="tab in tabs"
+        :key="tab.name"
+        href="javascript:"
+        class="weui-tabbar__item"
+        :class="{ 'weui-bar__item_on': activeTab === tab.name }"
+        :aria-current="activeTab === tab.name ? 'page' : undefined"
+        @click="switchTab(tab.name)"
+      >
+        <span class="weui-tabbar__icon"><WIcon :name="tab.icon" :size="22" /></span>
+        <p class="weui-tabbar__label">{{ tab.short }}</p>
+      </a>
     </div>
 
-    <!-- ============ 列表视图 ============ -->
-    <div v-else class="plugin-table-wrap">
-      <table class="ptable">
-        <thead>
-          <tr>
-            <th class="col-status">{{ t('table.status') }}</th>
-            <th class="col-name">{{ t('table.name') }}</th>
-            <th class="col-desc">{{ t('table.description') }}</th>
-            <th class="col-version">{{ t('table.version') }}</th>
-            <th class="col-github">GitHub</th>
-            <th class="col-actions">{{ t('table.actions') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="row in plugins"
-            :key="row.manifest.id"
-            :class="{
-              'tr-update': row.update_available,
-              'tr-disabled': !row.manifest.enabled,
-              'tr-core': row.manifest.type === 'agent-core',
-            }"
-          >
-            <td class="col-status"><StatusTag :row="row" /></td>
-            <td class="col-name">
-              <div class="cell-name">
-                <el-icon
-                  :size="16"
-                  :color="row.manifest.type === 'agent-core' ? 'var(--primary)' : 'var(--accent)'"
-                >
-                  <Cpu v-if="row.manifest.type === 'agent-core'" />
-                  <Grid v-else />
-                </el-icon>
-                <div>
-                  <div class="cell-title">
-                    {{ row.manifest.name }}
-                    <el-tag
-                      v-if="row.manifest.type === 'agent-core'"
-                      size="small"
-                      type="primary"
-                      effect="plain"
-                    >
-                      {{ t('app.coreTag') }}
-                    </el-tag>
-                  </div>
-                  <div class="cell-id">
-                    <span
-                      v-if="row.category"
-                      class="cat-badge"
-                      :style="{ background: categoryColor(row.category) + '22', color: categoryColor(row.category), borderColor: categoryColor(row.category) + '55' }"
-                    >{{ categoryName(row.category) }}</span>
-                    {{ row.manifest.id }}
-                  </div>
-                </div>
-              </div>
-            </td>
-            <td class="col-desc">
-              <span class="cell-desc" :title="row.manifest.description">
-                {{ localeDescription(row) }}
-              </span>
-              <span class="cell-metrics" v-if="row.stars != null || row.downloads != null">
-                <span class="metric" v-if="row.stars != null">
-                  <el-icon><Star /></el-icon>
-                  {{ formatCount(row.stars) }}
-                </span>
-                <span class="metric" v-if="row.downloads != null">
-                  <el-icon><Download /></el-icon>
-                  {{ formatCount(row.downloads) }}
-                </span>
-              </span>
-            </td>
-            <td class="col-version">
-              <div class="cell-version">
-                <span class="version-num">v{{ row.manifest.current_version }}</span>
-                <template v-if="row.update_available && row.latest_version">
-                  <el-icon color="var(--warning)"><Right /></el-icon>
-                  <span class="version-num highlight">v{{ row.latest_version }}</span>
-                </template>
-                <span v-else-if="row.check_error" class="cell-error" :title="row.check_error">
-                  {{ t('table.checkFailed') }}
-                </span>
-              </div>
-            </td>
-            <td class="col-github">
-              <el-link
-                v-if="row.manifest.github_repo"
-                type="primary"
-                :underline="false"
-                @click.prevent="openExternal('https://github.com/' + row.manifest.github_repo)"
-              >
-                <span class="repo-name">{{ row.manifest.github_repo }}</span>
-              </el-link>
-              <span v-else class="text-muted">{{ t('table.notSet') }}</span>
-              <el-link
-                type="warning"
-                :underline="false"
-                class="mirror-link"
-                @click.prevent="openExternal(npmMirrorUrl(row.manifest.id))"
-              >{{ t('market.mirrorTag') }}</el-link>
-            </td>
-            <td class="col-actions">
-              <div v-if="isUpdating(row.manifest.id)" class="update-progress">
-                <el-progress
-                  :percentage="getProgressPercent(row.manifest.id)"
-                  :stroke-width="8"
-                  :status="getProgressStatus(row.manifest.id)"
-                />
-                <span class="progress-text">{{ getProgressMessage(row.manifest.id) }}</span>
-              </div>
-              <div v-else class="row-actions">
-                <el-button
-                  v-if="row.update_available"
-                  type="primary"
-                  size="small"
-                  @click="$emit('update', row)"
-                >
-                  {{ t('table.update') }}
-                </el-button>
-                <el-button
-                  size="small"
-                  :type="row.manifest.enabled ? 'warning' : 'success'"
-                  @click="$emit('toggle-enabled', row)"
-                >
-                  {{ row.manifest.enabled ? t('table.disable') : t('table.enable') }}
-                </el-button>
-                <el-button size="small" :icon="FolderOpened" @click="$emit('open-folder', row)" />
-                <el-dropdown trigger="click" @command="(cmd: string) => handleMoreCommand(cmd, row)">
-                  <el-button size="small" :icon="MoreFilled" />
-                  <template #dropdown>
-                    <el-dropdown-menu>
-                      <el-dropdown-item command="check" :icon="Refresh">{{ t('table.recheck') }}</el-dropdown-item>
-                      <el-dropdown-item v-if="row.release_notes" command="notes" :icon="Document">{{ t('table.releaseNotes') }}</el-dropdown-item>
-                      <el-dropdown-item
-                        v-if="row.manifest.type !== 'agent-core'"
-                        command="uninstall"
-                        :icon="Delete"
-                        divided
-                      >
-                        <span style="color: var(--danger)">卸载</span>
-                      </el-dropdown-item>
-                    </el-dropdown-menu>
-                  </template>
-                </el-dropdown>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <!-- 加载遮罩 -->
-    <div v-if="isCheckingUpdates" class="loading-overlay">
-      <el-icon class="is-loading" :size="32"><Loading /></el-icon>
-      <span>{{ t('check.inProgress') }}</span>
-    </div>
-      </el-tab-pane>
-
-      <!-- ============ 可更新 ============ -->
-      <el-tab-pane :label="t('tab.updates') + ' (' + updatableCount + ')'" name="updates">
-        <div v-if="pluginStore.updatablePlugins.length === 0" class="updates-empty">
-          <el-icon :size="36"><Check /></el-icon>
-          <p>{{ t('check.allLatest') }}</p>
-        </div>
-        <div v-else class="plugin-grid">
-          <div
-            v-for="row in pluginStore.updatablePlugins"
-            :key="row.manifest.id"
-            class="plugin-card card-update"
-          >
-            <div class="card-header">
-              <div class="card-icon">
-                <el-icon :size="22" color="var(--primary)">
-                  <Cpu v-if="row.manifest.type === 'agent-core'" />
-                  <Grid v-else />
-                </el-icon>
-              </div>
-              <div class="card-title">
-                <div class="card-name">
-                  <span>{{ row.manifest.name }}</span>
-                </div>
-                <div class="card-id">{{ row.manifest.id }}</div>
-              </div>
-              <div class="card-status"><StatusTag :row="row" /></div>
-            </div>
-            <!-- 插件介绍 -->
-            <div class="card-desc" :title="row.manifest.description || row.description_zh || row.description_en">
-              {{ localeDescription(row) }}
-            </div>
-            <div class="card-versions">
-              <div class="version-item">
-                <span class="version-label">{{ t('table.current') }}</span>
-                <span class="version-num">v{{ row.manifest.current_version }}</span>
-              </div>
-              <el-icon class="version-arrow" color="var(--warning)"><Right /></el-icon>
-              <div class="version-item latest">
-                <span class="version-label">{{ t('table.latest') }}</span>
-                <span class="version-num highlight">v{{ row.latest_version }}</span>
-              </div>
-            </div>
-            <!-- 链接和操作 -->
-            <div class="card-links">
-              <el-link
-                v-if="row.manifest.github_repo"
-                type="primary"
-                :underline="false"
-                @click.prevent="openExternal('https://github.com/' + row.manifest.github_repo)"
-              >
-                <el-icon><Link /></el-icon>
-                <span class="repo-name">{{ row.manifest.github_repo }}</span>
-              </el-link>
-              <el-link
-                v-if="row.release_url"
-                type="success"
-                :underline="false"
-                @click.prevent="openExternal(row.release_url)"
-              >
-                <el-icon><Document /></el-icon>
-                {{ t('notes.viewOnGithub') }}
-              </el-link>
-              <el-link
-                type="warning"
-                :underline="false"
-                @click.prevent="openExternal(npmMirrorUrl(row.manifest.id))"
-              >
-                <el-icon><Link /></el-icon>
-                <span class="repo-name">{{ t('market.mirrorTag') }}</span>
-              </el-link>
-              <div class="card-actions" style="margin-left: auto;">
-                <el-button
-                  type="primary"
-                  size="small"
-                  :icon="Upload"
-                  :loading="isUpdating(row.manifest.id)"
-                  @click="emit('update', row)"
-                >{{ t('table.update') }}</el-button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </el-tab-pane>
-    </el-tabs>
-
-    <!-- 安装插件对话框 -->
-    <el-dialog
+    <!-- ============ 安装插件对话框 ============ -->
+    <WDialog
       v-model="installDialogVisible"
       :title="t('market.installTitle')"
-      width="520px"
-      :close-on-click-modal="!installingNpmName"
+      :close-on-mask="!installingNpmName"
+      :busy="!!installingNpmName"
+      :closable="!installingNpmName"
     >
-      <div v-if="installingNpmName" class="install-progress-row">
-        <el-icon class="is-loading"><Loading /></el-icon>
-        <span>{{ t('market.installing', { name: installingNpmName }) }}</span>
+      <!-- 安装中 -->
+      <div v-if="installingNpmName" class="w-installing">
+        <WLoading block :text="t('market.installing', { name: installingNpmName })" />
       </div>
+
+      <!-- 选择目标 -->
       <template v-else>
-        <p class="install-target-label">{{ t('market.chooseTarget') }}</p>
-        <el-select v-model="installTarget" style="width: 100%" size="default">
-          <el-option v-for="dir in installTargets" :key="dir" :label="dir" :value="dir" />
-        </el-select>
+        <p class="w-label">{{ t('market.chooseTarget') }}</p>
+        <div class="weui-cells w-cells">
+          <label
+            v-for="dir in installTargets"
+            :key="dir"
+            class="weui-cell weui-cell_access w-cell-tappable"
+          >
+            <div class="weui-cell__bd">
+              <p class="mono w-cell-dir">{{ dir }}</p>
+            </div>
+            <div class="weui-cell__ft">
+              <input v-model="installTarget" type="radio" class="weui-check" :value="dir" />
+              <span class="weui-icon-checked" aria-hidden="true" />
+            </div>
+          </label>
+        </div>
       </template>
+
       <template #footer>
         <template v-if="!installingNpmName">
-          <el-button @click="installDialogVisible = false">{{ t('common.cancel') }}</el-button>
-          <el-button type="primary" :disabled="!installTarget" @click="confirmInstall">{{ t('market.install') }}</el-button>
+          <WButton @click="installDialogVisible = false">{{ t('common.cancel') }}</WButton>
+          <WButton
+            type="primary"
+            icon="download"
+            :disabled="!installTarget"
+            @click="confirmInstall"
+          >
+            {{ t('market.install') }}
+          </WButton>
         </template>
       </template>
-    </el-dialog>
+    </WDialog>
+
+    <!-- 排序面板 -->
+    <WSheet
+      v-model="sortSheet"
+      :title="t('market.sortTitle')"
+      :items="sortItems"
+      @select="onSortChange"
+    />
+
+    <!-- 插件更多操作 -->
+    <WSheet
+      v-model="moreSheet"
+      :title="currentPlugin?.manifest.name"
+      :items="moreItems"
+      @select="onMoreSelect"
+    />
+
+    <!-- 市场链接 -->
+    <WSheet
+      v-model="marketSheet"
+      :title="currentMarket?.name"
+      :items="marketLinkItems"
+      @select="onMarketLinkSelect"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, h, defineComponent, type PropType } from 'vue'
-import {
-  Cpu,
-  Grid,
-  Link,
-  Document,
-  Warning,
-  Upload,
-  SwitchButton,
-  FolderOpened,
-  Refresh,
-  Delete,
-  Loading,
-  Right,
-  Check,
-  MoreFilled,
-  MagicStick,
-  Expand,
-  ArrowDown,
-  Sort,
-} from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
+import { computed, nextTick, onMounted, ref, watch, h, defineComponent, type PropType } from 'vue'
+import WButton from './WButton.vue'
+import WIcon from './WIcon.vue'
+import WSheet from './WSheet.vue'
+import WDialog from './WDialog.vue'
+import WEmpty from './WEmpty.vue'
+import WLoading from './WLoading.vue'
+import UpdateProgress from './UpdateProgress.vue'
 import { usePluginStore } from '../stores/pluginStore'
 import { pluginApi } from '../api'
 import { t, locale, categoryName, categoryColor, formatCount } from '../i18n'
+import { useToast } from '../composables/useToast'
+import { staggerIn, panelIn } from '../composables/useMotion'
 import type { PluginInfo, MarketPlugin } from '../types'
+
+type TabName = 'market' | 'installed' | 'updates'
 
 const props = defineProps<{
   plugins: PluginInfo[]
@@ -660,11 +597,183 @@ const emit = defineEmits<{
   'open-folder': [plugin: PluginInfo]
   'check-single': [plugin: PluginInfo]
   'view-release-notes': [plugin: PluginInfo]
-  }>()
+  'refresh-market': []
+}>()
 
 const pluginStore = usePluginStore()
+const toast = useToast()
+const rootEl = ref<HTMLElement | null>(null)
 
-// ============ 插件安装（市场 → DSH profile） ============
+/* ---------------- Tab ---------------- */
+const activeTab = ref<TabName>('market')
+
+const tabs = computed(() => [
+  {
+    name: 'market' as const,
+    label: `${t('tab.market')} (${props.marketPlugins.length})`,
+    short: t('tab.marketShort'),
+    icon: 'grid',
+  },
+  {
+    name: 'installed' as const,
+    label: `${t('tab.installed')} (${props.plugins.length})`,
+    short: t('tab.installedShort'),
+    icon: 'package',
+  },
+  {
+    name: 'updates' as const,
+    label: `${t('tab.updates')} (${updatableCount.value})`,
+    short: t('tab.updatesShort'),
+    icon: 'upload',
+  },
+])
+
+/** 三个面板的元素引用：切换时用于 GSAP 进场 */
+const marketPanel = ref<HTMLElement | null>(null)
+const installedPanel = ref<HTMLElement | null>(null)
+const updatesPanel = ref<HTMLElement | null>(null)
+
+function activePanel(): HTMLElement | null {
+  switch (activeTab.value) {
+    case 'market':
+      return marketPanel.value
+    case 'installed':
+      return installedPanel.value
+    case 'updates':
+      return updatesPanel.value
+    default:
+      return null
+  }
+}
+
+function switchTab(name: TabName) {
+  if (activeTab.value === name) return
+  activeTab.value = name
+  // 面板切换动画（横向淡入）
+  nextTick(() => panelIn(activePanel()))
+}
+
+/* ---------------- 市场 ---------------- */
+const marketCatFilter = ref<string | null>(null)
+const marketSearch = ref('')
+const marketPage = ref(1)
+const marketPageSize = 48
+const marketSort = ref<'default' | 'stars' | 'downloads' | 'latest'>('default')
+const searchFocused = ref(false)
+const sortSheet = ref(false)
+
+/** 市场数据是否仍在加载（父组件传入空数组且未标结束） */
+const marketLoading = computed(() => props.marketPlugins.length === 0)
+
+const sortLabel = computed(() => {
+  const map = {
+    default: t('market.sortDefault'),
+    stars: t('market.sortStars'),
+    downloads: t('market.sortDownloads'),
+    latest: t('market.sortLatest'),
+  }
+  return map[marketSort.value] || t('market.sortDefault')
+})
+
+const sortItems = computed(() => [
+  { label: t('market.sortDefault'), value: 'default' },
+  { label: t('market.sortStars'), value: 'stars' },
+  { label: t('market.sortDownloads'), value: 'downloads' },
+  { label: t('market.sortLatest'), value: 'latest' },
+])
+
+function onSortChange(cmd: string) {
+  marketSort.value = cmd as typeof marketSort.value
+}
+
+const marketFiltered = computed(() => {
+  let list = props.marketPlugins
+  if (marketCatFilter.value) {
+    list = list.filter((mp) => mp.category === marketCatFilter.value)
+  }
+  const q = marketSearch.value.trim().toLowerCase()
+  if (q) {
+    list = list.filter((mp) => {
+      const cat = categoryName(mp.category).toLowerCase()
+      return (
+        mp.name.toLowerCase().includes(q) ||
+        (mp.desc_zh || '').toLowerCase().includes(q) ||
+        (mp.desc_en || '').toLowerCase().includes(q) ||
+        cat.includes(q)
+      )
+    })
+  }
+  if (marketSort.value === 'stars') {
+    list = [...list].sort((a, b) => (b.stars ?? 0) - (a.stars ?? 0))
+  } else if (marketSort.value === 'downloads') {
+    list = [...list].sort((a, b) => (b.downloads ?? 0) - (a.downloads ?? 0))
+  } else if (marketSort.value === 'latest') {
+    list = [...list].sort((a, b) => a.name.localeCompare(b.name))
+  }
+  return list
+})
+
+const marketTotal = computed(() => marketFiltered.value.length)
+const pagedMarket = computed(() =>
+  marketFiltered.value.slice(0, marketPage.value * marketPageSize)
+)
+
+const marketCategories = computed(() => {
+  const map = new Map<string, number>()
+  for (const mp of props.marketPlugins) {
+    if (mp.category) map.set(mp.category, (map.get(mp.category) || 0) + 1)
+  }
+  return [...map.entries()].sort((a, b) => b[1] - a[1])
+})
+
+function resetMarketFilter() {
+  marketSearch.value = ''
+  marketCatFilter.value = null
+  marketSort.value = 'default'
+  marketPage.value = 1
+}
+
+watch([marketSearch, marketCatFilter, marketSort], () => {
+  marketPage.value = 1
+})
+
+/* ---------------- 已安装 ---------------- */
+const VIEW_KEY = 'dsh-updater-view-mode'
+const viewMode = ref<'grid' | 'list'>(
+  (localStorage.getItem(VIEW_KEY) as 'grid' | 'list') || 'grid'
+)
+
+function toggleView() {
+  viewMode.value = viewMode.value === 'grid' ? 'list' : 'grid'
+  animateCards()
+}
+
+watch(viewMode, (v) => {
+  localStorage.setItem(VIEW_KEY, v)
+})
+
+const categoryFilter = ref<string | null>(null)
+
+const categories = computed(() => {
+  const map = new Map<string, number>()
+  for (const p of props.plugins) {
+    if (p.category) map.set(p.category, (map.get(p.category) || 0) + 1)
+  }
+  return [...map.entries()].sort((a, b) => b[1] - a[1])
+})
+
+/** 按分类筛选后的插件（网格与列表视图共用——修复原列表视图未筛选的问题） */
+const filteredPlugins = computed(() => {
+  if (!categoryFilter.value) return props.plugins
+  return props.plugins.filter((p) => p.category === categoryFilter.value)
+})
+
+const updatableCount = computed(
+  () => props.plugins.filter((p) => p.update_available).length
+)
+const updatableList = computed(() => props.plugins.filter((p) => p.update_available))
+
+/* ---------------- 安装 ---------------- */
 const installDialogVisible = ref(false)
 const installTargets = ref<string[]>([])
 const installTarget = ref('')
@@ -673,7 +782,7 @@ const installingNpmName = ref('')
 
 async function openInstall(mp: MarketPlugin) {
   if (!mp.npm) {
-    ElMessage.warning(t('market.noNpm'))
+    toast.warn(t('market.noNpm'))
     return
   }
   pendingInstallNpm.value = mp.npm
@@ -682,8 +791,8 @@ async function openInstall(mp: MarketPlugin) {
   } catch {
     installTargets.value = []
   }
-  if (installTargets.value.length === 0) {
-    ElMessage.warning(t('market.noTargets'))
+  if (!installTargets.value.length) {
+    toast.warn(t('market.noTargets'))
     return
   }
   if (!installTarget.value || !installTargets.value.includes(installTarget.value)) {
@@ -699,141 +808,107 @@ async function confirmInstall() {
   installingNpmName.value = npmName
   try {
     await pluginStore.installPlugin(npmName, dir)
-    ElMessage.success(t('market.installSuccess', { name: npmName, dir }))
+    toast.success(t('market.installSuccess', { name: npmName, dir }))
     installDialogVisible.value = false
-  } catch (e: any) {
-    ElMessage.error(e?.toString() || t('market.installFailed'))
+  } catch (e: unknown) {
+    toast.error(String(e) || t('market.installFailed'))
   } finally {
     installingNpmName.value = ''
   }
 }
 
-// ============ 外部链接（系统浏览器打开，统一入口）============
-function openExternal(url: string) {
-  if (!url) return
-  pluginApi.openExternal(url).catch(() => {})
+/* ---------------- 更多操作（替代下拉菜单） ---------------- */
+const moreSheet = ref(false)
+const currentPlugin = ref<PluginInfo | null>(null)
+
+const moreItems = computed(() => {
+  const row = currentPlugin.value
+  if (!row) return []
+  const items: { label: string; value: string; type?: 'warn'; desc?: string }[] = [
+    { label: t('table.recheck'), value: 'check', desc: '' },
+  ]
+  if (row.release_notes) {
+    items.push({ label: t('table.releaseNotes'), value: 'notes', desc: '' })
+  }
+  items.push({ label: t('table.folder'), value: 'folder', desc: '' })
+  if (row.manifest.type !== 'agent-core') {
+    items.push({ label: t('table.uninstall'), value: 'uninstall', type: 'warn', desc: '' })
+  }
+  return items
+})
+
+function openMore(row: PluginInfo) {
+  currentPlugin.value = row
+  moreSheet.value = true
 }
 
-function npmMirrorUrl(npmName: string): string {
-  const n = (npmName || '').trim()
-  return n ? `https://npmmirror.com/package/${n}` : ''
+function onMoreSelect(value: string) {
+  const row = currentPlugin.value
+  if (!row) return
+  switch (value) {
+    case 'check':
+      emit('check-single', row)
+      break
+    case 'notes':
+      emit('view-release-notes', row)
+      break
+    case 'folder':
+      emit('open-folder', row)
+      break
+    case 'uninstall':
+      emit('uninstall', row)
+      break
+  }
+  currentPlugin.value = null
 }
 
-function hasMarketLink(mp: MarketPlugin): boolean {
-  return !!(mp.url || mp.npm)
+/* ---------------- 市场链接 ---------------- */
+const marketSheet = ref(false)
+const currentMarket = ref<MarketPlugin | null>(null)
+
+const marketLinkItems = computed(() => {
+  const mp = currentMarket.value
+  if (!mp) return []
+  const items: { label: string; value: string }[] = []
+  if (mp.url) items.push({ label: t('market.linkGithub'), value: 'github' })
+  if (mp.npm) items.push({ label: t('market.linkNpm'), value: 'npm' })
+  if (mp.npm) items.push({ label: t('market.linkMirror'), value: 'mirror' })
+  return items
+})
+
+function openMarketSheet(mp: MarketPlugin) {
+  currentMarket.value = mp
+  marketSheet.value = true
 }
 
-function openMarketLink(cmd: string, mp: MarketPlugin) {
+function onMarketLinkSelect(cmd: string) {
+  const mp = currentMarket.value
+  if (!mp) return
   const npm = (mp.npm || '').trim()
   let url = ''
   if (cmd === 'github') url = mp.url || ''
   else if (cmd === 'npm') url = npm ? `https://www.npmjs.com/package/${npm}` : ''
   else if (cmd === 'mirror') url = npm ? `https://npmmirror.com/package/${npm}` : ''
-  openExternal(url)
+  if (url) pluginApi.openExternal(url).catch(() => {})
+  currentMarket.value = null
 }
 
-// 布局切换（持久化到 localStorage）
-const VIEW_KEY = 'dsh-updater-view-mode'
-const viewMode = ref<'grid' | 'table'>(
-  (localStorage.getItem(VIEW_KEY) as 'grid' | 'table') || 'grid'
-)
-watch(viewMode, (v) => localStorage.setItem(VIEW_KEY, v))
-
-const updatableCount = computed(() => props.plugins.filter((p) => p.update_available).length)
-
-// 分类筛选：null = 全部；点击分类 chip 切换
-const categoryFilter = ref<string | null>(null)
-
-/** 插件里出现的分类（按数量降序） */
-const categories = computed(() => {
-  const map = new Map<string, number>()
-  for (const p of props.plugins) {
-    if (p.category) map.set(p.category, (map.get(p.category) || 0) + 1)
-  }
-  return [...map.entries()].sort((a, b) => b[1] - a[1])
-})
-
-/** 按分类筛选后的插件 */
-const filteredPlugins = computed(() => {
-  if (!categoryFilter.value) return props.plugins
-  return props.plugins.filter((p) => p.category === categoryFilter.value)
-})
-
-// ===== 插件市场标签页 =====
-const activeTab = ref<'market' | 'installed' | 'updates'>('market')
-const marketCatFilter = ref<string | null>(null)
-const marketSearch = ref('')
-const marketPage = ref(1)
-const marketPageSize = 48
-const marketSort = ref<'default' | 'stars' | 'downloads' | 'latest'>('default')
-
-// 排序标签（根据当前排序模式显示）
-const sortLabel = computed(() => {
-  const map: Record<string, string> = {
-    default: t('market.sortDefault'),
-    stars: t('market.sortStars'),
-    downloads: t('market.sortDownloads'),
-    latest: t('market.sortLatest'),
-  }
-  return map[marketSort.value] || t('market.sortDefault')
-})
-
-function onSortChange(cmd: string) {
-  marketSort.value = cmd as typeof marketSort.value
-  marketPage.value = 1
+/* ---------------- 更新进度 ---------------- */
+function isUpdating(id: string) {
+  return pluginStore.isUpdating(id)
 }
 
-/** 市场插件过滤 + 排序 */
-const marketFiltered = computed(() => {
-  let list = props.marketPlugins
-  if (marketCatFilter.value) {
-    list = list.filter((mp) => mp.category === marketCatFilter.value)
-  }
-  const q = marketSearch.value.trim().toLowerCase()
-  if (q) {
-    list = list.filter((mp) => {
-      const catName = categoryName(mp.category).toLowerCase()
-      return (
-        mp.name.toLowerCase().includes(q) ||
-        (mp.desc_zh || '').toLowerCase().includes(q) ||
-        (mp.desc_en || '').toLowerCase().includes(q) ||
-        catName.includes(q)
-      )
-    })
-  }
-  // 排序
-  if (marketSort.value === 'stars') {
-    list = [...list].sort((a, b) => (b.stars ?? 0) - (a.stars ?? 0))
-  } else if (marketSort.value === 'downloads') {
-    list = [...list].sort((a, b) => (b.downloads ?? 0) - (a.downloads ?? 0))
-  } else if (marketSort.value === 'latest') {
-    // 按名称字母序（作为最新发布代理）
-    list = [...list].sort((a, b) => a.name.localeCompare(b.name))
-  }
-  return list
-})
+function getProgressPercent(id: string) {
+  return pluginStore.getUpdateProgress(id)?.percent || 0
+}
 
-// 搜索词变化时回到第一页
-watch(marketSearch, () => { marketPage.value = 1 })
-watch(marketCatFilter, () => { marketPage.value = 1 })
-watch(marketSort, () => { marketPage.value = 1 })
+function getProgressMessage(id: string) {
+  return pluginStore.getUpdateProgress(id)?.message || ''
+}
 
-/** 市场中出现的分类（按数量降序） */
-const marketCategories = computed(() => {
-  const map = new Map<string, number>()
-  for (const mp of props.marketPlugins) {
-    if (mp.category) map.set(mp.category, (map.get(mp.category) || 0) + 1)
-  }
-  return [...map.entries()].sort((a, b) => b[1] - a[1])
-})
+/* 进度条与百分比的补间由 <UpdateProgress> 组件内部驱动（见该文件） */
 
-
-
-const marketTotal = computed(() => marketFiltered.value.length)
-
-
-
-/** 已安装插件 key 集合（id 小写 + 去 scope 短名） */
+/* ---------------- 展示辅助 ---------------- */
 const installedKeys = computed(() => {
   const s = new Set<string>()
   for (const p of pluginStore.plugins) {
@@ -850,651 +925,353 @@ function isInstalled(mp: MarketPlugin): boolean {
   return false
 }
 
-/** 市场卡片标题：取可读短名（去 scope 前缀） */
-function marketTitle(mp: MarketPlugin): string {
-  const short = mp.name.split('/').pop() || mp.name
-  return short
+function marketTitle(mp: MarketPlugin) {
+  return mp.name.split('/').pop() || mp.name
 }
 
-function marketDesc(mp: MarketPlugin): string {
+function marketDesc(mp: MarketPlugin) {
   if (locale.value === 'zh') return mp.desc_zh || mp.desc_en || t('table.noDesc')
   return mp.desc_en || mp.desc_zh || t('table.noDesc')
 }
 
-function isUpdating(pluginId: string): boolean {
-  return pluginStore.isUpdating(pluginId)
-}
-
-function getProgressPercent(pluginId: string): number {
-  const progress = pluginStore.getUpdateProgress(pluginId)
-  return progress?.percent || 0
-}
-
-function getProgressMessage(pluginId: string): string {
-  const progress = pluginStore.getUpdateProgress(pluginId)
-  return progress?.message || ''
-}
-
-function getProgressStatus(pluginId: string): '' | 'success' | 'exception' | 'warning' {
-  const progress = pluginStore.getUpdateProgress(pluginId)
-  if (!progress) return ''
-  if (progress.phase === 'complete') return 'success'
-  if (progress.phase === 'error') return 'exception'
-  return ''
-}
-
-// 按当前语言选择描述：zh→官方中文，en→官方英文，回退原始描述
-const localeDescription = (row: PluginInfo): string => {
+function localeDescription(row: PluginInfo): string {
   const d = row.manifest.description || ''
   if (locale.value === 'zh') return row.description_zh || d || t('table.noDesc')
   return row.description_en || d || t('table.noDesc')
 }
 
-// 状态标签（网格/列表共用，保证两视图一致）
+function badgeStyle(cat: string | null) {
+  const c = categoryColor(cat)
+  return {
+    background: `${c}1f`,
+    color: c,
+    borderColor: `${c}55`,
+  }
+}
+
+/* ---------------- 状态标签 ---------------- */
 const StatusTag = defineComponent({
   props: { row: { type: Object as PropType<PluginInfo>, required: true } },
   setup(p) {
     return () => {
       const row = p.row
-      const [type, text] = row.update_available
-        ? (['warning', t('table.updatableTag')] as const)
+      const [cls, text] = row.update_available
+        ? (['w-tag_warn', t('table.updatableTag')] as const)
         : row.check_error
-          ? (['danger', t('table.errorTag')] as const)
+          ? (['w-tag_danger', t('table.errorTag')] as const)
           : !row.manifest.enabled
-            ? (['info', t('table.disabledTag')] as const)
-            : (['success', t('table.latestTag')] as const)
-      return h('span', { class: ['mini-tag', `mini-tag-${type}`] }, text)
+            ? (['w-tag_info', t('table.disabledTag')] as const)
+            : (['w-tag_success', t('table.latestTag')] as const)
+      return h('span', { class: ['w-tag', cls] }, text)
     }
   },
 })
 
-function handleMoreCommand(command: string, row: PluginInfo) {
-  switch (command) {
-    case 'check':
-      emit('check-single', row)
-      break
-    case 'notes':
-      emit('view-release-notes', row)
-      break
-    case 'uninstall':
-      emit('uninstall', row)
-      break
-  }
+/* ---------------- 动画 ---------------- */
+function animateCards() {
+  nextTick(() => {
+    const panels = rootEl.value?.querySelectorAll<HTMLElement>('.w-panel')
+    panels?.forEach((panel) => {
+      if (panel.style.display === 'none') return
+      const cards = panel.querySelectorAll<HTMLElement>(
+        '.w-plugin-card, .w-cells .w-cell'
+      )
+      if (cards.length) staggerIn(Array.from(cards).slice(0, 48))
+    })
+  })
 }
+
+// 列表/筛选变化时做交错进场（限前 48 个，避免长列表卡顿）
+watch(
+  () => [activeTab.value, marketPage.value, marketCatFilter.value, categoryFilter.value],
+  () => animateCards()
+)
+
+watch(
+  () => [props.plugins.length, props.marketPlugins.length],
+  () => animateCards()
+)
+
+onMounted(() => animateCards())
 </script>
 
 <style scoped>
-.plugin-view-container {
+.plugin-view {
   position: relative;
+  padding-bottom: 0;
 }
 
-/* ---------- 工具行 ---------- */
-.grid-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
+/* ---------- 顶部 Tab ---------- */
+.w-navbar {
+  margin-bottom: var(--sp-4);
 }
 
-.toolbar-left {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.toolbar-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.view-label {
-  margin-left: 4px;
-}
-
-.plugin-count {
-  font-size: 13px;
-  color: var(--text-secondary);
-}
-
-.updatable-count {
-  font-size: 13px;
-  color: var(--warning);
-  font-weight: 600;
-  padding: 3px 10px;
-  border-radius: 20px;
-  background: rgba(245, 158, 11, 0.14);
-}
-
-/* ---------- 网格视图 ---------- */
-.plugin-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  gap: 16px;
-}
-
-.plugin-card {
-  display: flex;
-  flex-direction: column;
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  padding: 18px;
-  box-shadow: var(--glass-shadow);
-  /* 仅动画 transform / box-shadow / border-color */
-  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
-    border-color var(--dur) var(--ease);
-}
-
-.plugin-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
-  border-color: rgba(99, 102, 241, 0.45);
-}
-
-.card-update {
-  border-color: rgba(245, 158, 11, 0.4);
-  background: rgba(245, 158, 11, 0.06);
-}
-
-.card-update:hover {
-  border-color: rgba(245, 158, 11, 0.7);
-}
-
-.card-disabled {
-  opacity: 0.55;
-}
-
-.card-core {
-  border-color: rgba(99, 102, 241, 0.4);
-  background: rgba(99, 102, 241, 0.07);
-}
-
-.card-core:hover {
-  border-color: rgba(99, 102, 241, 0.7);
-}
-
-.card-header {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-}
-
-.card-icon {
-  flex-shrink: 0;
-  width: 42px;
-  height: 42px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-md);
-}
-
-.card-core .card-icon {
-  background: rgba(99, 102, 241, 0.16);
-  border-color: rgba(99, 102, 241, 0.32);
-}
-
-.card-title {
+/* ---------- 搜索 ---------- */
+.w-search {
   flex: 1;
-  min-width: 0;
+  min-width: 180px;
+  max-width: 420px;
+  padding: 0;
+  background: transparent;
 }
 
-.card-name {
+.w-search::before,
+.w-search::after {
+  display: none;
+}
+
+.w-search .weui-search-bar__form,
+.w-search .weui-search-bar__box {
+  border-radius: var(--r-md);
+}
+
+.w-count {
+  font-size: 12px;
+  color: var(--fg-2);
+  padding: 0 2px var(--sp-2);
+}
+
+/* ---------- 插件卡片 ---------- */
+.w-plugin-card {
   display: flex;
+  flex-direction: column;
+}
+
+/* WeUI media-box 在卡片内去掉上下边线 */
+.w-plugin-card .weui-media-box {
+  padding: var(--sp-4) var(--sp-4) var(--sp-2);
+  flex: 1;
+}
+
+.w-plugin-card .weui-media-box::before {
+  display: none;
+}
+
+.w-plugin-icon {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.core-name {
-  color: var(--primary-light);
-}
-
-.card-id {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-top: 2px;
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.card-status {
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-md);
+  background: var(--brand-soft);
+  color: var(--brand-2);
   flex-shrink: 0;
 }
 
-/* 描述 */
-.card-desc {
-  margin: 14px 0;
-  font-size: 13px;
-  color: var(--text-secondary);
-  line-height: 1.6;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  min-height: 42px;
+.w-plugin-icon.is-core {
+  color: var(--brand-2);
+  background: var(--brand-soft);
+  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.25);
 }
 
-/* 版本信息 */
-.card-versions {
+.w-plugin-icon.is-update {
+  color: var(--c-warn);
+  background: rgba(245, 158, 11, 0.12);
+}
+
+.w-plugin-icon.sm {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--r-sm);
+  margin-right: var(--sp-2);
+}
+
+.weui-media-box__title {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-sm);
-  margin-bottom: 12px;
+  gap: 6px;
   flex-wrap: wrap;
-}
-
-.card-update .card-versions {
-  background: rgba(245, 158, 11, 0.1);
-  border-color: rgba(245, 158, 11, 0.25);
-}
-
-.version-item {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.version-label {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-.version-num {
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 600;
-  color: var(--text-primary);
+  color: var(--fg);
 }
 
-.version-num.highlight {
-  color: var(--warning);
-}
-
-.version-arrow {
-  font-size: 14px;
-}
-
-.version-error {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--danger);
-}
-
-/* 链接 */
-.card-links {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-bottom: 14px;
-  min-height: 20px;
-}
-
-.repo-name {
-  font-size: 12px;
-  max-width: 220px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.text-muted {
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-/* 操作区 */
-.card-footer {
-  margin-top: auto;
-}
-
-.card-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.card-actions .el-button {
-  margin-left: 0;
-}
-
-.update-progress {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.progress-text {
-  font-size: 11px;
-  color: var(--text-muted);
-  text-align: center;
-}
-
-/* ---------- 列表视图 ---------- */
-.plugin-table-wrap {
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--glass-shadow);
-  overflow: auto;
-}
-
-.ptable {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.ptable th,
-.ptable td {
-  padding: 12px 14px;
-  text-align: left;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-  vertical-align: middle;
-}
-
-.ptable thead th {
-  background: rgba(15, 23, 42, 0.92);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  color: var(--text-muted);
-  font-weight: 600;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  white-space: nowrap;
-  position: sticky;
-  top: 0;
-  z-index: 1;
-}
-
-.ptable tbody tr {
-  transition: background-color var(--dur) var(--ease);
-}
-
-.ptable tbody tr:hover {
-  background: rgba(99, 102, 241, 0.09);
-}
-
-.tr-update {
-  background: rgba(245, 158, 11, 0.08);
-}
-
-.tr-disabled {
-  opacity: 0.5;
-}
-
-.tr-core {
-  background: rgba(99, 102, 241, 0.08);
-}
-
-.col-status { width: 84px; }
-.col-name { min-width: 200px; }
-.col-desc { min-width: 220px; max-width: 320px; }
-.col-version { width: 180px; }
-.col-github { min-width: 160px; }
-.col-actions { width: 250px; white-space: nowrap; }
-
-.cell-name {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.cell-title {
-  font-weight: 500;
-  color: var(--text-primary);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.cell-id {
-  font-size: 11px;
-  color: var(--text-muted);
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
-}
-
-.cell-desc {
-  color: var(--text-secondary);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.cell-version {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.cell-error {
-  color: var(--danger);
-  font-size: 12px;
-}
-
-.row-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.row-actions .el-button {
-  margin-left: 0;
-}
-
-/* 状态小标签（.mini-tag-*）样式统一由全局 main.css 提供，
-   此处不再重复定义——避免 scoped 高优先级覆盖全局深色配色 */
-
-/* 卡片/行内操作按钮：非主按钮统一玻璃描边风格 */
-.card-actions .el-button:not(.el-button--primary),
-.row-actions .el-button:not(.el-button--primary) {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--glass-border);
-  color: var(--text-secondary);
-}
-
-.card-actions .el-button:not(.el-button--primary):hover,
-.row-actions .el-button:not(.el-button--primary):hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.22);
-  color: var(--text-primary);
-}
-
-/* ---------- 加载遮罩 ---------- */
-.loading-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.72);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  color: var(--primary-light);
-  font-size: 14px;
-  z-index: 10;
-}
-.cat-badge {
-  display: inline-block;
-  font-size: 11px;
-  line-height: 1.5;
-  padding: 1px 8px;
-  border-radius: 10px;
-  border: 1px solid;
-  margin-right: 6px;
-  vertical-align: middle;
-  white-space: nowrap;
-}
-
-.card-metrics {
-  display: flex;
-  gap: 14px;
-  padding: 2px 0 6px;
-}
-
-.cell-metrics {
-  display: flex;
-  gap: 14px;
+.weui-media-box__desc {
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--fg-2);
   margin-top: 4px;
 }
 
-.metric {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: var(--text-secondary, #8b93a7);
+.w-card-status {
+  flex-shrink: 0;
 }
 
-.metric .el-icon {
-  font-size: 13px;
-}
-.category-filter {
+/* 指标 */
+.w-card-metrics {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 0 4px 10px;
+  gap: var(--sp-4);
+  padding: 0 var(--sp-4) var(--sp-2);
+  font-size: 12px;
+  color: var(--fg-2);
 }
 
-.cat-chip {
+.w-card-metrics span {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 12px;
-  line-height: 1;
-  padding: 5px 10px;
-  border-radius: 12px;
-  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-secondary, #8b93a7);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  user-select: none;
 }
 
-.cat-chip:hover {
-  border-color: var(--cat-color, #409eff);
-  color: var(--cat-color, #409eff);
+/* 卡片底部操作区（WeUI panel__ft） */
+.w-card-ft {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  padding: var(--sp-3) var(--sp-4);
+  background: transparent;
+  border-top: 1px solid var(--border);
 }
 
-.cat-chip.active {
-  background: color-mix(in srgb, var(--cat-color, #409eff) 18%, transparent);
-  border-color: var(--cat-color, #409eff);
-  color: var(--cat-color, #409eff);
+.w-card-ft::before {
+  display: none;
+}
+
+.is-update {
+  border-color: rgba(245, 158, 11, 0.45);
+}
+
+.is-update .w-card-ft {
+  border-color: rgba(245, 158, 11, 0.2);
+}
+
+.is-core {
+  border-color: rgba(99, 102, 241, 0.45);
+}
+
+.is-installed {
+  border-color: rgba(34, 197, 94, 0.4);
+}
+
+.is-disabled {
+  opacity: 0.55;
+}
+
+/* ---------- 列表视图（WeUI Cells） ---------- */
+.w-cells {
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  font-size: 14px;
+  background: var(--bg-card);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.w-cells::before,
+.w-cells::after {
+  display: none;
+}
+
+.w-cell {
+  align-items: flex-start;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  padding: var(--sp-3) var(--sp-4);
+  background: transparent;
+}
+
+.w-cell::before {
+  border-color: var(--border) !important;
+}
+
+.w-cell-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 14px;
   font-weight: 600;
+  color: var(--fg);
 }
 
-.cat-chip.active:first-child {
-  --cat-color: #409eff;
-}
-.market-tabs {
-  --el-tabs-header-height: 40px;
-}
-
-.market-tabs :deep(.el-tabs__header) {
-  margin-bottom: 10px;
+.w-cell-desc {
+  font-size: 12px;
+  color: var(--fg-1);
+  margin-top: 3px;
+  line-height: 1.55;
 }
 
-.market-card.card-installed {
-  border-color: rgba(103, 194, 58, 0.45);
+.w-cell-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--fg-2);
 }
 
-.market-pager {
+.w-cell-metric {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.w-cell-ft {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.w-cell-tappable {
+  cursor: pointer;
+}
+
+.w-cell-tappable:hover {
+  background: var(--bg-hover);
+}
+
+.w-cell-dir {
+  font-size: 12px;
+  word-break: break-all;
+}
+
+/* ---------- 安装中 ---------- */
+.w-installing {
+  padding: var(--sp-4) 0;
+}
+
+.w-label {
+  font-size: 13px;
+  color: var(--fg-1);
+  margin-bottom: var(--sp-2);
+}
+
+/* ---------- 加载更多 ---------- */
+.w-more {
   display: flex;
   justify-content: center;
-  padding: 14px 0 6px;
+  padding: var(--sp-4) 0 var(--sp-2);
 }
 
-.updates-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 48px 0;
-  color: var(--text-secondary, #8b93a7);
-}
-.market-search-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 0 4px 10px;
+/* ---------- 底部 Tab（移动） ---------- */
+.w-tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 800;
 }
 
-.market-search {
-  max-width: 360px;
+/* 移动端给底部 tabbar 留出滚动空间 */
+@media (max-width: 767px) {
+  .plugin-view {
+    padding-bottom: 60px;
+  }
 }
 
-.search-count {
-  font-size: 12px;
-  color: var(--text-secondary, #8b93a7);
+/* 卡片内迷你主按钮：收敛光晕，避免整屏渐变噪音 */
+.w-card-ft .weui-btn_primary,
+.w-cell-ft .weui-btn_primary {
+  box-shadow: none;
 }
 
-.sort-label {
-  margin: 0 4px;
-  font-size: 13px;
-}
-
-.sort-active {
-  color: var(--el-color-primary);
-  border-color: var(--el-color-primary);
-}
-
-.install-progress-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--el-color-primary);
-  padding: 8px 0;
-}
-.install-target-label {
-  margin: 0 0 10px;
-  font-size: 13px;
-  color: var(--el-text-color-secondary);
-}
-
-/* 市场卡片链接下拉按钮：玻璃暗底上保证可见 */
-.card-status .link-btn {
-  color: var(--el-color-primary);
-  border-color: var(--el-color-primary);
-  background: rgba(255, 255, 255, 0.06);
-}
-.card-status .link-btn:hover {
-  color: var(--el-color-primary-light-3);
-  border-color: var(--el-color-primary-light-3);
-}
-/* 实心主色安装按钮：白字蓝底高对比 */
-.card-status .el-button--primary {
-  color: #ffffff;
-}
-/* 表格镜像链接与 GitHub 链接间距 */
-.col-github .mirror-link {
-  margin-left: 8px;
+.w-card-ft .weui-btn_primary:not(:disabled):hover {
+  box-shadow: 0 2px 10px rgba(99, 102, 241, 0.4);
 }
 </style>
-

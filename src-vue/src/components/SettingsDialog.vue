@@ -1,179 +1,301 @@
 <template>
-  <el-dialog
+  <WDialog
     v-model="visible"
     :title="t('settings.title')"
-    width="600px"
-    :close-on-click-modal="false"
-    @close="handleClose"
+    wide
+    :close-on-mask="false"
   >
-    <el-form ref="formRef" :model="formData" :rules="rules" label-width="150px">
-      <!-- {{ t('settings.proxyGroup') }} -->
-      <div class="setting-group">
-        <div class="group-title">
-          <el-icon><Connection /></el-icon>
-          {{ t('settings.network') }}
-        </div>
+    <div class="weui-form w-form">
+      <!-- ============ 代理设置 ============ -->
+      <div class="weui-cells__group weui-cells__group_form">
+        <div class="weui-cells__title">{{ t('settings.network') }}</div>
+        <div class="weui-cells">
+          <div class="weui-cell weui-cell_active">
+            <div class="weui-cell__hd">
+              <label class="weui-label">{{ t('settings.proxyUrl') }}</label>
+            </div>
+            <div class="weui-cell__bd">
+              <input
+                v-model="formData.proxy_base_url"
+                class="weui-input"
+                type="text"
+                :placeholder="t('settings.proxyPlaceholder')"
+                @blur="validate"
+              />
+            </div>
+          </div>
 
-        <el-form-item :label="t('settings.proxyUrl')" prop="proxy_base_url">
-          <el-input
-            v-model="formData.proxy_base_url"
-            :placeholder="t('settings.proxyPlaceholder')"
+          <div class="weui-cell weui-cell_active">
+            <div class="weui-cell__hd">
+              <label class="weui-label">{{ t('settings.defaultDir') }}</label>
+            </div>
+            <div class="weui-cell__bd">
+              <input
+                v-model="formData.plugin_directory"
+                class="weui-input"
+                type="text"
+                :placeholder="t('settings.dirPlaceholder')"
+              />
+            </div>
+          </div>
+        </div>
+        <div v-if="errors.proxy" class="weui-cells__tips weui-cells__tips_warn">
+          {{ errors.proxy }}
+        </div>
+        <div v-else class="weui-cells__tips">
+          {{ t('settings.proxyTip') }}<br />{{ t('settings.dirTip') }}
+        </div>
+      </div>
+
+      <!-- ============ 安装源 ============ -->
+      <div class="weui-cells__group weui-cells__group_form">
+        <div class="weui-cells__title">{{ t('settings.installRegistry') }}</div>
+        <div class="weui-cells weui-cells_radio">
+          <label
+            v-for="opt in registryOptions"
+            :key="opt.value"
+            class="weui-cell weui-cell_active weui-check__label"
           >
-            <template #prefix>
-              <el-icon><Link /></el-icon>
-            </template>
-          </el-input>
-          <div class="form-tip">{{ t('settings.proxyTip') }}</div>
-        </el-form-item>
-
-        <el-form-item :label="t('settings.installRegistry')">
-          <el-select v-model="registryMode" style="width: 100%" @change="onRegistryModeChange">
-            <el-option :label="t('settings.registryOfficial')" value="official" />
-            <el-option :label="t('settings.registryMirror')" value="mirror" />
-            <el-option :label="t('settings.registryCustom')" value="custom" />
-          </el-select>
-          <el-input
-            v-if="registryMode === 'custom'"
-            v-model="formData.install_registry"
-            placeholder="https://registry.example.com/"
-            style="margin-top: 8px"
-          />
-          <div class="form-tip">{{ t('settings.installRegistryTip') }}</div>
-        </el-form-item>      </div>
-
-      <!-- 插件目录 -->
-      <div class="setting-group">
-        <div class="group-title">
-          <el-icon><FolderOpened /></el-icon>
-          插件目录
+            <div class="weui-cell__bd"><p>{{ opt.label }}</p></div>
+            <div class="weui-cell__ft">
+              <input
+                v-model="registryMode"
+                type="radio"
+                class="weui-check"
+                name="registry"
+                :value="opt.value"
+                @change="onRegistryModeChange"
+              />
+              <span class="weui-icon-checked" aria-hidden="true" />
+            </div>
+          </label>
         </div>
 
-        <el-form-item :label="t('settings.defaultDir')">
-          <el-input
-            v-model="formData.plugin_directory"
-            :placeholder="t('settings.dirPlaceholder')"
+        <div v-if="registryMode === 'custom'" class="weui-cells">
+          <div class="weui-cell weui-cell_active">
+            <div class="weui-cell__bd">
+              <input
+                v-model="formData.install_registry"
+                class="weui-input"
+                type="text"
+                placeholder="https://registry.example.com/"
+                @blur="validate"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div v-if="errors.registry" class="weui-cells__tips weui-cells__tips_warn">
+          {{ errors.registry }}
+        </div>
+        <div v-else class="weui-cells__tips">{{ t('settings.installRegistryTip') }}</div>
+      </div>
+
+      <!-- ============ 更新设置 ============ -->
+      <div class="weui-cells__group weui-cells__group_form">
+        <div class="weui-cells__title">{{ t('settings.updates') }}</div>
+        <div class="weui-cells">
+          <div class="weui-cell weui-cell_active weui-cell_switch">
+            <div class="weui-cell__bd">
+              <p class="w-switch-title">{{ t('settings.autoCheck') }}</p>
+              <p class="w-switch-desc">{{ t('settings.autoCheckDesc') }}</p>
+            </div>
+            <div class="weui-cell__ft">
+              <input v-model="formData.auto_check_updates" class="weui-switch" type="checkbox" />
+            </div>
+          </div>
+
+          <div class="weui-cell weui-cell_active weui-cell_switch">
+            <div class="weui-cell__bd">
+              <p class="w-switch-title">{{ t('settings.autoBackup') }}</p>
+              <p class="w-switch-desc">{{ t('settings.autoBackupDesc') }}</p>
+            </div>
+            <div class="weui-cell__ft">
+              <input v-model="formData.backup_before_update" class="weui-switch" type="checkbox" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ 服务器同步 ============ -->
+      <div class="weui-cells__group weui-cells__group_form">
+        <div class="weui-cells__title">{{ t('settings.serverGroup') }}</div>
+        <div class="weui-cells">
+          <div class="weui-cell weui-cell_active">
+            <div class="weui-cell__hd">
+              <label class="weui-label">{{ t('settings.serverHost') }}</label>
+            </div>
+            <div class="weui-cell__bd">
+              <input
+                v-model="formData.server_host"
+                class="weui-input"
+                type="text"
+                :placeholder="t('settings.serverHostPh')"
+              />
+            </div>
+          </div>
+
+          <div class="weui-cell weui-cell_active">
+            <div class="weui-cell__hd">
+              <label class="weui-label">{{ t('settings.serverPort') }}</label>
+            </div>
+            <div class="weui-cell__bd">
+              <input
+                v-model.number="formData.server_port"
+                class="weui-input"
+                type="number"
+                min="1"
+                max="65535"
+              />
+            </div>
+          </div>
+
+          <div class="weui-cell weui-cell_active">
+            <div class="weui-cell__hd">
+              <label class="weui-label">{{ t('settings.serverUser') }}</label>
+            </div>
+            <div class="weui-cell__bd">
+              <input
+                v-model="formData.server_user"
+                class="weui-input"
+                type="text"
+                :placeholder="t('settings.serverUserPh')"
+              />
+            </div>
+          </div>
+
+          <div class="weui-cell weui-cell_active">
+            <div class="weui-cell__hd">
+              <label class="weui-label">{{ t('settings.serverKey') }}</label>
+            </div>
+            <div class="weui-cell__bd">
+              <input
+                v-model="formData.server_key"
+                class="weui-input"
+                type="text"
+                placeholder="~/.ssh/id_ed25519"
+              />
+            </div>
+          </div>
+
+          <div class="weui-cell weui-cell_active">
+            <div class="weui-cell__hd">
+              <label class="weui-label">{{ t('settings.serverRemoteDir') }}</label>
+            </div>
+            <div class="weui-cell__bd">
+              <input
+                v-model="formData.server_remote_dir"
+                class="weui-input"
+                type="text"
+                :placeholder="t('settings.serverRemoteDirPh')"
+              />
+            </div>
+          </div>
+
+          <div class="weui-cell weui-cell_active">
+            <div class="weui-cell__hd">
+              <label class="weui-label">{{ t('settings.serverDshDir') }}</label>
+            </div>
+            <div class="weui-cell__bd">
+              <input
+                v-model="formData.server_dsh_dir"
+                class="weui-input"
+                type="text"
+                :placeholder="t('settings.serverDshDirPh')"
+              />
+            </div>
+          </div>
+
+          <div class="weui-cell weui-cell_active">
+            <div class="weui-cell__hd">
+              <label class="weui-label">{{ t('settings.serverUpdateCmd') }}</label>
+            </div>
+            <div class="weui-cell__bd">
+              <input
+                v-model="formData.server_update_cmd"
+                class="weui-input"
+                type="text"
+                :placeholder="t('settings.serverUpdateCmdPh')"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div class="w-server-actions">
+          <WButton size="mini" icon="link" :loading="testing" @click="testServer">
+            {{ t('settings.serverTest') }}
+          </WButton>
+          <WButton
+            size="mini"
+            icon="upload"
+            :loading="syncing === 'app'"
+            @click="syncServer('app')"
           >
-            <template #prefix>
-              <el-icon><Folder /></el-icon>
-            </template>
-          </el-input>
-          <div class="form-tip">{{ t('settings.dirTip') }}</div>
-        </el-form-item>
-      </div>
-
-      <!-- 更新设置 -->
-      <div class="setting-group">
-        <div class="group-title">
-          <el-icon><Refresh /></el-icon>
-          更新设置
-        </div>
-
-        <div class="switch-row">
-          <div class="row-info">
-            <div class="row-label">{{ t('settings.autoCheck') }}</div>
-            <div class="row-desc">{{ t('settings.autoCheckDesc') }}</div>
-          </div>
-          <el-switch v-model="formData.auto_check_updates" />
-        </div>
-
-        <div class="switch-row">
-          <div class="row-info">
-            <div class="row-label">{{ t('settings.autoBackup') }}</div>
-            <div class="row-desc">{{ t('settings.autoBackupDesc') }}</div>
-          </div>
-          <el-switch v-model="formData.backup_before_update" />
+            {{ t('settings.syncApp') }}
+          </WButton>
+          <WButton
+            size="mini"
+            icon="refresh"
+            :loading="syncing === 'catalog'"
+            @click="syncServer('catalog')"
+          >
+            {{ t('settings.syncCatalog') }}
+          </WButton>
+          <WButton
+            size="mini"
+            icon="layers"
+            :loading="syncing === 'plugins'"
+            @click="syncServer('plugins')"
+          >
+            {{ t('settings.syncPlugins') }}
+          </WButton>
         </div>
       </div>
 
-      <!-- 服务器同步 -->
-      <div class="setting-group">
-        <div class="group-title">
-          <el-icon><Monitor /></el-icon>
-          {{ t('settings.serverGroup') }}
-        </div>
+      <!-- ============ 关于 ============ -->
+      <div class="weui-cells__group weui-cells__group_form">
+        <div class="weui-cells__title">{{ t('settings.about') }}</div>
+        <div class="weui-cells">
+          <div class="weui-cell">
+            <div class="weui-cell__bd">
+              <p>{{ t('settings.version') }}</p>
+              <p class="w-switch-desc">{{ t('settings.currentVersion') }}</p>
+            </div>
+            <div class="weui-cell__ft">
+              <WButton size="mini" icon="refresh" @click="checkAppUpdate">
+                {{ t('settings.checkAppUpdate') }}
+              </WButton>
+            </div>
+          </div>
 
-        <el-form-item :label="t('settings.serverHost')">
-          <el-input v-model="formData.server_host" :placeholder="t('settings.serverHostPh')" />
-        </el-form-item>
-        <el-form-item :label="t('settings.serverPort')">
-          <el-input-number v-model="formData.server_port" :min="1" :max="65535" style="width: 140px" />
-        </el-form-item>
-        <el-form-item :label="t('settings.serverUser')">
-          <el-input v-model="formData.server_user" :placeholder="t('settings.serverUserPh')" />
-        </el-form-item>
-        <el-form-item :label="t('settings.serverKey')">
-          <el-input v-model="formData.server_key" placeholder="~/.ssh/id_ed25519" />
-        </el-form-item>
-        <el-form-item :label="t('settings.serverRemoteDir')">
-          <el-input v-model="formData.server_remote_dir" :placeholder="t('settings.serverRemoteDirPh')" />
-        </el-form-item>
-        <el-form-item :label="t('settings.serverDshDir')">
-          <el-input v-model="formData.server_dsh_dir" :placeholder="t('settings.serverDshDirPh')" />
-        </el-form-item>
-        <el-form-item :label="t('settings.serverUpdateCmd')">
-          <el-input v-model="formData.server_update_cmd" :placeholder="t('settings.serverUpdateCmdPh')" />
-        </el-form-item>
-
-        <div class="server-actions">
-          <el-button size="small" :loading="testing" :icon="Connection" @click="testServer">{{ t('settings.serverTest') }}</el-button>
-          <el-button size="small" type="primary" plain :loading="syncing === 'app'" :icon="Upload" @click="syncServer('app')">{{ t('settings.syncApp') }}</el-button>
-          <el-button size="small" type="primary" plain :loading="syncing === 'catalog'" :icon="Refresh" @click="syncServer('catalog')">{{ t('settings.syncCatalog') }}</el-button>
-          <el-button size="small" type="warning" plain :loading="syncing === 'plugins'" :icon="Upload" @click="syncServer('plugins')">{{ t('settings.syncPlugins') }}</el-button>
+          <a class="weui-cell weui-cell_access" href="javascript:" @click="openWebsite">
+            <div class="weui-cell__bd">
+              <p>{{ t('settings.website') }}</p>
+              <p class="w-switch-desc">{{ t('settings.websiteDesc') }}</p>
+            </div>
+            <div class="weui-cell__ft w-text-2">dsh.huilinsh.cn</div>
+          </a>
         </div>
       </div>
-
-      <!-- 关于 -->
-      <div class="setting-group">
-        <div class="group-title">
-          <el-icon><InfoFilled /></el-icon>
-          关于
-        </div>
-
-        <div class="switch-row">
-          <div class="row-info">
-            <div class="row-label">{{ t('settings.version') }}</div>
-            <div class="row-desc">{{ t('settings.currentVersion') }}</div>
-          </div>
-          <el-button size="small" @click="checkAppUpdate">
-            <el-icon><Refresh /></el-icon>
-            {{ t('settings.checkAppUpdate') }}
-          </el-button>
-        </div>
-
-        <div class="switch-row">
-          <div class="row-info">
-            <div class="row-label">{{ t('settings.website') }}</div>
-            <div class="row-desc">{{ t('settings.websiteDesc') }}</div>
-          </div>
-          <el-link type="primary" :underline="false" @click.prevent="openWebsite">
-            dsh.huilinsh.cn
-            <el-icon class="link-icon"><Link /></el-icon>
-          </el-link>
-        </div>
-      </div>
-    </el-form>
+    </div>
 
     <template #footer>
-      <el-button @click="handleClose">{{ t('common.cancel') }}</el-button>
-      <el-button type="primary" :loading="saving" @click="handleSave">{{ t('common.save') }}</el-button>
+      <WButton @click="handleClose">{{ t('common.cancel') }}</WButton>
+      <WButton type="primary" :loading="saving" @click="handleSave">
+        {{ t('common.save') }}
+      </WButton>
     </template>
-  </el-dialog>
+  </WDialog>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, reactive } from 'vue'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
-import {
-  Link,
-  Folder,
-  FolderOpened,
-  Connection,
-  Refresh,
-  InfoFilled,
-} from '@element-plus/icons-vue'
-import type { AppConfig } from '../types'
+import { reactive, ref, watch } from 'vue'
+import WDialog from './WDialog.vue'
+import WButton from './WButton.vue'
 import { pluginApi } from '../api'
 import { t } from '../i18n'
+import { useToast } from '../composables/useToast'
+import type { AppConfig } from '../types'
 
 const props = defineProps<{
   modelValue: boolean
@@ -185,17 +307,76 @@ const emit = defineEmits<{
   save: [config: AppConfig]
 }>()
 
+const toast = useToast()
 const visible = ref(props.modelValue)
 const testing = ref(false)
 const syncing = ref<string | null>(null)
+const saving = ref(false)
+
+const MIRROR_REGISTRY = 'https://registry.npmmirror.com'
+
+const formData = reactive<AppConfig>({
+  server_host: '',
+  server_port: 22,
+  server_user: '',
+  server_key: '',
+  server_remote_dir: '',
+  server_dsh_dir: '',
+  server_update_cmd: '',
+  proxy_base_url: '',
+  plugin_directory: '',
+  auto_check_updates: true,
+  backup_before_update: true,
+  install_registry: '',
+})
+
+const registryMode = ref<'official' | 'mirror' | 'custom'>('official')
+const errors = ref<{ proxy?: string; registry?: string }>({})
+
+const registryOptions = [
+  { label: t('settings.registryOfficial'), value: 'official' as const },
+  { label: t('settings.registryMirror'), value: 'mirror' as const },
+  { label: t('settings.registryCustom'), value: 'custom' as const },
+]
+
+function syncRegistryMode(v: string) {
+  registryMode.value = !v ? 'official' : v === MIRROR_REGISTRY ? 'mirror' : 'custom'
+}
+
+function onRegistryModeChange() {
+  if (registryMode.value === 'official') {
+    formData.install_registry = ''
+  } else if (registryMode.value === 'mirror') {
+    formData.install_registry = MIRROR_REGISTRY
+  } else if (!formData.install_registry) {
+    formData.install_registry = 'https://'
+  }
+}
+
+/** 轻量校验：代理与自定义源都允许留空，填写时才校验协议头 */
+function validate(): boolean {
+  const next: { proxy?: string; registry?: string } = {}
+  const proxy = formData.proxy_base_url?.trim()
+  if (proxy && !/^https?:\/\//.test(proxy)) {
+    next.proxy = t('settings.proxyFormat')
+  }
+  if (registryMode.value === 'custom') {
+    const reg = formData.install_registry?.trim()
+    if (reg && !/^https?:\/\//.test(reg)) {
+      next.registry = t('settings.registryFormat')
+    }
+  }
+  errors.value = next
+  return Object.keys(next).length === 0
+}
 
 async function testServer() {
   testing.value = true
   try {
     const res = await pluginApi.testServerConnection()
-    ElMessage.success(t('settings.serverTestOk') + ': ' + res)
+    toast.success(`${t('settings.serverTestOk')}: ${res}`)
   } catch (e) {
-    ElMessage.error(e?.toString() || t('settings.serverTestFail'))
+    toast.error(String(e) || t('settings.serverTestFail'))
   } finally {
     testing.value = false
   }
@@ -205,61 +386,31 @@ async function syncServer(kind: 'app' | 'catalog' | 'plugins') {
   syncing.value = kind
   try {
     const res = await pluginApi.syncToServer(kind)
-    ElMessage.success(res)
+    toast.success(res)
   } catch (e) {
-    ElMessage.error(e?.toString() || t('settings.syncFail'))
+    toast.error(String(e) || t('settings.syncFail'))
   } finally {
     syncing.value = null
   }
 }
-const formRef = ref<FormInstance>()
-const saving = ref(false)
 
-const formData = reactive<AppConfig>({
-  proxy_base_url: '',
-  plugin_directory: '',
-  auto_check_updates: true,
-  backup_before_update: true,
-})
-
-const MIRROR_REGISTRY = 'https://registry.npmmirror.com'
-const registryMode = ref<'official' | 'mirror' | 'custom'>('official')
-
-function syncRegistryMode(v: string) {
-  registryMode.value = !v ? 'official' : v === MIRROR_REGISTRY ? 'mirror' : 'custom'
+function checkAppUpdate() {
+  toast.text(`${t('settings.checkAppUpdate')}...`)
 }
 
-function onRegistryModeChange(mode: string) {
-  if (mode === 'official') {
-    formData.install_registry = ''
-  } else if (mode === 'mirror') {
-    formData.install_registry = MIRROR_REGISTRY
-  } else if (mode === 'custom' && !formData.install_registry) {
-    formData.install_registry = 'https://'
-  }
+function openWebsite() {
+  pluginApi.openExternal('https://dsh.huilinsh.cn').catch(() => {})
 }
 
-const rules: FormRules = {
-  install_registry: [
-    {
-      validator: (_r: unknown, value: string, cb: (err?: Error) => void) => {
-        if (registryMode.value === 'custom' && value && !/^https?:\/\//.test(value)) {
-          cb(new Error(t('settings.registryFormat')))
-        } else {
-          cb()
-        }
-      },
-      trigger: 'blur',
-    },
-  ],
-  proxy_base_url: [
-    {
-      // 代理留空合法（本地直连）；仅填写时才校验 http(s) 格式，空值自动跳过 pattern
-      pattern: /^https?:\/\//,
-      message: t('settings.proxyFormat'),
-      trigger: 'blur',
-    },
-  ],
+function handleClose() {
+  visible.value = false
+}
+
+function handleSave() {
+  if (!validate()) return
+  saving.value = true
+  emit('save', { ...formData })
+  saving.value = false
 }
 
 watch(
@@ -269,143 +420,45 @@ watch(
     if (val && props.config) {
       Object.assign(formData, props.config)
       syncRegistryMode(formData.install_registry || '')
+      errors.value = {}
     }
   }
 )
 
-watch(visible, (val) => {
-  emit('update:modelValue', val)
-})
-
-// 官网链接：统一走系统浏览器
-function openWebsite() {
-  pluginApi.openExternal('https://dsh.huilinsh.cn').catch(() => {})
-}
-function handleClose() {
-  visible.value = false
-}
-
-async function handleSave() {
-  if (!formRef.value) return
-
-  try {
-    await formRef.value.validate()
-    saving.value = true
-    emit('save', { ...formData })
-  } catch (e) {
-    // 验证失败，保持对话框打开
-  } finally {
-    saving.value = false
-  }
-}
-
-function checkAppUpdate() {
-  ElMessage.info(t('settings.checkAppUpdate') + '...')
-  // 实际实现中会请求官网版本接口
-}
+watch(visible, (val) => emit('update:modelValue', val))
 </script>
 
 <style scoped>
-/* ---------- 分组容器 ---------- */
-.setting-group {
-  padding: 16px 18px;
-  margin-bottom: 14px;
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid var(--glass-border);
+.w-form {
+  padding: 0;
+  min-height: auto;
+  text-align: left;
 }
 
-.setting-group:last-child {
-  margin-bottom: 0;
+/* 开关行的标题与说明 */
+.w-switch-title {
+  font-size: 14px;
+  color: var(--fg);
 }
 
-.group-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--primary-light);
-  margin-bottom: 14px;
-  letter-spacing: 0.3px;
-}
-
-.group-title .el-icon {
-  font-size: 15px;
-}
-
-/* ---------- 表单项 ---------- */
-.form-tip {
+.w-switch-desc {
   font-size: 12px;
-  color: var(--text-muted);
-  margin-top: 6px;
-  line-height: 1.5;
-}
-
-/* 开关行：左信息 + 右控件 */
-.switch-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 10px 0;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.switch-row:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
-}
-
-.row-info {
-  min-width: 0;
-}
-
-.row-label {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.row-desc {
-  font-size: 12px;
-  color: var(--text-muted);
+  color: var(--fg-2);
   margin-top: 2px;
   line-height: 1.5;
 }
 
-.link-icon {
-  margin-left: 4px;
-}
-
-/* 表单标签深色 */
-:deep(.el-form-item__label) {
-  color: var(--text-secondary);
-  font-size: 13px;
-}
-
-:deep(.el-form-item__error) {
-  color: var(--danger);
-}
-
-.native-cred-input {
-  width: 100%;
-  height: 30px;
-  padding: 0 10px;
-  border: 1px solid #dcdfe6;
-  border-radius: 4px;
-  font-size: 13px;
-  color: #606266;
-  outline: none;
-  box-sizing: border-box;
-}
-.native-cred-input:focus {
-  border-color: #409eff;
-}
-.server-actions {
+.w-server-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  padding-left: 150px;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4) 0;
+}
+
+/* 桌面端表单标签加宽，避免中文换行 */
+@media (min-width: 768px) {
+  .weui-label {
+    width: 105px;
+  }
 }
 </style>
