@@ -373,12 +373,14 @@ function handleViewReleaseNotes(plugin: PluginInfo) {
   showReleaseNotes.value = true
 }
 
-async function handleSaveConfig(config: AppConfig) {
+async function handleSaveConfig(config: AppConfig, done?: (err?: unknown) => void) {
   try {
     await pluginStore.saveConfig(config)
     toast.success(t('settings.saved'))
     showSettings.value = false
+    done?.()
   } catch (e: unknown) {
+    done?.(e)
     toast.error(toMessage(e, t('error.saveConfig')))
   }
 }

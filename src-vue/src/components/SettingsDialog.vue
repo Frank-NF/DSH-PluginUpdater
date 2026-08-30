@@ -29,18 +29,22 @@
             <div class="weui-cell__hd">
               <label class="weui-label">{{ t('settings.defaultDir') }}</label>
             </div>
-            <div class="weui-cell__bd">
+            <div class="weui-cell__bd w-dir-cell">
               <input
                 v-model="formData.plugin_directory"
                 class="weui-input"
                 type="text"
                 :placeholder="t('settings.dirPlaceholder')"
+                spellcheck="false"
               />
+              <WButton size="mini" icon="folder" :title="t('settings.dirPickTip')" @click="pickDir">
+                {{ t('settings.dirPick') }}
+              </WButton>
             </div>
           </div>
         </div>
-        <div v-if="errors.proxy" class="weui-cells__tips weui-cells__tips_warn">
-          {{ errors.proxy }}
+        <div v-if="errors.proxy || errors.port" class="weui-cells__tips weui-cells__tips_warn">
+          {{ errors.proxy || errors.port }}
         </div>
         <div v-else class="weui-cells__tips">
           {{ t('settings.proxyTip') }}<br />{{ t('settings.dirTip') }}
@@ -262,7 +266,7 @@
               <p class="w-switch-desc">{{ t('settings.currentVersion') }}</p>
             </div>
             <div class="weui-cell__ft">
-              <WButton size="mini" icon="refresh" @click="checkAppUpdate">
+              <WButton size="mini" icon="refresh" :loading="checkingUpdate" @click="checkAppUpdate">
                 {{ t('settings.checkAppUpdate') }}
               </WButton>
             </div>
@@ -295,6 +299,7 @@ import WButton from './WButton.vue'
 import { pluginApi } from '../api'
 import { t } from '../i18n'
 import { useToast } from '../composables/useToast'
+import { useConfirm } from '../composables/useConfirm'
 import type { AppConfig } from '../types'
 
 const props = defineProps<{
@@ -304,10 +309,11 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
-  save: [config: AppConfig]
+  save: [config: AppConfig, done: (err?: unknown) => void]
 }>()
 
 const toast = useToast()
+const { confirm } = useConfirm()
 const visible = ref(props.modelValue)
 const testing = ref(false)
 const syncing = ref<string | null>(null)
@@ -331,7 +337,7 @@ const formData = reactive<AppConfig>({
 })
 
 const registryMode = ref<'official' | 'mirror' | 'custom'>('official')
-const errors = ref<{ proxy?: string; registry?: string }>({})
+const errors = ref<{ proxy?: string; registry?: string; port?: string }>({})
 
 const registryOptions = [
   { label: t('settings.registryOfficial'), value: 'official' as const },
@@ -355,7 +361,7 @@ function onRegistryModeChange() {
 
 /** 轻量校验：代理与自定义源都允许留空，填写时才校验协议头 */
 function validate(): boolean {
-  const next: { proxy?: string; registry?: string } = {}
+  const next: { proxy?: string; registry?: string; port?: string } = {}
   const proxy = formData.proxy_base_url?.trim()
   if (proxy && !/^https?:\/\//.test(proxy)) {
     next.proxy = t('settings.proxyFormat')
@@ -366,15 +372,35 @@ function validate(): boolean {
       next.registry = t('settings.registryFormat')
     }
   }
+  const port = Number(formData.server_port)
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    next.port = t('settings.portInvalid')
+  }
   errors.value = next
   return Object.keys(next).length === 0
+}
+
+async function pickDir() {
+  try {
+    const dir = await pluginApi.pickDirectory()
+    if (!dir) return
+    formData.plugin_directory = dir
+  } catch (e) {
+    toast.error(String(e))
+  }
+}
+
+async function persistForm() {
+  // 测试/同步走后端已保存配置——先把当前表单落盘，避免测到旧值
+  await pluginApi.updateConfig({ ...formData })
 }
 
 async function testServer() {
   testing.value = true
   try {
+    await persistForm()
     const res = await pluginApi.testServerConnection()
-    toast.success(`${t('settings.serverTestOk')}: ${res}`)
+    toast.success(t('settings.serverTestOk') + ': ' + res)
   } catch (e) {
     toast.error(String(e) || t('settings.serverTestFail'))
   } finally {
@@ -385,6 +411,7 @@ async function testServer() {
 async function syncServer(kind: 'app' | 'catalog' | 'plugins') {
   syncing.value = kind
   try {
+    await persistForm()
     const res = await pluginApi.syncToServer(kind)
     toast.success(res)
   } catch (e) {
@@ -394,8 +421,30 @@ async function syncServer(kind: 'app' | 'catalog' | 'plugins') {
   }
 }
 
-function checkAppUpdate() {
-  toast.text(`${t('settings.checkAppUpdate')}...`)
+const checkingUpdate = ref(false)
+
+async function checkAppUpdate() {
+  checkingUpdate.value = true
+  try {
+    const info = await pluginApi.checkSelfUpdate()
+    if (!info.available) {
+      toast.success(t('settings.upToDate') + ' (v' + info.current_version + ')')
+      return
+    }
+    const ok = await confirm({
+      title: t('settings.newVersion'),
+      message: 'v' + info.latest_version + (info.changelog && info.changelog.length ? '\n' + info.changelog.slice(0, 5).join('\n') : ''),
+      confirmText: t("settings.selfUpdateNow"),
+      cancelText: t('common.cancel'),
+    })
+    if (!ok) return
+    const msg = await pluginApi.selfUpdate()
+    toast.success(msg || t("settings.selfUpdateDone"))
+  } catch (e) {
+    toast.error(String(e) || t('settings.selfUpdateFail'))
+  } finally {
+    checkingUpdate.value = false
+  }
 }
 
 function openWebsite() {
@@ -409,8 +458,11 @@ function handleClose() {
 function handleSave() {
   if (!validate()) return
   saving.value = true
-  emit('save', { ...formData })
-  saving.value = false
+  emit('save', { ...formData }, (err) => {
+    saving.value = false
+    if (err) return
+    visible.value = false
+  })
 }
 
 watch(
@@ -460,5 +512,21 @@ watch(visible, (val) => emit('update:modelValue', val))
   .weui-label {
     width: 105px;
   }
+}
+
+/* 目录行：只读输入框 + 选择按钮 */
+.w-dir-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.w-dir-cell .weui-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.w-dir-cell .weui-btn {
+  flex: 0 0 auto;
 }
 </style>
