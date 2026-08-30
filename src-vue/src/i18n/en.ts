@@ -33,6 +33,8 @@ export const en: Record<string, string> = {
   'check.allLatest': 'All plugins are up to date',
   'check.failed': 'Update check failed',
   'check.inProgress': 'Checking updates',
+  'updates.total': '{n} updatable',
+  'updates.autoTip': 'Kept up to date by auto-scan',
 
   // Update confirm dialog
   'update.confirmTitle': 'Update confirmation',

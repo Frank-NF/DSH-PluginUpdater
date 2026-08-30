@@ -117,9 +117,11 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey, true))
   z-index: 5000;
 }
 
-/* 交给 GSAP 控制进出场，禁用 WeUI 自带的 CSS 过渡与初始位移 */
+/* 交给 GSAP 控制进出场；必须覆盖 WeUI 类里的 translate(0,100%)，
+   否则 GSAP clearProps 后面板回落到屏幕外（遮罩在、面板消失） */
 .weui-actionsheet {
   transition: none;
+  transform: none;
   max-height: 80vh;
   overflow-y: auto;
   padding-bottom: env(safe-area-inset-bottom, 0);

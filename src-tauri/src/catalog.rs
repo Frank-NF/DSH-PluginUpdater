@@ -117,6 +117,12 @@ struct WebsitePluginItem {
     stars: Option<u64>,
     #[serde(default)]
     github_url: Option<String>,
+    /// 官网返回的展示描述（zh 优先的合并串）
+    #[serde(default)]
+    description: Option<String>,
+    /// GitHub 原始英文描述
+    #[serde(default)]
+    github_description: Option<String>,
 }
 
 /// 本地磁盘缓存路径：%APPDATA%/dsh-plugin-updater/catalog.json
@@ -158,14 +164,27 @@ pub async fn fetch_catalog_from_website(client: &reqwest::Client) -> AppResult<C
     let entries: Vec<CatalogEntry> = parsed
         .plugins
         .into_iter()
-        .map(|p| CatalogEntry {
-            name: p.id.clone(),
-            url: p.github_url,
-            npm: Some(p.id),
-            description: None,
-            category: p.category,
-            stars: p.stars,
-            downloads: None,
+        .map(|p| {
+            // 官网 description = zh || en 合并串；github_description = 英文原文
+            let (zh, en) = match (p.description.clone(), p.github_description.clone()) {
+                (Some(z), Some(e)) => (Some(z), Some(e)),
+                (Some(z), None) => (Some(z.clone()), Some(z)),
+                (None, Some(e)) => (None, Some(e)),
+                (None, None) => (None, None),
+            };
+            CatalogEntry {
+                name: p.id.clone(),
+                url: p.github_url,
+                npm: Some(p.id),
+                description: if zh.is_some() || en.is_some() {
+                    Some(CatalogDescription { en, zh })
+                } else {
+                    None
+                },
+                category: p.category,
+                stars: p.stars,
+                downloads: None,
+            }
         })
         .collect();
 

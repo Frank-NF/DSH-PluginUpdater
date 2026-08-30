@@ -416,6 +416,14 @@
 
     <!-- ============ 可更新 ============ -->
     <section ref="updatesPanel" v-show="activeTab === 'updates'" class="w-panel">
+      <!-- 统计行（与已安装面板同款样式） -->
+      <div v-if="updatableList.length" class="w-toolbar">
+        <div class="w-flex w-items-center w-gap-2 w-flex-1">
+          <span class="w-text-2">{{ t('updates.total', { n: updatableList.length }) }}</span>
+          <span class="w-tag w-tag_warn">{{ t('updates.autoTip') }}</span>
+        </div>
+      </div>
+
       <!-- 检查中 -->
       <WLoading v-if="isCheckingUpdates" block :text="t('check.inProgress')" />
 
@@ -433,14 +441,19 @@
           <div class="weui-media-box weui-media-box_appmsg">
             <div class="weui-media-box__hd">
               <span class="w-plugin-icon is-update">
-                <WIcon name="upload" :size="20" />
+                <WIcon :name="row.manifest.type === 'agent-core' ? 'core' : 'plugin'" :size="20" />
               </span>
             </div>
             <div class="weui-media-box__bd">
               <h4 class="weui-media-box__title">
                 <span class="w-truncate">{{ row.manifest.name }}</span>
+                <span v-if="row.manifest.type === 'agent-core'" class="w-tag w-tag_brand">
+                  {{ t('app.coreTag') }}
+                </span>
               </h4>
-              <p class="weui-media-box__desc w-clamp-2">{{ localeDescription(row) }}</p>
+              <p class="weui-media-box__desc w-clamp-2" :title="row.manifest.description">
+                {{ localeDescription(row) }}
+              </p>
             </div>
             <div class="w-card-status"><StatusTag :row="row" /></div>
           </div>
@@ -710,6 +723,13 @@ const marketFiltered = computed(() => {
   } else if (marketSort.value === 'latest') {
     list = [...list].sort((a, b) => a.name.localeCompare(b.name))
   }
+  // 有可用更新的插件置顶（npm/id 命中已安装的可更新列表；稳定排序）
+  if (updatableNpmKeys.value.size) {
+    list = [...list].sort(
+      (a, b) =>
+        Number(matchesUpdatable(b)) - Number(matchesUpdatable(a))
+    )
+  }
   return list
 })
 
@@ -764,14 +784,37 @@ const categories = computed(() => {
 
 /** 按分类筛选后的插件（网格与列表视图共用——修复原列表视图未筛选的问题） */
 const filteredPlugins = computed(() => {
-  if (!categoryFilter.value) return props.plugins
-  return props.plugins.filter((p) => p.category === categoryFilter.value)
+  let list = props.plugins
+  if (categoryFilter.value) {
+    list = list.filter((p) => p.category === categoryFilter.value)
+  }
+  // 可更新插件置顶（稳定排序：组内保持原有顺序）
+  return [...list].sort(
+    (a, b) => Number(b.update_available) - Number(a.update_available)
+  )
 })
 
 const updatableCount = computed(
   () => props.plugins.filter((p) => p.update_available).length
 )
 const updatableList = computed(() => props.plugins.filter((p) => p.update_available))
+
+/** 可更新插件的匹配 key（manifest.id 及其短名），用于市场列表置顶 */
+const updatableNpmKeys = computed(() => {
+  const s = new Set<string>()
+  for (const p of updatableList.value) {
+    s.add(p.manifest.id.toLowerCase())
+    const short = p.manifest.id.split('/').pop() || ''
+    if (short) s.add(short.toLowerCase())
+  }
+  return s
+})
+
+function matchesUpdatable(mp: MarketPlugin): boolean {
+  if (mp.name && updatableNpmKeys.value.has(mp.name.toLowerCase())) return true
+  if (mp.npm && updatableNpmKeys.value.has(mp.npm.toLowerCase())) return true
+  return false
+}
 
 /* ---------------- 安装 ---------------- */
 const installDialogVisible = ref(false)

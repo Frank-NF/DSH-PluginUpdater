@@ -33,6 +33,8 @@ export const zh: Record<string, string> = {
   'check.allLatest': '所有插件均为最新版本',
   'check.failed': '检查更新失败',
   'check.inProgress': '正在检查更新',
+  'updates.total': '共 {n} 个可更新',
+  'updates.autoTip': '自动扫描保持最新',
 
   // 更新确认弹窗
   'update.confirmTitle': '更新确认',
