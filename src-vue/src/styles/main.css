@@ -482,42 +482,44 @@ button {
   color: var(--fg-3);
 }
 
-/* ---------- 11. 顶部药丸 Tab（覆盖 WeUI navbar） ---------- */
-.weui-navbar {
+/* ---------- 11. 顶部 Tab（独立横排按钮，勿挂 w-hide-mobile 之外的 WeUI navbar 类：
+   .w-hide-mobile 的 display:revert 会覆盖同特异性 display 规则导致竖排溢出） ---------- */
+.w-tabs {
   display: inline-flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
   width: fit-content;
   max-width: 100%;
   gap: 10px;
-  background: transparent;
-  border: none;
   padding: 0;
+  margin: 0 0 var(--sp-4);
 }
 
-.weui-navbar::after {
-  display: none;
-}
-
-.weui-navbar__item {
+.w-tab-btn {
   position: relative;
+  display: block;
   flex: 0 0 auto;
   padding: 7px 18px;
   font-size: 13.5px;
+  line-height: 1.4;
   font-weight: 500;
   color: var(--fg-1);
   border-radius: var(--r-full);
   white-space: nowrap;
   background: rgba(148, 163, 184, 0.1);
   border: 1px solid var(--border-strong);
+  cursor: pointer;
   transition: color 0.2s var(--ease-out), background-color 0.2s var(--ease-out),
     border-color 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
 }
 
-.weui-navbar__item:not(.weui-bar__item_on):hover {
+.w-tab-btn:hover {
   border-color: rgba(99, 102, 241, 0.45);
   color: var(--brand-2);
 }
 
-.weui-navbar__item.weui-bar__item_on {
+.w-tab-btn.is-active {
   background: linear-gradient(135deg, var(--brand) 0%, var(--brand-3) 100%);
   color: #fff;
   font-weight: 600;
@@ -525,8 +527,11 @@ button {
   box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
 }
 
-.weui-navbar__item::after {
-  display: none !important;
+/* 窄窗隐藏顶部 Tab（专用规则，不用 w-hide-mobile，避开 revert 竞态） */
+@media (max-width: 767.98px) {
+  .w-tabs {
+    display: none;
+  }
 }
 
 /* ---------- 12. 底部 Tabbar（移动） ---------- */
