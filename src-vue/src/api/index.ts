@@ -211,6 +211,10 @@ const mockApi = {
   openExternal: async (url: string): Promise<void> => {
     window.open(url, '_blank')
   },
+  pickDirectory: async (): Promise<string | null> => {
+    await delay(100)
+    return null
+  },
   killDshProcessesElevated: async (): Promise<number> => {
     await delay(300)
     return 0
@@ -289,6 +293,8 @@ export const pluginApi = isTauri
     killDshProcesses: (): Promise<number> => invoke('kill_dsh_processes'),
 
     openExternal: (url: string): Promise<void> => invoke('open_external', { url }),
+
+    pickDirectory: (): Promise<string | null> => invoke('pick_directory'),
 
     killDshProcessesElevated: (): Promise<number> => invoke('kill_dsh_processes_elevated'),
 

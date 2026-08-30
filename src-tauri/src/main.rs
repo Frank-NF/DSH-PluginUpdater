@@ -1358,17 +1358,34 @@ async fn auto_scan_plugins(state: State<'_, AppState>) -> AppResult<Vec<PluginIn
     let detail = last_error.unwrap_or_default();
     Err(AppError::Other(format!("未找到插件目录（已尝试 {} 个位置：{}），请在设置中手动指定", candidates.len(), detail)))
 }
+/// 弹出系统目录选择框，返回所选路径（取消返回 None）
+#[tauri::command]
+async fn pick_directory(window: tauri::WebviewWindow) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let (tx, rx) = tokio::sync::oneshot::channel::<Option<String>>();
+    window
+        .dialog()
+        .file()
+        .set_title("选择插件目录")
+        .pick_folder(move |path| {
+            let _ = tx.send(path.map(|p| p.to_string()));
+        });
+    rx.await.map_err(|e| e.to_string())
+}
+
 fn main() {
     env_logger::init();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_dialog::init())
         .manage(AppState {
             // 从 ~/.dsh/plugin-updater-config.json 加载，修复设置重启丢失
             config: Mutex::new(load_config_from_disk()),
             plugins: Mutex::new(Vec::new()),
         })
         .invoke_handler(tauri::generate_handler![
+            pick_directory,
             scan_plugins,
             auto_scan_plugins,
             check_updates,

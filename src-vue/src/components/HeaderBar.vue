@@ -12,35 +12,13 @@
         </div>
       </div>
 
-      <!-- 插件目录输入 + 扫描 -->
+      <!-- 扫描（点击弹出目录选择） -->
       <div class="w-header__search">
-        <div class="weui-search-bar weui-search-bar_focusing">
-          <div class="weui-search-bar__form">
-            <div class="weui-search-bar__box">
-              <i class="weui-icon-search" aria-hidden="true" />
-              <input
-                v-model="localDirectory"
-                type="search"
-                class="weui-search-bar__input"
-                :placeholder="t('header.dirPlaceholder')"
-                :aria-label="t('header.dirPlaceholder')"
-                @keyup.enter="handleScan"
-              />
-              <a
-                v-if="localDirectory"
-                href="javascript:"
-                class="weui-icon-clear"
-                :aria-label="t('common.clear')"
-                @click="clearDir"
-              />
-            </div>
-          </div>
-        </div>
-
         <WButton
           type="primary"
-          icon="search"
+          icon="folder"
           :loading="isScanning"
+          :title="t('header.scanTip')"
           @click="handleScan"
         >
           {{ t('header.scan') }}
@@ -156,10 +134,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import WButton from './WButton.vue'
 import WIcon from './WIcon.vue'
 import WSheet from './WSheet.vue'
+import { pluginApi } from '../api'
 import { t } from '../i18n'
 import type { ThemeMode } from '../composables/useTheme'
 
@@ -186,15 +165,7 @@ const emit = defineEmits<{
   'toggle-theme': []
 }>()
 
-const localDirectory = ref(props.pluginDirectory)
 const sheetOpen = ref(false)
-
-watch(
-  () => props.pluginDirectory,
-  (val) => {
-    localDirectory.value = val
-  }
-)
 
 const themeIcon = computed(() => (props.theme === 'dark' ? 'sun' : 'moon'))
 
@@ -207,14 +178,14 @@ const sheetItems = computed(() => [
   { label: t('header.langSwitch'), value: 'locale' },
 ])
 
-function handleScan() {
-  const dir = localDirectory.value.trim()
-  if (!dir) return
-  emit('scan', dir)
-}
-
-function clearDir() {
-  localDirectory.value = ''
+async function handleScan() {
+  try {
+    const dir = await pluginApi.pickDirectory()
+    if (!dir) return
+    emit('scan', dir)
+  } catch (e) {
+    console.error('pick_directory failed', e)
+  }
 }
 
 function onSheetSelect(value: string) {
