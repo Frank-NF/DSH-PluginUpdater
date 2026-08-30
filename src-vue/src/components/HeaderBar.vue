@@ -414,6 +414,12 @@ function onSheetSelect(value: string) {
   border: 1px solid var(--border);
 }
 
+/* 头部主操作按钮等宽对齐（自动扫描/检查更新） */
+.w-header__actions > .weui-btn {
+  min-width: 118px;
+  justify-content: center;
+}
+
 /* 组内按钮（图标/EN 文字）统一 ghost 风格，消除双重视觉噪音 */
 .w-header__icon-group .weui-btn {
   min-width: 32px;

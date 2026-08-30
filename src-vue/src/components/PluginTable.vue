@@ -245,15 +245,6 @@
             {{ t('table.updatable', { n: updatableCount }) }}
           </span>
         </div>
-
-        <div class="w-flex w-items-center w-gap-2">
-          <WButton
-            size="inline"
-            :icon="viewMode === 'grid' ? 'grid' : 'list'"
-            :title="viewMode === 'grid' ? t('table.list') : t('table.grid')"
-            @click="toggleView"
-          />
-        </div>
       </div>
 
       <!-- 分类筛选 -->

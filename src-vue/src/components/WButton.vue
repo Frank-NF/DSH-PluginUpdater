@@ -1,11 +1,13 @@
 <template>
   <button
+    v-bind="restAttrs"
     ref="btnEl"
     type="button"
     class="weui-btn"
     :class="[typeCls, sizeCls, { 'weui-btn_disabled': disabled || loading, 'w-btn_block': block }]"
     :disabled="disabled || loading"
     :aria-busy="loading || undefined"
+    :data-tip="tip || undefined"
     @pointerdown="onDown"
     @pointerup="onUp"
     @pointerleave="onUp"
@@ -19,9 +21,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, useAttrs } from 'vue'
 import WIcon from './WIcon.vue'
 import { pressIn, pressOut } from '../composables/useMotion'
+
+defineOptions({ inheritAttrs: false })
 
 const props = withDefaults(
   defineProps<{
@@ -37,6 +41,14 @@ const props = withDefaults(
   }>(),
   { type: 'default', size: 'normal', iconSize: 16, loading: false, disabled: false, block: false }
 )
+
+// title 转为自定义悬浮提示（即时显示、统一样式；避免原生 tooltip 延迟）
+const attrs = useAttrs()
+const tip = computed(() => (attrs.title as string | undefined) || '')
+const restAttrs = computed(() => {
+  const { title: _t, ...rest } = attrs
+  return rest
+})
 
 defineEmits<{ click: [e: MouseEvent] }>()
 
