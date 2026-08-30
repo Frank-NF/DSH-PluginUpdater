@@ -7,6 +7,7 @@
       :auto-scanning="isAutoScanning"
       :plugin-count="pluginStore.plugins.length"
       :updatable-count="pluginStore.updatablePlugins.length"
+      :market-count="pluginStore.marketPlugins.length"
       :last-scan-time="pluginStore.lastScanTime"
       :theme="theme"
       @scan="handleScan"

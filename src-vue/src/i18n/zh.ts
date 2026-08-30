@@ -10,6 +10,7 @@ export const zh: Record<string, string> = {
   'header.subtitle': '独立运行 · 官方通道',
   'header.dirPlaceholder': '输入插件目录路径，例如 C:\\Users\\niufe\\.dsh\\profiles\\web',
   'header.scan': '扫描',
+  'header.market': '市场',
   'header.plugins': '插件',
   'header.updatable': '可更新',
   'header.autoScan': '自动扫描',

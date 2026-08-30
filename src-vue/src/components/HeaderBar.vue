@@ -51,6 +51,10 @@
       <div class="w-header__actions">
         <!-- 统计（桌面） -->
         <div v-if="pluginCount > 0" class="w-header__stats w-hide-mobile">
+          <div v-if="marketCount" class="w-header__stat is-brand">
+            <span class="w-header__stat-value">{{ marketCount }}</span>
+            <span class="w-header__stat-label">{{ t('header.market') }}</span>
+          </div>
           <div class="w-header__stat">
             <span class="w-header__stat-value">{{ pluginCount }}</span>
             <span class="w-header__stat-label">{{ t('header.plugins') }}</span>
@@ -166,6 +170,7 @@ const props = defineProps<{
   autoScanning: boolean
   pluginCount: number
   updatableCount: number
+  marketCount?: number
   lastScanTime: string
   theme: ThemeMode
 }>()
@@ -319,7 +324,7 @@ function onSheetSelect(value: string) {
 }
 
 .w-header__search .weui-search-bar__box {
-  height: 40px;
+  height: 38px;
   background: var(--bg-input);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
@@ -359,6 +364,15 @@ function onSheetSelect(value: string) {
 .w-header__stat.is-warn {
   background: rgba(245, 158, 11, 0.12);
   border-color: rgba(245, 158, 11, 0.25);
+}
+
+.w-header__stat.is-brand {
+  background: var(--brand-soft);
+  border-color: rgba(99, 102, 241, 0.28);
+}
+
+.w-header__stat.is-brand .w-header__stat-value {
+  color: var(--brand-2);
 }
 
 .w-header__stat-value {
