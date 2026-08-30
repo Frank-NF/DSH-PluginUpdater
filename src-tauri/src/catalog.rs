@@ -14,7 +14,7 @@ const NPM_MIRRORS: &[&str] = &[
 const CATALOG_PACKAGE: &str = "dsh-plugin-catalog";
 const CATALOG_OFFICIAL_URL: &str = "https://awesome-dsh-plugin.com/plugins.json";
 /// 官网权威源（商用化统一数据入口，Phase 1）
-const CATALOG_WEBSITE_URL: &str = "https://dsh.huilinsh.cn/api/plugins?fields=basic&page_size=200";
+const CATALOG_WEBSITE_URL: &str = "https://dsh.huilinsh.cn/api/plugins?fields=full&page_size=200";
 const CATALOG_TTL: Duration = Duration::from_secs(600);
 
 /// 编译时嵌入的签名公钥（32 bytes Ed25519）
@@ -123,6 +123,9 @@ struct WebsitePluginItem {
     /// GitHub 原始英文描述
     #[serde(default)]
     github_description: Option<String>,
+    /// npm 月下载量（官网 full 模式透传）
+    #[serde(default)]
+    downloads: Option<u64>,
 }
 
 /// 本地磁盘缓存路径：%APPDATA%/dsh-plugin-updater/catalog.json
@@ -161,7 +164,7 @@ pub async fn fetch_catalog_from_website(client: &reqwest::Client) -> AppResult<C
         return Err(AppError::Other("官网目录为空".to_string()));
     }
 
-    let entries: Vec<CatalogEntry> = parsed
+    let mut entries: Vec<CatalogEntry> = parsed
         .plugins
         .into_iter()
         .map(|p| {
@@ -183,10 +186,13 @@ pub async fn fetch_catalog_from_website(client: &reqwest::Client) -> AppResult<C
                 },
                 category: p.category,
                 stars: p.stars,
-                downloads: None,
+                downloads: p.downloads,
             }
         })
         .collect();
+
+    // 尽力而为补 npm 月下载量（并发 8 路，失败静默不阻塞目录）
+    enrich_npm_downloads(client, &mut entries).await;
 
     // 成功时刷新磁盘缓存
     write_cache(&entries);
@@ -196,6 +202,65 @@ pub async fn fetch_catalog_from_website(client: &reqwest::Client) -> AppResult<C
         fetched_at: Instant::now(),
         source: "dsh.huilinsh.cn".to_string(),
     })
+}
+
+/// 尽力而为补全 npm 月下载量（并发 8 路，单包失败静默跳过，总体限时）
+async fn enrich_npm_downloads(client: &reqwest::Client, entries: &mut [CatalogEntry]) {
+    let targets: Vec<(usize, String)> = entries
+        .iter()
+        .enumerate()
+        .filter_map(|(i, e)| e.npm.clone().map(|n| (i, n)))
+        .collect();
+    if targets.is_empty() {
+        return;
+    }
+
+    let semaphore = std::sync::Arc::new(tokio::sync::Semaphore::new(8));
+    let mut handles = Vec::with_capacity(targets.len());
+    for (idx, npm) in targets {
+        let sem = semaphore.clone();
+        let client = client.clone();
+        handles.push(tokio::spawn(async move {
+            let _permit = sem.acquire().await.ok()?;
+            let url = format!(
+                "https://api.npmjs.org/downloads/point/last-month/{}",
+                npm
+            );
+            let resp = client
+                .get(&url)
+                .header("User-Agent", "dsh-plugin-updater")
+                .header("Accept", "application/json")
+                .timeout(std::time::Duration::from_secs(6))
+                .send()
+                .await
+                .ok()?;
+            if !resp.status().is_success() {
+                return None;
+            }
+            #[derive(serde::Deserialize)]
+            struct NpmDownloads {
+                downloads: u64,
+            }
+            let parsed: NpmDownloads = resp.json().await.ok()?;
+            Some((idx, parsed.downloads))
+        }));
+    }
+
+    // 总预算 20s：到点放弃剩余包（下次 TTL 刷新或重启会补全）
+    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(20);
+    for handle in handles {
+        if tokio::time::Instant::now() >= deadline {
+            handle.abort();
+            continue;
+        }
+        let remaining = deadline - tokio::time::Instant::now();
+        match tokio::time::timeout(remaining, handle).await {
+            Ok(Ok(Some((idx, downloads)))) => {
+                entries[idx].downloads = Some(downloads);
+            }
+            _ => {}
+        }
+    }
 }
 
 /// 拉取官方插件目录。

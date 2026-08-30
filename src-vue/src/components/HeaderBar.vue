@@ -301,8 +301,8 @@ function onSheetSelect(value: string) {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  flex: 1 1 280px;
-  min-width: 0;
+  flex: 1 1 220px;
+  min-width: 160px;
 }
 
 .w-header__search .weui-search-bar {
@@ -340,8 +340,22 @@ function onSheetSelect(value: string) {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   margin-left: auto;
+}
+
+/* 窄桌面：市场徽章在 Tab 上已有 (200)，隐藏以保三按钮同行 */
+@media (max-width: 1180px) {
+  .w-header__stat.is-brand {
+    display: none;
+  }
+}
+
+/* 更窄桌面：整组徽章让位 */
+@media (max-width: 1080px) {
+  .w-header__stats {
+    display: none;
+  }
 }
 
 .w-header__stats {
