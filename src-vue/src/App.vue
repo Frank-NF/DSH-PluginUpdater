@@ -14,6 +14,8 @@
       @auto-scan="handleAutoScan"
       @open-settings="showSettings = true"
       @open-repair="showRepair = true"
+      @open-mcp="showMcp = true"
+      @open-snapshot="showSnapshot = true"
       @open-website="openWebsite"
       @toggle-locale="toggleLocale"
       @toggle-theme="toggleTheme"

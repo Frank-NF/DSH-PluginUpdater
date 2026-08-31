@@ -58,6 +58,20 @@
         <div class="w-header__icon-group w-hide-mobile">
           <WButton
             size="mini"
+            icon="server"
+            :title="t('mcp.title')"
+            :aria-label="t('mcp.title')"
+            @click="$emit('open-mcp')"
+          />
+          <WButton
+            size="mini"
+            icon="layers"
+            :title="t('snapshot.title')"
+            :aria-label="t('snapshot.title')"
+            @click="$emit('open-snapshot')"
+          />
+          <WButton
+            size="mini"
             :icon="themeIcon"
             :title="t('header.theme')"
             :aria-label="t('header.theme')"
@@ -150,6 +164,8 @@ const emit = defineEmits<{
   'open-settings': []
   'open-website': []
   'open-repair': []
+  'open-mcp': []
+  'open-snapshot': []
   'toggle-locale': []
   'toggle-theme': []
 }>()
@@ -163,6 +179,8 @@ const themeIcon = computed(() => (props.theme === 'dark' ? 'sun' : 'moon'))
 
 const sheetItems = computed(() => [
   { label: t('header.autoScan'), value: 'auto', desc: '' },
+  { label: t('mcp.title'), value: 'mcp' },
+  { label: t('snapshot.title'), value: 'snapshot' },
   { label: t('header.theme'), value: 'theme' },
   { label: t('repair.title'), value: 'repair' },
   { label: t('header.settings'), value: 'settings' },
@@ -177,6 +195,12 @@ function onSheetSelect(value: string) {
       break
     case 'theme':
       emit('toggle-theme')
+      break
+    case 'mcp':
+      emit('open-mcp')
+      break
+    case 'snapshot':
+      emit('open-snapshot')
       break
     case 'repair':
       emit('open-repair')

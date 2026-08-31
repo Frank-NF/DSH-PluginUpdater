@@ -497,6 +497,12 @@ button {
   margin-top: 0;
 }
 
+/* 弹窗 footer 内按钮自适应宽度：WeUI 原生 min-width:184px 会让双按钮（184*2+gap）
+   超出 360px 弹窗容器触发 flex-wrap 换行竖排（实测 y 差 48px 的「错位」），统一收窄 */
+.weui-dialog__ft .weui-btn {
+  min-width: 96px;
+}
+
 /* ---------- 按钮悬浮提示（data-tip，即时显示） ---------- */
 .weui-btn {
   position: relative;
