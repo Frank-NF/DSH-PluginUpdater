@@ -23,6 +23,7 @@ use tauri::{Emitter, State};
 const TIMEOUT: Duration = Duration::from_secs(20);
 /// 官网组合包 API（与 catalog.rs 官网源同一 host）
 const BUNDLES_URL: &str = "https://dsh.huilinsh.cn/api/bundles";
+const BUNDLES_API_BASE: &str = "https://dsh.huilinsh.cn/api/bundles";
 const BUNDLE_DETAIL_URL: &str = "https://dsh.huilinsh.cn/api/bundle";
 /// 磁盘缓存目录（与 catalog.rs 同目录：%APPDATA%/dsh-plugin-updater/）
 const CACHE_DIR_NAME: &str = "dsh-plugin-updater";
@@ -109,6 +110,15 @@ pub struct BundleDef {
     pub skills: Vec<BundleSkillDef>,
 }
 
+/// 整包预检的冲突条目（来自官网 plugin_conflicts 知识库）
+#[derive(Debug, Clone, Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BundleConflictInfo {
+    pub conflict_with: String,
+    pub reason: Option<String>,
+    pub severity: Option<String>,
+}
+
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BundlePreviewItem {
@@ -118,6 +128,9 @@ pub struct BundlePreviewItem {
     pub current_version: Option<String>,
     /// install=新装 / overwrite=覆盖已装 / skip=已最新
     pub action: String,
+    /// 与当前已装插件集的已知冲突（空 = 无）
+    #[serde(default)]
+    pub conflicts: Vec<BundleConflictInfo>,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -128,6 +141,9 @@ pub struct BundlePreview {
     pub items: Vec<BundlePreviewItem>,
     pub mcp_servers: Vec<BundleMcpServerDef>,
     pub skills: Vec<BundleSkillDef>,
+    /// 整包预检结果（官网知识库 fail-open；不可达时 None）
+    pub compat_all_compatible: Option<bool>,
+    pub has_blocking_conflict: Option<bool>,
 }
 
 /// bundle_progress 事件载荷（stage: precheck/backup/download/install/verify/commit/rollback/cancelled）
@@ -534,8 +550,69 @@ pub async fn preview_bundle(id: String, state: State<'_, AppState>) -> AppResult
             installed,
             current_version,
             action: action.to_string(),
+            conflicts: Vec::new(),
         });
     }
+
+    // 整包预检（V2 §8 P1）：把已装插件集传给官网知识库，一次取回全部冲突。
+    // fail-open：官网不可达/解析失败时不阻塞预览，仅无冲突信息。
+    let installed_list: Vec<&str> = items
+        .iter()
+        .filter(|i| i.installed)
+        .map(|i| i.plugin_ref.as_str())
+        .collect();
+    let mut compat_all_compatible: Option<bool> = None;
+    let mut has_blocking_conflict: Option<bool> = None;
+    if !installed_list.is_empty() {
+        let url = format!(
+            "{}/compat/check?id={}&installed={}",
+            BUNDLES_API_BASE,
+            urlencoding::encode(&id),
+            urlencoding::encode(&installed_list.join(",")),
+        );
+        match proxy
+            .http_client()
+            .get(&url)
+            .timeout(std::time::Duration::from_secs(10))
+            .send()
+            .await
+        {
+            Ok(resp) if resp.status().is_success() => {
+                #[derive(serde::Deserialize)]
+                struct BundleCompatResp {
+                    #[serde(default)]
+                    items: Vec<BundleCompatItem>,
+                    #[serde(default)]
+                    all_compatible: Option<bool>,
+                    #[serde(default)]
+                    has_blocking_conflict: Option<bool>,
+                }
+                #[derive(serde::Deserialize)]
+                struct BundleCompatItem {
+                    plugin_ref: String,
+                    #[serde(default)]
+                    compatible: Option<bool>,
+                    #[serde(default)]
+                    conflicts: Vec<BundleConflictInfo>,
+                }
+                match resp.json::<BundleCompatResp>().await {
+                    Ok(parsed) => {
+                        for item in &mut items {
+                            if let Some(ci) = parsed.items.iter().find(|c| c.plugin_ref == item.plugin_ref) {
+                                item.conflicts = ci.conflicts.clone();
+                            }
+                        }
+                        compat_all_compatible = parsed.all_compatible;
+                        has_blocking_conflict = parsed.has_blocking_conflict;
+                    }
+                    Err(e) => eprintln!("[bundle] 整包预检响应解析失败，跳过: {}", e),
+                }
+            }
+            Ok(resp) => eprintln!("[bundle] 整包预检 HTTP {}，跳过", resp.status()),
+            Err(e) => eprintln!("[bundle] 整包预检请求失败，跳过: {}", e),
+        }
+    }
+
     let mcp_servers = bundle.mcp_servers.clone();
     let skills = bundle.skills.clone();
     Ok(BundlePreview {
@@ -544,6 +621,8 @@ pub async fn preview_bundle(id: String, state: State<'_, AppState>) -> AppResult
         items,
         mcp_servers,
         skills,
+        compat_all_compatible,
+        has_blocking_conflict,
     })
 }
 

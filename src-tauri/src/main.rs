@@ -516,7 +516,7 @@ async fn check_updates(state: State<'_, AppState>) -> AppResult<Vec<PluginInfo>>
             .get(&plugin.manifest.id.to_lowercase())
             .and_then(|e| e.npm.clone());
         if let Some(npm_name) = npm_name.filter(|n| !n.is_empty()) {
-            if let Ok((latest, tarball)) =
+            if let Ok((latest, tarball, shasum)) =
                 catalog::npm_latest_meta(proxy.http_client(), &npm_name).await
             {
                 let current = &plugin.manifest.current_version;
@@ -526,6 +526,7 @@ async fn check_updates(state: State<'_, AppState>) -> AppResult<Vec<PluginInfo>>
                 };
                 plugin.latest_version = Some(latest);
                 plugin.download_url = tarball;
+                plugin.sha256 = shasum;
                 plugin.update_available = newer;
                 continue;
             }
@@ -938,11 +939,16 @@ async fn update_plugin(
         .await
         .map_err(|e| error::AppError::Other(format!("下载失败: {}", e)))?;
 
-    // 3. SHA256 校验（如果服务器提供了预期值）
+    // 3. 完整性校验（如果 registry/服务器提供了预期值）
+    //    长度 40 = npm dist.shasum（SHA1-hex）；64 = SHA256-hex（官网/服务器提供）
     if let Some(expected) = &expected_sha256 {
         emit_progress("verify", 70, "正在校验文件完整性...");
-        let actual = file_ops::calculate_sha256(&zip_path_str)
-            .map_err(|e| error::AppError::Other(format!("SHA256 计算失败: {}", e)))?;
+        let actual = if expected.len() == 40 {
+            file_ops::calculate_sha1(&zip_path_str)
+        } else {
+            file_ops::calculate_sha256(&zip_path_str)
+        }
+        .map_err(|e| error::AppError::Other(format!("校验和计算失败: {}", e)))?;
         
         if actual != *expected {
             // 校验失败：清理临时文件，回滚备份
