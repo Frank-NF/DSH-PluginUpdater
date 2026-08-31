@@ -124,7 +124,7 @@ pub fn scan_dsh_profile(dir: &Path) -> Vec<PluginInfo> {
                             }
                         }
                     }
-                } else if name.starts_with("dsh-") || name.contains("dsh") {
+                } else if name.starts_with("dsh-") {
                     if let Some(p) = scan_cordis_plugin(&path) {
                         plugins.push(p);
                     }
@@ -243,13 +243,16 @@ fn scan_cordis_plugin(dir: &Path) -> Option<PluginInfo> {
 
     let name = pkg.get("name")?.as_str()?.to_string();
 
-    // 识别 DSH 插件：目录名以 dsh- 开头，或 keywords 含 dsh-plugin / deepseek-harness-plugin
+    // 识别 DSH 插件：目录名以 dsh- 开头（含 @scope/dsh-*），或 keywords 明确声明 dsh-plugin /
+    // deepseek-harness-plugin，或被 profile 根 dependencies/bundles 声明。
+    // 注意：裸 deepseek-harness 关键词匹配曾把官方依赖包（cordis/minato 等普遍打此
+    // keyword）整树误收进插件列表（真机 238 个），必须限定到 -plugin 后缀。
     let keywords = pkg.get("keywords").and_then(|k| k.as_array());
     let is_dsh_plugin = name.starts_with("dsh-")
         || name.contains("/dsh-")
         || keywords.map_or(false, |ks| ks.iter().any(|k| {
             k.as_str().map_or(false, |s| {
-                s.contains("dsh-plugin") || s.contains("deepseek-harness-plugin") || s.contains("deepseek-harness")
+                s == "dsh-plugin" || s == "deepseek-harness-plugin"
             })
         }))
         || is_declared_plugin(dir);
@@ -258,6 +261,10 @@ fn scan_cordis_plugin(dir: &Path) -> Option<PluginInfo> {
     }
 
     let version = pkg.get("version").and_then(|v| v.as_str()).unwrap_or("0.0.0").to_string();
+    // 系统内置（DSH 本体/官方运行时组件）：@deepseek-ai/* scope 与内置市场 dshmarket。
+    // 标记为 agent-core：前端统计与更新列表自动排除（与 DSH Agent 本体同类型）。
+    let is_builtin = name.starts_with("@deepseek-ai/") || name == "dshmarket";
+    let plugin_type = if is_builtin { "agent-core" } else { "plugin" };
     let description = pkg.get("description").and_then(|d| d.as_str()).unwrap_or("").to_string();
     let author = pkg.get("author").and_then(|a| a.as_str())
         .or_else(|| pkg.get("author").and_then(|a| a.get("name")).and_then(|n| n.as_str()))
@@ -276,7 +283,7 @@ fn scan_cordis_plugin(dir: &Path) -> Option<PluginInfo> {
             github_repo,
             current_version: version,
             enabled: true,
-            r#type: "plugin".to_string(),
+            r#type: plugin_type.to_string(),
             author,
             homepage,
         },

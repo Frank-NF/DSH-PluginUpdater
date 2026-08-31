@@ -103,6 +103,8 @@ fn plugins_json_from_tarball(gz_bytes: &[u8]) -> AppResult<Vec<u8>> {
 #[derive(Debug, Deserialize)]
 struct WebsiteCatalogResponse {
     #[serde(default)]
+    total: Option<usize>,
+    #[serde(default)]
     plugins: Vec<WebsitePluginItem>,
 }
 
@@ -153,19 +155,37 @@ fn read_cache() -> Option<Vec<CatalogEntry>> {
     if entries.is_empty() { None } else { Some(entries) }
 }
 
-/// 从官网权威源拉取目录（Phase 1：统一数据入口）
+/// 从官网权威源拉取目录（Phase 1：统一数据入口；服务端 page_size 上限 200，循环分页拉全量）
 pub async fn fetch_catalog_from_website(client: &reqwest::Client) -> AppResult<Catalog> {
-    let resp = client.get(CATALOG_WEBSITE_URL).timeout(TIMEOUT).send().await?;
-    if !resp.status().is_success() {
-        return Err(AppError::Other(format!("官网目录 HTTP {}", resp.status())));
+    let mut items: Vec<WebsitePluginItem> = Vec::new();
+    let mut expected_total: Option<usize> = None;
+    for page in 1..=30usize {
+        let sep = if CATALOG_WEBSITE_URL.contains('?') { '&' } else { '?' };
+        let url = format!("{}{}page={}", CATALOG_WEBSITE_URL, sep, page);
+        let resp = client.get(&url).timeout(TIMEOUT).send().await?;
+        if !resp.status().is_success() {
+            return Err(AppError::Other(format!("官网目录 HTTP {}", resp.status())));
+        }
+        let parsed: WebsiteCatalogResponse = resp.json().await?;
+        if expected_total.is_none() {
+            expected_total = parsed.total;
+        }
+        let got = parsed.plugins.len();
+        items.extend(parsed.plugins);
+        if got == 0 {
+            break;
+        }
+        if let Some(t) = expected_total {
+            if items.len() >= t {
+                break;
+            }
+        }
     }
-    let parsed: WebsiteCatalogResponse = resp.json().await?;
-    if parsed.plugins.is_empty() {
+    if items.is_empty() {
         return Err(AppError::Other("官网目录为空".to_string()));
     }
 
-    let mut entries: Vec<CatalogEntry> = parsed
-        .plugins
+    let mut entries: Vec<CatalogEntry> = items
         .into_iter()
         .map(|p| {
             // 官网 description = zh || en 合并串；github_description = 英文原文

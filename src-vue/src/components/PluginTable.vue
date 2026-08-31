@@ -890,7 +890,7 @@ const tabs = computed(() => [
   },
   {
     name: 'installed' as const,
-    label: `${t('tab.installed')} (${props.plugins.length})`,
+    label: `${t('tab.installed')} (${props.plugins.filter((p) => p.manifest.type !== 'agent-core').length})`,
     short: t('tab.installedShort'),
     icon: 'package',
   },
@@ -1065,9 +1065,11 @@ const filteredPlugins = computed(() => {
 })
 
 const updatableCount = computed(
-  () => props.plugins.filter((p) => p.update_available).length
+  () => props.plugins.filter((p) => p.update_available && p.manifest.type !== 'agent-core').length
 )
-const updatableList = computed(() => props.plugins.filter((p) => p.update_available))
+const updatableList = computed(() =>
+  props.plugins.filter((p) => p.update_available && p.manifest.type !== 'agent-core')
+)
 
 /** 可更新插件的匹配 key（manifest.id 及其短名），用于市场列表置顶 */
 const updatableNpmKeys = computed(() => {
