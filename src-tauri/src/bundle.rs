@@ -1199,7 +1199,7 @@ pub(crate) fn write_preset_suggestion(bundle: &BundleDef) -> AppResult<PathBuf> 
 }
 
 /// UTC 时间戳（ISO 风格，秒级；civil-from-days 算法，不引 chrono）
-fn iso_now() -> String {
+pub(crate) fn iso_now() -> String {
     let secs = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
