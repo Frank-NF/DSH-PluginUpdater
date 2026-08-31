@@ -671,7 +671,13 @@
       wide
     >
       <div v-if="activeBundle" class="w-bundle-detail">
-        <p class="w-bundle-desc">{{ activeBundle.description }}</p>
+        <p class="w-bundle-desc">
+          <span v-if="activeBundle.mode === 'preset'" class="w-tag w-tag_info" :title="t('bundle.presetTip')">{{ t('bundle.presetModeTag') }}</span>
+          {{ activeBundle.description }}
+        </p>
+        <div v-if="activeBundle.mode === 'preset'" class="w-callout w-callout_warn">
+          {{ t('bundle.presetTip') }}
+        </div>
 
         <!-- 安装中：分阶段进度（预检/备份/下载/安装/校验/提交/回滚） -->
         <div v-if="bundleInstalling" class="w-bundle-progress">

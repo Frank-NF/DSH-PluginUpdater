@@ -271,6 +271,8 @@ export const zh: Record<string, string> = {
   'bundle.conflictTag': '冲突',
   'mcp.entry': 'MCP 服务管理',
   'mcp.helpTitle': '如何使用？（点击展开）',
+  'bundle.presetModeTag': '预设模式',
+  'bundle.presetTip': '预设模式组合包：插件照常安装，但 MCP 服务与技能不会写入全局配置，而是生成「会话预设建议」文件（%APPDATA%\\dsh-plugin-updater\\preset-suggestions），由会话按需选择性启用，避免全量注入造成上下文过载。',
   'mcp.help1': '安装含 MCP 模板的组合包会自动生成配置；手工添加的条目始终保留。',
   'mcp.help2': '在服务卡片填写环境变量并「保存」——密值加密存入系统凭据库，配置文件不留明文。',
   'mcp.help3': '「探活」检测服务可用性（stdio 试拉起进程 / http 发探测请求）。',

@@ -271,6 +271,8 @@ export const en: Record<string, string> = {
   'bundle.conflictTag': 'Conflict',
   'mcp.entry': 'MCP Services',
   'mcp.helpTitle': 'How to use? (click to expand)',
+  'bundle.presetModeTag': 'Preset mode',
+  'bundle.presetTip': 'Preset-mode bundle: plugins install normally, but MCP servers and skills are NOT written to the global config. Instead a session preset suggestion file is generated (%APPDATA%\\dsh-plugin-updater\\preset-suggestions) for sessions to selectively enable, avoiding context overload.',
   'mcp.help1': 'Installing a bundle with MCP templates auto-generates the config; manual entries are always preserved.',
   'mcp.help2': 'Fill env variables and Save — secrets go into the OS credential vault (encrypted), never plaintext in config.',
   'mcp.help3': 'Probe checks availability (stdio spawns the process / http sends a probe request).',

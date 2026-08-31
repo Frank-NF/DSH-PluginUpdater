@@ -174,6 +174,9 @@ pub struct BundleInstallResult {
     pub status: String,
     pub message: String,
     pub plugins: Vec<BundlePluginResult>,
+    /// mode=preset 时生成的会话预设建议文件路径（global 模式为 None）
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preset_suggestion_path: Option<String>,
 }
 
 /// 安装记录（JSON Lines 追加写，V2 §3 规则 6 审计）
@@ -852,6 +855,7 @@ async fn run_transaction(
             status: "cancelled".into(),
             message: "安装已取消（未做任何改动）".into(),
             plugins,
+            preset_suggestion_path: None,
         });
     }
 
@@ -919,6 +923,7 @@ async fn run_transaction(
                 status: "cancelled".into(),
                 message: "安装已取消（未做任何改动）".into(),
                 plugins,
+                preset_suggestion_path: None,
             });
         }
         let name = plan[*idx].npm.clone();
@@ -986,6 +991,7 @@ async fn run_transaction(
                 status: out.status.into(),
                 message: out.message,
                 plugins,
+                preset_suggestion_path: None,
             });
         }
         let npm = plan[i].npm.clone();
@@ -1097,24 +1103,123 @@ async fn run_transaction(
         return Err(AppError::Other(out.message));
     }
 
-    // MCP 层：合并写入全局 dsh-mcp.json；失败仅告警，不影响安装事务结果
-    if let Err(e) = merge_mcp_servers(&bundle.mcp_servers) {
+    // MCP 层（V2 §8 P1 preset 适配）：
+    //   mode=global → 合并写入全局 dsh-mcp.json（既有行为）；
+    //   mode=preset → 不做全局 patch，改为生成会话预设建议文件（避免 Token 过载）。
+    // 两者的失败均仅告警，不影响安装事务结果。
+    let is_preset = bundle.mode.trim() == "preset";
+    let mut preset_suggestion_path: Option<String> = None;
+    if is_preset {
+        emit("commit", 97, "预设模式：正在生成会话预设建议…".into());
+        match write_preset_suggestion(&bundle) {
+            Ok(path) => {
+                preset_suggestion_path = Some(path.to_string_lossy().to_string());
+            }
+            Err(e) => {
+                log::warn!("[bundle] 预设建议写入失败（不影响安装结果）: {}", e);
+            }
+        }
+    } else if let Err(e) = merge_mcp_servers(&bundle.mcp_servers) {
         log::warn!("[bundle] dsh-mcp.json 合并失败（不影响安装结果）: {}", e);
     }
 
-    emit(
-        "commit",
-        100,
-        format!("组合包「{}」安装完成（{} 个插件）", bundle.name, total_install),
-    );
+    let done_msg = if is_preset {
+        match &preset_suggestion_path {
+            Some(p) => format!(
+                "组合包「{}」安装完成（{} 个插件）；预设模式：MCP/Skill 建议已生成（{}），未写入全局配置",
+                bundle.name, total_install, p
+            ),
+            None => format!(
+                "组合包「{}」安装完成（{} 个插件）；预设模式：建议生成失败，MCP/Skill 未写入",
+                bundle.name, total_install
+            ),
+        }
+    } else {
+        format!("组合包「{}」安装完成（{} 个插件）", bundle.name, total_install)
+    };
+
+    emit("commit", 100, done_msg.clone());
     Ok(BundleInstallResult {
         task_id: task_id.to_string(),
         bundle_id: id.to_string(),
         status: "committed".into(),
-        message: format!("已安装组合包「{}」（{} 个插件）", bundle.name, total_install),
+        message: done_msg,
         plugins,
+        preset_suggestion_path,
     })
 }
+
+/// 预设建议文件目录（测试可用 DSH_PRESET_DIR 覆盖）
+fn preset_dir() -> AppResult<PathBuf> {
+    match std::env::var("DSH_PRESET_DIR") {
+        Ok(p) if !p.trim().is_empty() => Ok(PathBuf::from(p)),
+        _ => {
+            let base = dirs::data_dir().ok_or_else(|| AppError::Other("无法定位应用数据目录".into()))?;
+            Ok(base.join("dsh-plugin-updater").join("preset-suggestions"))
+        }
+    }
+}
+
+/// mode=preset：把 MCP 模板与技能写成「会话预设建议」文件而非全局 patch（V2 §8 P1）。
+/// 建议 = 供会话层选择注入的清单，避免把全部 MCP/Skills 塞进全局上下文造成 Token 过载。
+/// 返回建议文件路径。
+pub(crate) fn write_preset_suggestion(bundle: &BundleDef) -> AppResult<PathBuf> {
+    let dir = preset_dir()?;
+    std::fs::create_dir_all(&dir)?;
+    let path = dir.join(format!("{}.json", bundle.id));
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct PresetSuggestion<'a> {
+        bundle_id: &'a str,
+        name: &'a str,
+        version: &'a str,
+        recommend_preset: Option<&'a String>,
+        generated_at: String,
+        plugins: Vec<&'a str>,
+        mcp_servers: &'a [BundleMcpServerDef],
+        skills: &'a [BundleSkillDef],
+    }
+
+    let doc = PresetSuggestion {
+        bundle_id: &bundle.id,
+        name: &bundle.name,
+        version: bundle.version.as_deref().unwrap_or(""),
+        recommend_preset: bundle.recommend_preset.as_ref(),
+        generated_at: iso_now(),
+        plugins: bundle.plugins.iter().map(|p| p.plugin_ref.as_str()).collect(),
+        mcp_servers: &bundle.mcp_servers,
+        skills: &bundle.skills,
+    };
+
+    let tmp = path.with_extension("json.tmp");
+    std::fs::write(&tmp, serde_json::to_string_pretty(&doc)?)?;
+    std::fs::rename(&tmp, &path)?;
+    Ok(path)
+}
+
+/// UTC 时间戳（ISO 风格，秒级；civil-from-days 算法，不引 chrono）
+fn iso_now() -> String {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs();
+    let days = (secs / 86400) as i64;
+    let rem = secs % 86400;
+    let (h, m, s) = (rem / 3600, (rem % 3600) / 60, rem % 60);
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let mo = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if mo <= 2 { y + 1 } else { y };
+    format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", y, mo, d, h, m, s)
+}
+
 
 #[cfg(test)]
 mod e2e_tests {
@@ -1157,6 +1262,8 @@ mod e2e_tests {
     fn base_config(profile: &Path) -> AppConfig {
         let mut config = AppConfig::default();
         config.plugin_directory = profile.to_string_lossy().to_string();
+        // 真机 E2E 固定稳定镜像，避免 npmjs 官方源网络抖动造成测试假失败
+        config.install_registry = "https://registry.npmmirror.com".into();
         config
     }
 
@@ -1352,6 +1459,59 @@ mod e2e_tests {
             .and_then(|t| t.as_str());
         assert_eq!(new_env, Some(""), "env 只写键名+空值");
         std::env::remove_var("DSH_MCP_PATH");
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// preset 适配：建议文件生成、内容含 MCP/Skill 清单、不触碰 dsh-mcp.json（V2 §8 P1）
+    #[test]
+    fn preset_suggestion_written_without_global_patch() {
+        let _serial = SERIAL.lock();
+        let base = std::env::temp_dir().join(format!("dsh-preset-test-{}", std::process::id()));
+        std::fs::create_dir_all(&base).unwrap();
+        std::env::set_var("DSH_PRESET_DIR", base.join("suggestions"));
+
+        let bundle = BundleDef {
+            id: "preset-e2e".into(),
+            name: "Preset E2E 包".into(),
+            description: "预设模式端到端".into(),
+            tags: vec![],
+            mode: "preset".into(),
+            min_dsh_version: Some("*".into()),
+            max_dsh_version: None,
+            recommend_preset: Some("frontend".into()),
+            version: Some("1.0.0".into()),
+            create_time: None,
+            plugins: vec![BundlePluginRef { plugin_ref: "dsh-cost-meter".into(), required: true }],
+            mcp_servers: vec![BundleMcpServerDef {
+                server_id: "mcp-preset".into(),
+                name: "Preset MCP".into(),
+                transport: "stdio".into(),
+                command: "npx".into(),
+                args: vec!["-y".into(), "@modelcontextprotocol/server-github".into()],
+                env_keys: vec!["GITHUB_TOKEN".into()],
+                optional: false,
+                description: "preset mcp".into(),
+            }],
+            skills: vec![BundleSkillDef {
+                skill_id: "skill-preset".into(),
+                name: "Preset Skill".into(),
+                source: "dsh-logicprobe".into(),
+                scope: "user".into(),
+                optional: false,
+            }],
+        };
+
+        let path = write_preset_suggestion(&bundle).expect("建议文件生成失败");
+        let content = std::fs::read_to_string(&path).expect("建议文件读回失败");
+        let v: serde_json::Value = serde_json::from_str(&content).expect("建议文件非法 JSON");
+        assert_eq!(v["bundleId"], "preset-e2e");
+        assert_eq!(v["recommendPreset"], "frontend");
+        assert_eq!(v["mcpServers"].as_array().map(|a| a.len()), Some(1));
+        assert_eq!(v["skills"].as_array().map(|a| a.len()), Some(1));
+        assert_eq!(v["plugins"].as_array().map(|a| a.len()), Some(1));
+        assert!(v["generatedAt"].as_str().map(|s| s.contains('T')).unwrap_or(false));
+
+        std::env::remove_var("DSH_PRESET_DIR");
         let _ = std::fs::remove_dir_all(&base);
     }
 }

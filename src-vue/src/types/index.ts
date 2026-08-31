@@ -197,6 +197,8 @@ export interface BundleInstallResult {
   status: 'committed' | 'cancelled' | 'rolled_back' | 'failed'
   message: string
   plugins: BundlePluginResult[]
+  /** mode=preset 时生成的会话预设建议文件路径 */
+  presetSuggestionPath?: string
 }
 
 export interface BundleProgress {
