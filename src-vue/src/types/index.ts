@@ -185,6 +185,40 @@ export interface McpProbeResult {
   latencyMs: number
 }
 
+export interface SnapshotEntry {
+  id: string
+  name: string
+  version: string
+  npmName: string
+  githubRepo: string
+}
+
+export interface SnapshotSummary {
+  path: string
+  count: number
+}
+
+export interface SnapshotDiff {
+  missing: SnapshotEntry[]
+  versionMismatch: SnapshotEntry[]
+  okCount: number
+  currentCount: number
+  snapshotCount: number
+}
+
+export interface SnapshotApplyItem {
+  id: string
+  name: string
+  status: 'installed' | 'failed' | 'skipped' | string
+  detail: string
+}
+
+export interface OfflinePackSummary {
+  path: string
+  plugins: number
+  bytes: number
+}
+
 export interface BundlePluginResult {
   pluginRef: string
   status: string

@@ -9,6 +9,7 @@ mod catalog;
 mod version_probe;
 mod bundle;
 mod mcp;
+mod snapshot;
 
 use error::{AppConfig, AppError, AppResult, PluginInfo};
 use file_ops::{open_in_file_manager, PluginFileManager};
@@ -1417,6 +1418,75 @@ async fn pick_directory(window: tauri::WebviewWindow) -> Result<Option<String>, 
     rx.await.map_err(|e| e.to_string())
 }
 
+/// 弹出系统文件选择框（快照 JSON / 离线包 zip），取消返回 None
+#[tauri::command]
+async fn pick_file(window: tauri::WebviewWindow, title: String, filters: Vec<String>) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let (tx, rx) = tokio::sync::oneshot::channel::<Option<String>>();
+    let mut builder = window.dialog().file().set_title(&title);
+    if !filters.is_empty() {
+        let exts: Vec<&str> = filters.iter().map(|s| s.as_str()).collect();
+        builder = builder.add_filter("文件", &exts);
+    }
+    builder.pick_file(move |path| {
+        let _ = tx.send(path.map(|p| p.to_string()));
+    });
+    rx.await.map_err(|e| e.to_string())
+}
+
+/// 弹出系统「另存为」对话框（导出快照/离线包用），取消返回 None
+#[tauri::command]
+async fn pick_save_file(window: tauri::WebviewWindow, title: String, file_name: String, filters: Vec<String>) -> Result<Option<String>, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let (tx, rx) = tokio::sync::oneshot::channel::<Option<String>>();
+    let mut builder = window
+        .dialog()
+        .file()
+        .set_title(&title)
+        .set_file_name(&file_name);
+    if !filters.is_empty() {
+        let exts: Vec<&str> = filters.iter().map(|s| s.as_str()).collect();
+        builder = builder.add_filter("文件", &exts);
+    }
+    builder.save_file(move |path| {
+        let _ = tx.send(path.map(|p| p.to_string()));
+    });
+    rx.await.map_err(|e| e.to_string())
+}
+
+// ---------------- 快照导入导出 / 离线打包（V2 P1 尾项） ----------------
+
+#[tauri::command]
+async fn snapshot_export(state: State<'_, AppState>, path: String) -> AppResult<snapshot::SnapshotSummary> {
+    let config = state.config.lock().unwrap().clone();
+    snapshot::snapshot_export(&config.plugin_directory, &path)
+}
+
+#[tauri::command]
+async fn snapshot_preview(state: State<'_, AppState>, path: String) -> AppResult<snapshot::SnapshotDiff> {
+    let config = state.config.lock().unwrap().clone();
+    snapshot::snapshot_preview(&config.plugin_directory, &path)
+}
+
+#[tauri::command]
+async fn snapshot_apply(state: State<'_, AppState>, path: String) -> AppResult<Vec<snapshot::SnapshotApplyItem>> {
+    let config = state.config.lock().unwrap().clone();
+    let registry = config.install_registry.trim().to_string();
+    snapshot::snapshot_apply(&config.plugin_directory, &path, &registry).await
+}
+
+#[tauri::command]
+async fn offline_pack(state: State<'_, AppState>, path: String) -> AppResult<snapshot::OfflinePackSummary> {
+    let config = state.config.lock().unwrap().clone();
+    snapshot::offline_pack(&config.plugin_directory, &path)
+}
+
+#[tauri::command]
+async fn offline_apply(state: State<'_, AppState>, path: String) -> AppResult<usize> {
+    let config = state.config.lock().unwrap().clone();
+    snapshot::offline_apply(&path, &config.plugin_directory)
+}
+
 fn main() {
     env_logger::init();
 
@@ -1431,6 +1501,13 @@ fn main() {
         })
         .invoke_handler(tauri::generate_handler![
             pick_directory,
+            pick_file,
+            pick_save_file,
+            snapshot_export,
+            snapshot_preview,
+            snapshot_apply,
+            offline_pack,
+            offline_apply,
             scan_plugins,
             auto_scan_plugins,
             check_updates,
