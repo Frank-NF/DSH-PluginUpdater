@@ -202,6 +202,12 @@ struct BundlesIndexResponse {
 }
 
 fn cache_file_path() -> Option<PathBuf> {
+    // 测试/离线场景可用 DSH_BUNDLES_CACHE 覆盖缓存位置
+    if let Ok(p) = std::env::var("DSH_BUNDLES_CACHE") {
+        if !p.trim().is_empty() {
+            return Some(PathBuf::from(p));
+        }
+    }
     let dir = dirs::config_dir()?;
     let cache_dir = dir.join(CACHE_DIR_NAME);
     std::fs::create_dir_all(&cache_dir).ok()?;
@@ -377,8 +383,14 @@ fn merge_mcp_servers(servers: &[BundleMcpServerDef]) -> AppResult<()> {
     if servers.is_empty() {
         return Ok(());
     }
-    let home = dirs::home_dir().ok_or_else(|| AppError::Other("无法定位用户主目录".into()))?;
-    let path = home.join(".dsh").join("dsh-mcp.json");
+    // 测试/离线场景可用 DSH_MCP_PATH 覆盖目标文件位置（默认 ~/.dsh/dsh-mcp.json）
+    let path = match std::env::var("DSH_MCP_PATH") {
+        Ok(p) if !p.trim().is_empty() => PathBuf::from(p),
+        _ => {
+            let home = dirs::home_dir().ok_or_else(|| AppError::Other("无法定位用户主目录".into()))?;
+            home.join(".dsh").join("dsh-mcp.json")
+        }
+    };
     let mut root: serde_json::Value = if path.exists() {
         let content = std::fs::read_to_string(&path)?;
         let v: serde_json::Value = serde_json::from_str(&content)
@@ -621,7 +633,19 @@ pub async fn install_bundle(
         .lock()
         .map_err(|_| AppError::Other("配置锁不可用".into()))?
         .clone();
-    let result = run_transaction(&id, &task_id, &window, &config, &cancel).await;
+    let emit = |stage: &str, percent: u8, message: String| {
+        let _ = window.emit(
+            "bundle_progress",
+            BundleProgress {
+                task_id: task_id.clone(),
+                bundle_id: id.clone(),
+                stage: stage.to_string(),
+                percent,
+                message,
+            },
+        );
+    };
+    let result = run_transaction(&id, &task_id, &config, &cancel, emit).await;
     {
         let mut map = state
             .bundle_cancels
@@ -667,29 +691,25 @@ pub fn cancel_bundle_install(task_id: String, state: State<'_, AppState>) -> boo
 async fn run_transaction(
     id: &str,
     task_id: &str,
-    window: &tauri::Window,
     config: &AppConfig,
     cancel: &AtomicBool,
+    emit: impl Fn(&str, u8, String),
 ) -> AppResult<BundleInstallResult> {
+    // 进度上报由调用方注入：Tauri 命令走 bundle_progress 事件，E2E 测试收集事件向量
     let proxy = GitHubProxyClient::new(&config.proxy_base_url, None);
-    let emit = |stage: &str, percent: u8, message: String| {
-        let _ = window.emit(
-            "bundle_progress",
-            BundleProgress {
-                task_id: task_id.to_string(),
-                bundle_id: id.to_string(),
-                stage: stage.to_string(),
-                percent,
-                message,
-            },
-        );
-    };
 
     // ---------- PRECHECK ----------
     emit("precheck", 5, "正在预检组合包…".into());
     let bundle = match fetch_bundle_detail(proxy.http_client(), id).await {
         Ok(Some(b)) => b,
-        Ok(None) => return Err(AppError::Other(format!("组合包不存在: {}", id))),
+        Ok(None) => {
+            // 官网明确 404：缓存=最后一次已知镜像，仍可兜底（与 list_bundles 缓存语义一致）
+            log::warn!("[bundle] 官网无此组合包（404），尝试磁盘缓存: {}", id);
+            match find_bundle_in_cache(id) {
+                Some(b) => b,
+                None => return Err(AppError::Other(format!("组合包不存在: {}", id))),
+            }
+        }
         Err(e) => {
             log::warn!("[bundle] 详情拉取失败，尝试磁盘缓存: {}", e);
             match find_bundle_in_cache(id) {
@@ -1015,4 +1035,244 @@ async fn run_transaction(
         message: format!("已安装组合包「{}」（{} 个插件）", bundle.name, total_install),
         plugins,
     })
+}
+
+#[cfg(test)]
+mod e2e_tests {
+    //! 真机端到端验证（真实 npm 安装、真实文件系统、真实备份/回滚/MCP 合并）。
+    //! DSH_BUNDLES_CACHE / DSH_MCP_PATH 两个 env 覆盖点保证测试零污染真实用户状态；
+    //! env 为进程全局，用 SERIAL 串行化各用例。
+    use super::*;
+    use std::sync::Mutex as StdMutex;
+
+    static SERIAL: StdMutex<()> = StdMutex::new(());
+
+    type EventLog = Arc<StdMutex<Vec<(String, u8, String)>>>;
+
+    fn temp_base(tag: &str) -> PathBuf {
+        let base = std::env::temp_dir().join(format!("dsh-e2e-{}-{}", tag, std::process::id()));
+        let _ = std::fs::remove_dir_all(&base);
+        std::fs::create_dir_all(&base).expect("create temp base");
+        base
+    }
+
+    fn make_profile(base: &Path) -> PathBuf {
+        let profile = base.join("profile");
+        std::fs::create_dir_all(&profile).expect("create profile");
+        std::fs::write(profile.join("package.json"), "{}\
+").expect("write package.json");
+        profile
+    }
+
+    fn seed_cache(base: &Path, tag: &str, plugins_json: &str) -> PathBuf {
+        let cache = base.join("bundles.json");
+        let bundle = format!(
+            "[{{\"id\":\"e2e-{tag}\",\"name\":\"E2E {tag} 包\",\"description\":\"真机端到端\",\"tags\":[\"e2e\"],\"mode\":\"preset\",\"minDshVersion\":\"*\",\"version\":\"1.0.0\",\"plugins\":{plugins_json},\"mcpServers\":[],\"skills\":[]}}]",
+            tag = tag,
+            plugins_json = plugins_json,
+        );
+        std::fs::write(&cache, bundle).expect("seed cache");
+        cache
+    }
+
+    fn base_config(profile: &Path) -> AppConfig {
+        let mut config = AppConfig::default();
+        config.plugin_directory = profile.to_string_lossy().to_string();
+        config
+    }
+
+    fn event_collector() -> (EventLog, impl Fn(&str, u8, String)) {
+        let log: EventLog = Arc::new(StdMutex::new(Vec::new()));
+        let sink = log.clone();
+        let emit = move |stage: &str, percent: u8, message: String| {
+            if let Ok(mut v) = sink.lock() {
+                v.push((stage.to_string(), percent, message));
+            }
+        };
+        (log, emit)
+    }
+
+    fn record_text(profile: &Path) -> Option<String> {
+        let path = profile.join(".updater_backups").join("bundle_installs.json");
+        std::fs::read_to_string(path).ok()
+    }
+
+    /// 提交路径：预检 → 下载/安装（真实 npm）→ 校验 → 提交，node_modules 落盘且版本与预期一致
+    #[tokio::test]
+    async fn e2e_commit_installs_and_verifies() {
+        let _g = SERIAL.lock().expect("serial");
+        let base = temp_base("commit");
+        let profile = make_profile(&base);
+        let cache = seed_cache(&base, "commit", "[{\"pluginRef\":\"left-pad\",\"required\":true},{\"pluginRef\":\"ms\",\"required\":true}]");
+        std::env::set_var("DSH_BUNDLES_CACHE", &cache);
+        let config = base_config(&profile);
+        let (log, emit) = event_collector();
+        let result = run_transaction(
+            "e2e-commit",
+            "task-e2e-commit",
+            &config,
+            &AtomicBool::new(false),
+            emit,
+        )
+        .await;
+        match &result {
+            Ok(r) => assert_eq!(r.status, "committed", "应为 committed：{}", r.message),
+            Err(e) => panic!(
+                "事务不应失败：{}（plugins 状态见 bundle_installs.json：{:?})",
+                e,
+                record_text(&profile),
+            ),
+        }
+        let left_pad = profile.join("node_modules").join("left-pad").join("package.json");
+        let ms = profile.join("node_modules").join("ms").join("package.json");
+        assert!(left_pad.exists(), "left-pad 未落盘");
+        assert!(ms.exists(), "ms 未落盘");
+        // 校验阶段要求版本与 npm latest 一致，committed 即代表校验通过
+        let record = record_text(&profile).expect("安装记录缺失");
+        assert!(record.contains("\"result\":\"committed\""), "记录结果错误: {}", record);
+        let stages: Vec<String> = log
+            .lock()
+            .expect("log")
+            .iter()
+            .map(|(s, _, _)| s.clone())
+            .collect();
+        for stage in ["precheck", "download", "install", "verify", "commit"] {
+            assert!(stages.iter().any(|s| s == stage), "缺少阶段事件: {}（全部: {:?}）", stage, stages);
+        }
+        std::env::remove_var("DSH_BUNDLES_CACHE");
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// 回滚路径：npm 安装失败（不可达 registry）→ ROLLBACK，目录清理 + 记录 rolled_back
+    #[tokio::test]
+    async fn e2e_install_failure_rolls_back() {
+        let _g = SERIAL.lock().expect("serial");
+        let base = temp_base("rollback");
+        let profile = make_profile(&base);
+        let cache = seed_cache(&base, "rollback", "[{\"pluginRef\":\"ms\",\"required\":true}]");
+        std::env::set_var("DSH_BUNDLES_CACHE", &cache);
+        let mut config = base_config(&profile);
+        config.install_registry = "http://127.0.0.1:9".into();
+        let (log, emit) = event_collector();
+        let result = run_transaction(
+            "e2e-rollback",
+            "task-e2e-rollback",
+            &config,
+            &AtomicBool::new(false),
+            emit,
+        )
+        .await;
+        assert!(result.is_err(), "registry 不可达时事务应失败");
+        let msg = result.err().expect("err").to_string();
+        assert!(msg.contains("已回滚"), "失败信息应说明已回滚: {}", msg);
+        let ms_dir = profile.join("node_modules").join("ms");
+        assert!(!ms_dir.exists(), "回滚后不应残留新装目录");
+        let record = record_text(&profile).expect("安装记录缺失");
+        assert!(record.contains("\"result\":\"rolled_back\""), "记录结果错误: {}", record);
+        let stages: Vec<String> = log
+            .lock()
+            .expect("log")
+            .iter()
+            .map(|(s, _, _)| s.clone())
+            .collect();
+        assert!(stages.iter().any(|s| s == "rollback"), "缺少回滚事件: {:?}", stages);
+        std::env::remove_var("DSH_BUNDLES_CACHE");
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// 取消路径：BACKUP 前置取消 = 中止（V2 §3 规则 2），零改动 + 记录 cancelled
+    #[tokio::test]
+    async fn e2e_cancel_before_backup_aborts() {
+        let _g = SERIAL.lock().expect("serial");
+        let base = temp_base("cancel");
+        let profile = make_profile(&base);
+        let cache = seed_cache(&base, "cancel", "[{\"pluginRef\":\"ms\",\"required\":true}]");
+        std::env::set_var("DSH_BUNDLES_CACHE", &cache);
+        let config = base_config(&profile);
+        let (log, emit) = event_collector();
+        let result = run_transaction(
+            "e2e-cancel",
+            "task-e2e-cancel",
+            &config,
+            &AtomicBool::new(true),
+            emit,
+        )
+        .await;
+        match &result {
+            Ok(r) => assert_eq!(r.status, "cancelled", "应 cancelled：{}", r.message),
+            Err(e) => panic!("前置取消不应报错: {}", e),
+        }
+        assert!(!profile.join("node_modules").exists(), "取消后不应有安装痕迹");
+        let record = record_text(&profile).expect("安装记录缺失");
+        assert!(record.contains("\"result\":\"cancelled\""), "记录结果错误: {}", record);
+        let stages: Vec<String> = log
+            .lock()
+            .expect("log")
+            .iter()
+            .map(|(s, _, _)| s.clone())
+            .collect();
+        assert!(stages.iter().any(|s| s == "cancelled"), "缺少取消事件: {:?}", stages);
+        std::env::remove_var("DSH_BUNDLES_CACHE");
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// MCP 合并：既有条目零丢失、缺失 server_id 补齐、env 只写键名空值、幂等
+    #[tokio::test]
+    async fn mcp_merge_preserves_existing_entries() {
+        let _g = SERIAL.lock().expect("serial");
+        let base = temp_base("mcp");
+        let mcp_path = base.join("dsh-mcp.json");
+        std::fs::write(
+            &mcp_path,
+            r#"{"mcpServers":{"user-own":{"command":"node","args":["a.js"],"env":{"TOKEN":"secret"}}}}"#,
+        )
+        .expect("seed mcp");
+        std::env::set_var("DSH_MCP_PATH", &mcp_path);
+        let def = BundleMcpServerDef {
+            server_id: "mcp-e2e".into(),
+            name: "E2E MCP".into(),
+            transport: "stdio".into(),
+            command: "npx".into(),
+            args: vec!["-y".into(), "@modelcontextprotocol/server-github".into()],
+            env_keys: vec!["GITHUB_TOKEN".into()],
+            optional: false,
+            description: String::new(),
+        };
+        merge_mcp_servers(&[def.clone()]).expect("合并失败");
+        // 幂等：再次合并仍为两条
+        let def2 = BundleMcpServerDef {
+            server_id: "mcp-e2e-2".into(),
+            name: "E2E MCP 2".into(),
+            transport: "stdio".into(),
+            command: "npx".into(),
+            args: vec![],
+            env_keys: vec![],
+            optional: true,
+            description: String::new(),
+        };
+        merge_mcp_servers(&[def, def2]).expect("二次合并失败");
+        let merged = std::fs::read_to_string(&mcp_path).expect("读回失败");
+        let v: serde_json::Value = serde_json::from_str(&merged).expect("合并结果非法 JSON");
+        let servers = v
+            .get("mcpServers")
+            .and_then(|x| x.as_object())
+            .expect("mcpServers 缺失");
+        assert!(servers.contains_key("user-own"), "既有条目丢失: {}", merged);
+        assert!(servers.contains_key("mcp-e2e"), "新条目未写入");
+        assert!(servers.contains_key("mcp-e2e-2"), "幂等合并缺条目");
+        let own_token = servers
+            .get("user-own")
+            .and_then(|s| s.get("env"))
+            .and_then(|e| e.get("TOKEN"))
+            .and_then(|t| t.as_str());
+        assert_eq!(own_token, Some("secret"), "既有 env 值不应被改写");
+        let new_env = servers
+            .get("mcp-e2e")
+            .and_then(|s| s.get("env"))
+            .and_then(|e| e.get("GITHUB_TOKEN"))
+            .and_then(|t| t.as_str());
+        assert_eq!(new_env, Some(""), "env 只写键名+空值");
+        std::env::remove_var("DSH_MCP_PATH");
+        let _ = std::fs::remove_dir_all(&base);
+    }
 }
