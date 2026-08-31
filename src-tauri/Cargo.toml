@@ -1,6 +1,6 @@
 [package]
 name = "dsh-plugin-updater"
-version = "1.3.0"
+version = "1.4.0"
 description = "DSH 独立插件升级管理工具"
 authors = ["DSH Team"]
 license = "MIT"
@@ -36,6 +36,10 @@ flate2 = "1"
 tar = "0.4"
 urlencoding = "2"
 tauri-plugin-dialog = "2.7.2"
+keyring = "3"
+
+[dev-dependencies]
+serial_test = "3"
 
 [features]
 default = ["custom-protocol"]

@@ -89,6 +89,7 @@
       v-model="showSettings"
       :config="pluginStore.config"
       @save="handleSaveConfig"
+      @open-mcp="showMcp = true"
     />
 
     <ReleaseNotesDialog
@@ -98,6 +99,8 @@
     />
 
     <RepairDialog v-model="showRepair" />
+
+    <McpDialog v-model="showMcp" />
   </div>
 </template>
 
@@ -118,6 +121,7 @@ import PluginTable from './components/PluginTable.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
 import ReleaseNotesDialog from './components/ReleaseNotesDialog.vue'
 import RepairDialog from './components/RepairDialog.vue'
+import McpDialog from './components/McpDialog.vue'
 import WToast from './components/WToast.vue'
 import WConfirmHost from './components/WConfirmHost.vue'
 import WActionHost from './components/WActionHost.vue'
@@ -134,6 +138,7 @@ const { theme, toggleTheme } = useTheme()
 const booting = ref(true)
 const showSettings = ref(false)
 const showRepair = ref(false)
+const showMcp = ref(false)
 const isAutoScanning = ref(false)
 const showReleaseNotes = ref(false)
 const currentReleaseNotesPlugin = ref<PluginInfo | null>(null)

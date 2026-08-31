@@ -8,6 +8,7 @@ mod plugin_scan;
 mod catalog;
 mod version_probe;
 mod bundle;
+mod mcp;
 
 use error::{AppConfig, AppError, AppResult, PluginInfo};
 use file_ops::{open_in_file_manager, PluginFileManager};
@@ -1362,6 +1363,37 @@ async fn auto_scan_plugins(state: State<'_, AppState>) -> AppResult<Vec<PluginIn
 
     Ok(merged)
 }
+// ---------- MCP 面板命令（V2 §8 P1） ----------
+
+#[tauri::command]
+fn mcp_list() -> AppResult<mcp::McpListResult> {
+    mcp::list()
+}
+
+#[tauri::command]
+fn mcp_save_env(server_id: String, key: String, value: String) -> AppResult<bool> {
+    mcp::save_env(&server_id, &key, &value)?;
+    Ok(true)
+}
+
+#[tauri::command]
+fn mcp_apply_config() -> AppResult<usize> {
+    mcp::apply_config()
+}
+
+#[tauri::command]
+async fn mcp_probe(server_id: String, state: State<'_, AppState>) -> AppResult<mcp::McpProbeResult> {
+    let config = state.config.lock().unwrap().clone();
+    let proxy = GitHubProxyClient::new(&config.proxy_base_url, None);
+    mcp::probe(&server_id, proxy.http_client().clone()).await
+}
+
+#[tauri::command]
+fn mcp_toggle(server_id: String, enable: bool) -> AppResult<bool> {
+    mcp::toggle(&server_id, enable)?;
+    Ok(true)
+}
+
 /// 读取 DSH 运行时版本（读配置 plugin_directory 下 package.json 的 "dsh" 字段，
 /// dsh.version 优先，其次 dsh.profile.version，均无则 None）。V2 §5 / F5。
 #[tauri::command]
@@ -1424,6 +1456,11 @@ fn main() {
             check_self_update,
             self_update,
             get_dsh_version,
+            mcp_list,
+            mcp_save_env,
+            mcp_apply_config,
+            mcp_probe,
+            mcp_toggle,
             bundle::list_bundles,
             bundle::preview_bundle,
             bundle::install_bundle,

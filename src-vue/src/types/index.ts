@@ -156,6 +156,35 @@ export interface BundlePreview {
   hasBlockingConflict: boolean | null
 }
 
+export interface McpEnvKeyInfo {
+  key: string
+  hasSecret: boolean
+}
+
+export interface McpEntryInfo {
+  serverId: string
+  name: string
+  transport: 'stdio' | 'streamable-http' | string
+  command?: string
+  args?: string[]
+  url?: string
+  envKeys: McpEnvKeyInfo[]
+  description: string
+  hasPlainValue: boolean
+}
+
+export interface McpListResult {
+  enabled: McpEntryInfo[]
+  disabled: McpEntryInfo[]
+  configExists: boolean
+}
+
+export interface McpProbeResult {
+  ok: boolean
+  detail: string
+  latencyMs: number
+}
+
 export interface BundlePluginResult {
   pluginRef: string
   status: string
