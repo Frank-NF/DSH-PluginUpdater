@@ -674,6 +674,111 @@ struct RollbackOutcome {
     message: String,
 }
 
+/// 半装检测与引导恢复（V2 §9 验收 #2）：
+/// 安装事务中断（进程被 kill / 断电）会在 bundle_installs.json 留下 result=running 行。
+/// 启动时调用本函数：对每个 running 记录的插件，优先从最新备份恢复（backup_plugin 命名
+/// {safe_npm}_{timestamp}），无备份则移除半装目录；处理后追加 result=recovered 审计行。
+/// 返回逐插件恢复报告（UI/日志展示）。
+pub(crate) fn detect_and_recover_half_installed(
+    root_dir: &str,
+    file_manager: &PluginFileManager,
+) -> Vec<String> {
+    let backup_root = Path::new(root_dir).join(".updater_backups");
+    let ledger = backup_root.join("bundle_installs.json");
+    let raw = match std::fs::read_to_string(&ledger) {
+        Ok(r) => r,
+        Err(_) => return Vec::new(),
+    };
+    let mut report = Vec::new();
+    let mut rewritten: Vec<String> = Vec::new();
+    let mut changed = false;
+    for line in raw.lines().filter(|l| !l.trim().is_empty()) {
+        let v: serde_json::Value = match serde_json::from_str(line) {
+            Ok(v) => v,
+            Err(_) => {
+                rewritten.push(line.to_string());
+                continue;
+            }
+        };
+        if v.get("result").and_then(|r| r.as_str()) != Some("running") {
+            rewritten.push(line.to_string());
+            continue;
+        }
+        changed = true;
+        let bundle_id = v.get("bundleId").and_then(|b| b.as_str()).unwrap_or("?").to_string();
+        let plugins = v
+            .get("plugins")
+            .and_then(|p| p.as_array())
+            .cloned()
+            .unwrap_or_default();
+        report.push(format!("检测到未完成的组合包安装「{}」，开始恢复…", bundle_id));
+        for p in &plugins {
+            let npm = p
+                .get("pluginRef")
+                .and_then(|x| x.as_str())
+                .unwrap_or("")
+                .to_string();
+            if npm.is_empty() {
+                continue;
+            }
+            let install_dir = installed_plugin_dir(root_dir, &npm);
+            let safe_prefix = format!("{}{}", npm.replace(['/', '\\'], "_"), "_");
+            let mut best: Option<std::path::PathBuf> = None;
+            if let Ok(rd) = std::fs::read_dir(&backup_root) {
+                for e in rd.flatten() {
+                    let name = e.file_name().to_string_lossy().to_string();
+                    if e.path().is_dir() && name.starts_with(&safe_prefix) {
+                        let newer = best
+                            .as_ref()
+                            .map(|b: &std::path::PathBuf| {
+                                name.as_str() > b.file_name().unwrap().to_string_lossy().as_ref()
+                            })
+                            .unwrap_or(true);
+                        if newer {
+                            best = Some(e.path());
+                        }
+                    }
+                }
+            }
+            match best {
+                Some(b) => {
+                    let bstr = b.to_string_lossy().to_string();
+                    match file_manager.restore_backup(&bstr, &install_dir.to_string_lossy()) {
+                        Ok(()) => report.push(format!("{}: 已从备份恢复（{}）", npm, bstr)),
+                        Err(e) => report.push(format!(
+                            "{}: 恢复失败，备份已保留（{}）: {}",
+                            npm, bstr, e
+                        )),
+                    }
+                }
+                None => {
+                    if install_dir.exists() {
+                        match std::fs::remove_dir_all(&install_dir) {
+                            Ok(()) => report.push(format!("{}: 无备份，已移除半装目录", npm)),
+                            Err(e) => report.push(format!("{}: 半装目录移除失败: {}", npm, e)),
+                        }
+                    } else {
+                        report.push(format!("{}: 无备份且无残留目录，无需处理", npm));
+                    }
+                }
+            }
+        }
+        // running 行原位转为 recovered（保留 bundleId/version/plugins 审计信息）
+        let mut done = v.clone();
+        done["result"] = serde_json::Value::String("recovered".into());
+        done["time"] = serde_json::Value::String(iso_now());
+        rewritten.push(done.to_string());
+    }
+    if changed {
+        // 原子重写台账：running → recovered，二次启动不会重复恢复
+        let tmp = ledger.with_extension("json.tmp");
+        if std::fs::write(&tmp, rewritten.join("\n") + "\n").is_ok() {
+            let _ = std::fs::rename(&tmp, &ledger);
+        }
+    }
+    report
+}
+
 fn finish_after_rollback(failures: Vec<String>, cancelled: bool, reason: &str) -> RollbackOutcome {
     if failures.is_empty() {
         if cancelled {
@@ -891,6 +996,19 @@ async fn run_transaction(
         return Err(AppError::Other("组合包内没有有效的插件引用".into()));
     }
     let file_manager = PluginFileManager::new(&config.plugin_directory);
+
+    // running 记录（V2 §9 验收 #2）：事务进入 BACKUP 前落盘；进程若在此后中断，
+    // 启动时 detect_and_recover_half_installed 据此检测半装状态并引导恢复。
+    {
+        let planned: Vec<BundlePluginResult> = plan.iter().map(|p| p.to_result()).collect();
+        let _ = append_install_record(
+            &config.plugin_directory,
+            id,
+            bundle.version.as_deref().unwrap_or("") ,
+            "running",
+            &planned,
+        );
+    }
 
     // ---------- BACKUP（覆盖安装的插件逐个走 backup_plugin；fail→FAILED，环境未动） ----------
     let backup_targets: Vec<(usize, String)> = plan
@@ -1459,6 +1577,102 @@ mod e2e_tests {
             .and_then(|t| t.as_str());
         assert_eq!(new_env, Some(""), "env 只写键名+空值");
         std::env::remove_var("DSH_MCP_PATH");
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// V2 §9 验收 #3：verify_ok 后到达的 cancel → 照常 DONE（取消仲裁，规则 3）
+    #[tokio::test]
+    async fn e2e_cancel_after_verify_still_commits() {
+        let _g = SERIAL.lock().expect("serial");
+        let base = temp_base("cancel-verify");
+        let profile = make_profile(&base);
+        let cache = seed_cache(&base, "cancel-verify", "[{\"pluginRef\":\"left-pad\",\"required\":true}]");
+        std::env::set_var("DSH_BUNDLES_CACHE", &cache);
+        let config = base_config(&profile);
+        let cancel = std::sync::Arc::new(AtomicBool::new(false));
+        let c2 = cancel.clone();
+        let (log, emit) = event_collector();
+        // 在 verify 阶段置位取消 → COMMIT 阶段收到的 cancel 必须降级 no-op
+        let emit_wrap = move |stage: &str, pct: u8, msg: String| {
+            if stage == "verify" {
+                c2.store(true, std::sync::atomic::Ordering::SeqCst);
+            }
+            emit(stage, pct, msg);
+        };
+        let result = run_transaction("e2e-cancel-verify", "task-cv", &config, &cancel, emit_wrap).await;
+        match &result {
+            Ok(r) => assert_eq!(r.status, "committed", "verify 后 cancel 应照常提交: {}", r.message),
+            Err(e) => panic!("事务不应失败：{}（记录：{:?}）", e, record_text(&profile)),
+        }
+        let stages: Vec<String> = log.lock().unwrap().iter().map(|(s, _, _)| s.clone()).collect();
+        assert!(stages.iter().any(|s| s == "commit"), "缺少 commit 事件");
+        std::env::remove_var("DSH_BUNDLES_CACHE");
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// V2 §9 验收 #4：rollback 失败（无效备份路径模拟占用失败）→ status=failed + 备份保留提示（人工恢复入口）
+    #[test]
+    fn rollback_failure_keeps_backup_and_reports() {
+        let base = std::env::temp_dir().join(format!("dsh-rb-fail-{}", std::process::id()));
+        let profile = base.join("profile");
+        std::fs::create_dir_all(&profile).unwrap();
+        let fm = PluginFileManager::new(profile.to_str().unwrap());
+        let plan = vec![PluginPlan {
+            npm: "dsh-x".into(),
+            installed_before: true,
+            expected_version: None,
+            skip: false,
+            backup_path: Some(base.join("nonexistent-backup").to_string_lossy().to_string()),
+            touched: true,
+            status: "ok".into(),
+        }];
+        let failures = rollback_touched(profile.to_str().unwrap(), &plan, &fm);
+        assert!(!failures.is_empty(), "无效备份应产生回滚失败");
+        assert!(failures[0].contains("备份已保留"), "失败消息应包含人工恢复入口: {}", failures[0]);
+        let out = finish_after_rollback(failures, false, "测试原因");
+        assert_eq!(out.status, "failed");
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    /// V2 §9 验收 #2：running 残留记录 → detect_and_recover_half_installed 从备份恢复/移除半装
+    #[test]
+    fn half_installed_detected_and_recovered() {
+        let base = std::env::temp_dir().join(format!(
+            "dsh-half-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_millis()
+        ));
+        let profile = base.join("profile");
+        let plugin_dir = profile.join("node_modules").join("dsh-half");
+        std::fs::create_dir_all(&plugin_dir).unwrap();
+        std::fs::write(plugin_dir.join("package.json"), "{\"name\":\"dsh-half\"}").unwrap();
+        // 备份目录（backup_plugin 命名 {safe_npm}_{ts}，含旧版内容）
+        let backup = profile.join(".updater_backups").join("dsh-half_20260831_000000");
+        std::fs::create_dir_all(&backup).unwrap();
+        std::fs::write(backup.join("old-marker.txt"), "old").unwrap();
+        // running 残留记录（BundlePluginResult camelCase: pluginRef）
+        let ledger = profile.join(".updater_backups").join("bundle_installs.json");
+        std::fs::write(
+            &ledger,
+            "{\"time\":\"t\",\"bundleId\":\"half-b\",\"version\":\"1.0.0\",\"result\":\"running\",\"plugins\":[{\"pluginRef\":\"dsh-half\",\"status\":\"ok\",\"detail\":\"\"}]}\n",
+        )
+        .unwrap();
+
+        let fm = PluginFileManager::new(profile.to_str().unwrap());
+        let report = detect_and_recover_half_installed(profile.to_str().unwrap(), &fm);
+        assert!(!report.is_empty(), "应有恢复报告");
+        assert!(
+            report.iter().any(|l| l.contains("已从备份恢复")),
+            "应从备份恢复: {:?}",
+            report
+        );
+        assert!(plugin_dir.join("old-marker.txt").exists(), "恢复后应含备份内文件");
+        // 台账原位转换：recovered 出现、running 消失（二次启动幂等）
+        let raw = std::fs::read_to_string(&ledger).unwrap();
+        assert!(raw.contains("\"result\":\"recovered\""), "应存在 recovered 行");
+        assert!(!raw.contains("\"result\":\"running\""), "running 行应已被转换");
+        let report2 = detect_and_recover_half_installed(profile.to_str().unwrap(), &fm);
+        assert!(report2.is_empty(), "处理过的台账不应重复恢复: {:?}", report2);
         let _ = std::fs::remove_dir_all(&base);
     }
 
