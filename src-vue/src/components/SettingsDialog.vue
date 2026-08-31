@@ -284,6 +284,7 @@
     </div>
 
     <template #footer>
+      <WButton @click="emit('open-mcp')">{{ t('mcp.entry') }}</WButton>
       <WButton @click="handleClose">{{ t('common.cancel') }}</WButton>
       <WButton type="primary" :loading="saving" @click="handleSave">
         {{ t('common.save') }}
@@ -310,6 +311,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: boolean]
   save: [config: AppConfig, done: (err?: unknown) => void]
+  'open-mcp': []
 }>()
 
 const toast = useToast()

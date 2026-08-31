@@ -395,7 +395,7 @@ fn append_install_record(
 /// 安装成功后 MCP 层：把 bundle 的 mcp_servers 合并写入 ~/.dsh/dsh-mcp.json（全局）。
 /// 文件存在则保留既有条目，只补缺失的 server_id；env 只写键名 + 空字符串值（V2 §2）。
 /// 失败由调用方仅 log 告警，不影响安装事务结果。
-fn merge_mcp_servers(servers: &[BundleMcpServerDef]) -> AppResult<()> {
+pub(crate) fn merge_mcp_servers(servers: &[BundleMcpServerDef]) -> AppResult<()> {
     if servers.is_empty() {
         return Ok(());
     }
