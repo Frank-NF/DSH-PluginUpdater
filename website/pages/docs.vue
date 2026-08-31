@@ -8,6 +8,7 @@
             <li><a href="#quick-start" class="active">快速开始</a></li>
             <li><a href="#installation">安装指南</a></li>
             <li><a href="#basic-usage">基本使用</a></li>
+            <li><a href="#mcp-panel">MCP 服务管理</a></li>
             <li><a href="#plugin-manifest">插件清单规范</a></li>
             <li><a href="#proxy-setup">代理服务部署</a></li>
             <li><a href="#faq">常见问题</a></li>
@@ -78,6 +79,26 @@
 
             <h2>7. 打开插件目录</h2>
             <p>点击「目录」按钮可以直接在文件管理器中打开插件所在文件夹，方便手动查看或修改插件文件。</p>
+          </article>
+
+          <article id="mcp-panel">
+            <h1>MCP 服务管理</h1>
+            <p>MCP 面板用于集中管理本地 MCP 配置（<code>~/.dsh/dsh-mcp.json</code>）。入口：<strong>设置 → 底部「MCP 服务管理」</strong>（仅桌面客户端可用）。</p>
+
+            <h2>1. 生成配置</h2>
+            <p>首次使用时配置文件尚不存在。到客户端「组合包」标签页安装含 MCP 模板的组合包，会自动生成配置文件；你手工添加的条目始终保留。</p>
+
+            <h2>2. 填写环境变量</h2>
+            <p>每个服务卡片列出所需的环境变量（只显示键名，不显示值）。填入 Token/密钥后点「保存」，密值立即加密存入系统凭据库（Windows 凭据管理器），配置文件中不留明文。</p>
+
+            <h2>3. 连通性探活</h2>
+            <p>点击「探活」检测服务是否可用：stdio 服务会试拉起进程；streamable-http 服务会发起探测请求。返回原因与耗时；HTTP 401/403 表示服务可达但需要配置鉴权。</p>
+
+            <h2>4. 写入配置</h2>
+            <p>点击「写入配置」把已保存的密值写入运行配置（这一步之后 DSH 运行时才能读到真实密值），重启 DSH 生效。面板中的密值始终以掩码显示。</p>
+
+            <h2>5. 启用/禁用服务</h2>
+            <p>「禁用」会把该服务条目安全移出运行配置并暂存（其余条目与你手工添加的内容零改动），需要时一键恢复。</p>
           </article>
 
           <article id="plugin-manifest">

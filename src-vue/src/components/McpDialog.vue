@@ -5,6 +5,16 @@
     wide
     :close-on-mask="false"
   >
+    <details class="mcp-help">
+      <summary>{{ t('mcp.helpTitle') }}</summary>
+      <ol>
+        <li>{{ t('mcp.help1') }}</li>
+        <li>{{ t('mcp.help2') }}</li>
+        <li>{{ t('mcp.help3') }}</li>
+        <li>{{ t('mcp.help4') }}</li>
+      </ol>
+    </details>
+
     <WLoading v-if="loading" block :text="t('mcp.loading')" />
     <template v-else>
       <div v-if="!data?.configExists" class="w-callout w-callout_warn">{{ t('mcp.noConfig') }}</div>
@@ -176,6 +186,28 @@ async function onApply() {
 </script>
 
 <style scoped>
+.mcp-help {
+  margin-bottom: 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  color: var(--fg-2);
+}
+
+.mcp-help summary {
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--fg);
+}
+
+.mcp-help ol {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 4px;
+}
+
 .mcp-card {
   margin-bottom: 12px;
   padding: 12px 14px;
