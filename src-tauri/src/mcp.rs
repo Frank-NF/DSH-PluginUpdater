@@ -8,7 +8,6 @@
 
 use crate::error::{AppError, AppResult};
 use serde::Serialize;
-use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 /// dsh-mcp.json 位置（测试可用 DSH_MCP_PATH 覆盖，与 bundle.rs 同规则）
