@@ -7,7 +7,10 @@
           <WIcon name="package" :size="20" />
         </div>
         <div class="w-header__titles">
-          <h1>{{ t('header.title') }}</h1>
+          <h1>
+            {{ t('header.title') }}
+            <span v-if="appVersion" class="w-header__version">v{{ appVersion }}</span>
+          </h1>
           <p>{{ t('header.subtitle') }}</p>
         </div>
       </div>
@@ -121,7 +124,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { getVersion } from '@tauri-apps/api/app'
 import WButton from './WButton.vue'
 import WIcon from './WIcon.vue'
 import WSheet from './WSheet.vue'
@@ -151,6 +155,16 @@ const emit = defineEmits<{
 }>()
 
 const sheetOpen = ref(false)
+
+// 应用自身版本（Tauri 环境；浏览器预览静默隐藏）
+const appVersion = ref('')
+onMounted(async () => {
+  try {
+    appVersion.value = await getVersion()
+  } catch {
+    /* 非 Tauri 环境 */
+  }
+})
 
 const themeIcon = computed(() => (props.theme === 'dark' ? 'sun' : 'moon'))
 
@@ -240,6 +254,19 @@ function onSheetSelect(value: string) {
   font-size: 11px;
   color: var(--fg-2);
   line-height: 1.3;
+}
+
+.w-header__version {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.5;
+  vertical-align: 2px;
+  color: var(--brand-2);
+  background: var(--brand-soft);
 }
 
 /* ---------- 目录输入 ---------- */
