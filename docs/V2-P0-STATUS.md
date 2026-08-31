@@ -64,7 +64,16 @@
 > 注 1：src-vue 构建在本机沙箱内需绕过 pnpm 的 deps 预检钩子（钩子经宿主进程 spawn 被拒），实际以 `node_modules/.bin/vue-tsc --noEmit` 与 `node_modules/.bin/vite build` 直跑验证，语义与 package.json 的 type-check / build 脚本一致。
 > 注 2：真机 E2E 的 npm 子进程与 nuxt/esbuild 构建在本机沙箱内需非受限权限（进程生成边界），常规终端执行不受影响。
 
-## 三、遗留项（P1 起）
+## 三、部署与线上验证（2026-08-31）
+
+- 官网已重新构建（nuxt build，.output 19.8MB）并部署：tar 打包 → scp 上传 → /var/www/dsh-website 旧 .output 备份为 .output.bak 后替换 → `systemctl restart dsh-website`，服务 active。服务器 DB（/var/.data/dsh-website.db）不动，4 张 bundle 表与 5 个种子包在首次访问时自动建表/落库。
+- 线上验证（https://dsh.huilinsh.cn）：
+  - `GET /api/bundles` → 200，`total=5`，五个官方包插件/MCP/技能清单齐全（camelCase）；响应带 `ETag: "5-2026-08-31"`、`Cache-Control: public, max-age=600`、`Access-Control-Allow-Origin: *`；`If-None-Match` 命中 → **304**（服务器本机直打 8072、经 nginx 443、本机 curl 三路均验证）。
+  - `GET /api/bundle?id=bundle-dev-full` → 200，mcpServers[0]=mcp-github（transport=stdio，envKeys=[GITHUB_TOKEN]），skills[0]=skill-logicprobe。
+  - `GET /api/bundle`（缺 id）→ 400；`?id=不存在的包` → 404；首页 → 200。
+- 版本锚点（遗留项 3）探测补充：DSH Desktop 本体版本 2.0.4，与运行时 rc 包（0.1.0-rc.6）分属不同版本序列，进一步佐证当前无统一「DSH 运行时版本」权威源，锚点维持 "*"。
+
+## 四、遗留项（P1 起）
 
 1. SHA256 与官网核对链路（VERIFY 阶段）按 V2 §5.3 留 P1 接入；当前 VERIFY 为「目录存在 + package.json 版本与预期（npm latest）一致」。
 2. min/max_dsh_version 真实锚点值：P0 交付后对本机做了全源探测，结论=**当前环境不存在权威的「DSH 运行时版本」可探测源**——profile 的 package.json `dsh` 字段只有 `profile.bundles`（插件清单）与 `patchReload`，无 version/profile.version；本机未安装全局 dsh CLI（npm 全局仅有 pnpm；PATH 里的 `dsh` 是 DSH Desktop 宿主命令垫片）；`~/.dsh/settings.yaml` 无版本标记；运行时核心组件为 @deepseek-ai/dsh-atomic-write 等独立 rc 包（0.1.0-rc.6），无统一版本号。锚点维持 "*"（V2 §2 允许），待与 DSH 运行时侧约定统一版本源（如 dsh CLI --version 或 profile dsh 字段补 version）后回填；客户端对非 "*" 的区间校验已具备。
