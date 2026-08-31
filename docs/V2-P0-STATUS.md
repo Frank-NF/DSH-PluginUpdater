@@ -73,7 +73,33 @@
   - `GET /api/bundle`（缺 id）→ 400；`?id=不存在的包` → 404；首页 → 200。
 - 版本锚点（遗留项 3）探测补充：DSH Desktop 本体版本 2.0.4，与运行时 rc 包（0.1.0-rc.6）分属不同版本序列，进一步佐证当前无统一「DSH 运行时版本」权威源，锚点维持 "*"。
 
-## 四、遗留项（P1 起）
+## 四、事务机模型验证（logicprobe，2026-08-31）
+
+从 src-tauri/src/bundle.rs 实现提取 LogicModelV1（11 状态 / 15 转换）并跑 `logicprobe_verify`：**19 项检查 0 错误**（S1 可达性 / S2 无死锁 / S3 无有害环路 / S4 确定性 / S6 守卫完备 / S7+A7 不变量全可达路径成立 / S8 单调性 / A2 竞态 / A3 顺序无关 / A4-A6 / A8-A11 全过）。
+
+**转换表**（UNCONFIRMED：模型由实施者提取，未经人工确认与设计意图完全一致）：
+
+| 状态 | 事件 | 目标 | 语义 |
+|---|---|---|---|
+| idle | fetch_detail | precheck | 拉取详情（404/网络失败均并入缓存兜底） |
+| precheck | begin_backup | backup | 预检通过 |
+| precheck | cancel_check | cancelled | 规则2：BACKUP 前取消=中止（零改动） |
+| backup | backup_ok | install | backup_made:=1（此后无任何删除备份的边，规则4） |
+| backup | backup_fail | failed | 环境未动，无回滚 |
+| install | plugin_ok | install | 逐插件安装，installed_any:=1 |
+| install | all_installed | verify | 进入校验 |
+| install | npm_fail | rollback | 规则1：失败即回滚 |
+| install | cancel_detected | rollback | 规则2：进入下载后取消=回滚 |
+| verify | verify_pass | commit | verify_ok:=1（校验门禁） |
+| verify | verify_fail | rollback | 校验失败回滚 |
+| commit | commit_ok | committed | 终态 |
+| commit | commit_fail | rollback | 记录失败也回滚 |
+| rollback | restore_ok | rolled_back | installed_any:=0（终态） |
+| rollback | restore_fail | failed | 规则4：保留备份、绝不删除 |
+
+不变量：INV-verify-gate（committed 必须在 verify_pass 之后）+ INV-commit-sequence（verify_pass 先于 commit_ok）——全部可达路径成立。规则3（verify_ok 后 cancel 降级 no-op）由拓扑缺席表达：verify/commit 状态无任何 cancel 出边。S5/A1 的 90 条「未处理事件对」为事件驱动建模固有噪音（终态与非相关事件静默忽略，与实现行为一致），接受为设计语义；规则 1/2/4 另有 cargo 真机 E2E 执行级验证（见验证结果摘要）。
+
+## 五、遗留项（P1 起）
 
 1. SHA256 与官网核对链路（VERIFY 阶段）按 V2 §5.3 留 P1 接入；当前 VERIFY 为「目录存在 + package.json 版本与预期（npm latest）一致」。
 2. min/max_dsh_version 真实锚点值：P0 交付后对本机做了全源探测，结论=**当前环境不存在权威的「DSH 运行时版本」可探测源**——profile 的 package.json `dsh` 字段只有 `profile.bundles`（插件清单）与 `patchReload`，无 version/profile.version；本机未安装全局 dsh CLI（npm 全局仅有 pnpm；PATH 里的 `dsh` 是 DSH Desktop 宿主命令垫片）；`~/.dsh/settings.yaml` 无版本标记；运行时核心组件为 @deepseek-ai/dsh-atomic-write 等独立 rc 包（0.1.0-rc.6），无统一版本号。锚点维持 "*"（V2 §2 允许），待与 DSH 运行时侧约定统一版本源（如 dsh CLI --version 或 profile dsh 字段补 version）后回填；客户端对非 "*" 的区间校验已具备。
