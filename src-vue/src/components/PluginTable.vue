@@ -691,6 +691,14 @@
           <p class="w-bundle-error-text">{{ bundleError }}</p>
         </div>
 
+        <!-- 整包冲突警示 -->
+        <div v-if="bundlePreview?.hasBlockingConflict" class="w-callout w-callout_danger">
+          {{ t('bundle.blockingConflict') }}
+        </div>
+        <div v-else-if="bundlePreview && bundlePreview.items.some(i => i.conflicts?.length)" class="w-callout w-callout_warn">
+          {{ t('bundle.warnConflict') }}
+        </div>
+
         <!-- 插件清单 -->
         <p class="w-label">{{ t('bundle.pluginList') }}</p>
         <WLoading v-if="bundlePreviewLoading" block :text="t('bundle.previewing')" />
@@ -711,6 +719,7 @@
               </p>
             </div>
             <div class="weui-cell__ft">
+              <span v-if="item.conflicts?.length" class="w-tag w-tag_danger" :title="bundleConflictTitle(item)">{{ t('bundle.conflictTag') }}</span>
               <span v-if="!item.required" class="w-tag">{{ t('bundle.optional') }}</span>
               <span v-if="item.action === 'skip'" class="w-tag w-tag_success">{{ t('bundle.alreadyLatest') }}</span>
               <span v-else-if="item.installed" class="w-tag w-tag_warn">{{ t('bundle.overwriteTag') }}</span>
@@ -833,7 +842,7 @@ import { bundleApi } from '../api/bundles'
 import { t, locale, categoryName, categoryColor, formatCount } from '../i18n'
 import { useToast } from '../composables/useToast'
 import { staggerIn, panelIn } from '../composables/useMotion'
-import type { PluginInfo, MarketPlugin, BundleDef, BundlePreview, BundleProgress } from '../types'
+import type { PluginInfo, MarketPlugin, BundleDef, BundlePreview, BundlePreviewItem, BundleProgress } from '../types'
 
 type TabName = 'market' | 'bundles' | 'installed' | 'updates'
 
@@ -1109,6 +1118,7 @@ const bundleDisplayItems = computed(() => {
     installed: false,
     currentVersion: null as string | null,
     action: 'install' as const,
+    conflicts: [],
   }))
 })
 
@@ -1128,6 +1138,12 @@ function bundleActionLabel(action: string): string {
   if (action === 'install') return t('bundle.actionInstall')
   if (action === 'overwrite') return t('bundle.actionOverwrite')
   return t('bundle.actionSkip')
+}
+
+function bundleConflictTitle(item: BundlePreviewItem): string {
+  return (item.conflicts || [])
+    .map((c) => `${c.conflictWith}${c.reason ? ': ' + c.reason : ''}`)
+    .join('\n')
 }
 
 async function openBundleDetail(b: BundleDef) {

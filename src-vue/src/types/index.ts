@@ -129,12 +129,20 @@ export interface BundleDef {
   skills: BundleSkill[]
 }
 
+export interface BundleConflictInfo {
+  conflictWith: string
+  reason: string | null
+  severity: 'block' | 'warn' | string | null
+}
+
 export interface BundlePreviewItem {
   pluginRef: string
   required: boolean
   installed: boolean
   currentVersion: string | null
   action: 'install' | 'overwrite' | 'skip'
+  /** 与当前已装插件集的已知冲突（官网知识库；空 = 无/未检） */
+  conflicts: BundleConflictInfo[]
 }
 
 export interface BundlePreview {
@@ -143,6 +151,9 @@ export interface BundlePreview {
   items: BundlePreviewItem[]
   mcpServers: BundleMcpServer[]
   skills: BundleSkill[]
+  /** 整包兼容结论（官网不可达时为 null） */
+  compatAllCompatible: boolean | null
+  hasBlockingConflict: boolean | null
 }
 
 export interface BundlePluginResult {

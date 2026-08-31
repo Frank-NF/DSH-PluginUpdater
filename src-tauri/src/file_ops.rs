@@ -405,6 +405,27 @@ pub fn calculate_sha256(file_path: &str) -> AppResult<String> {
     Ok(format!("{:x}", result))
 }
 
+/// 计算文件的 SHA1 校验和（返回小写 hex 字符串）。
+/// npm registry 的 dist.shasum 即 SHA1-hex，用于更新包完整性核对（P1）。
+pub fn calculate_sha1(file_path: &str) -> AppResult<String> {
+    use sha1::{Digest, Sha1};
+
+    let mut file = fs::File::open(file_path)?;
+    let mut hasher = Sha1::new();
+    let mut buffer = [0u8; 8192];
+
+    loop {
+        let bytes_read = file.read(&mut buffer)?;
+        if bytes_read == 0 {
+            break;
+        }
+        hasher.update(&buffer[..bytes_read]);
+    }
+
+    let result = hasher.finalize();
+    Ok(format!("{:x}", result))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

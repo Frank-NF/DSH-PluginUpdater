@@ -897,6 +897,30 @@ button {
   border-color: rgba(239, 68, 68, 0.28);
 }
 
+.w-callout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border-radius: var(--r-sm);
+  font-size: 12px;
+  line-height: 1.5;
+  border: 1px solid var(--border);
+  background: var(--bg-group);
+}
+
+.w-callout_warn {
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.w-callout_danger {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
 .w-tag_info {
   color: var(--fg-2);
   background: var(--bg-group);

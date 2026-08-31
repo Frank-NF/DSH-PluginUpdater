@@ -364,7 +364,7 @@ pub async fn fetch_catalog(client: &reqwest::Client) -> AppResult<Catalog> {
 pub async fn npm_latest_meta(
     client: &reqwest::Client,
     npm_name: &str,
-) -> AppResult<(String, Option<String>)> {
+) -> AppResult<(String, Option<String>, Option<String>)> {
     let encoded = urlencoding::encode(npm_name);
     let mut last_err: Option<String> = None;
     for mirror in NPM_MIRRORS {
@@ -377,7 +377,11 @@ pub async fn npm_latest_meta(
                             let tarball = meta["dist"]["tarball"]
                                 .as_str()
                                 .map(|s| s.to_string());
-                            return Ok((v.to_string(), tarball));
+                            // dist.shasum = 发布时登记的 SHA1-hex，用于下载后完整性核对
+                            let shasum = meta["dist"]["shasum"]
+                                .as_str()
+                                .map(|s| s.to_string());
+                            return Ok((v.to_string(), tarball, shasum));
                         }
                         last_err = Some(format!("{} 响应无 version", mirror));
                     }
