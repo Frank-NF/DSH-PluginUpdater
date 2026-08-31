@@ -40,31 +40,40 @@
           <div class="download-card card">
             <div class="download-icon win">🪟</div>
             <h3>Windows 版</h3>
-            <p class="version">v1.0.0 · 64位 · EXE 安装包</p>
+            <p class="version">v{{ winVersion }} · 64位 · EXE 安装包</p>
             <ul class="download-info">
               <li>支持 Windows 10/11</li>
               <li>单文件安装，自动创建快捷方式</li>
-              <li>大小约 15MB</li>
+              <li>大小约 {{ winSizeMB }}MB</li>
             </ul>
-            <a href="/dsh-plugin-updater.exe" download class="btn btn-primary download-btn">
+            <a :href="winUrl" download class="btn btn-primary download-btn">
               下载 .exe
             </a>
-            <p class="download-hash mono">绿色免安装 · 单文件 · 无需管理员权限</p>
+            <p class="download-hash mono" :title="winSha256">SHA256: {{ winSha256Short }}</p>
           </div>
 
           <div class="download-card card">
             <div class="download-icon linux">🐧</div>
             <h3>Linux 版</h3>
-            <p class="version">v1.0.0 · AppImage · x86_64</p>
-            <ul class="download-info">
-              <li>支持 Ubuntu 20.04+ / Debian 11+</li>
-              <li>AppImage 格式，开箱即用</li>
-              <li>大小约 20MB</li>
-            </ul>
-            <a href="/downloads/DSH-PluginUpdater_1.0.0_amd64.AppImage" class="btn btn-primary download-btn">
-              下载 .AppImage
-            </a>
-            <p class="download-hash mono">SHA256: f6e5d4c3b2a1…</p>
+            <template v-if="linuxReady">
+              <p class="version">v{{ linuxVersion }} · AppImage · x86_64</p>
+              <ul class="download-info">
+                <li>支持 Ubuntu 20.04+ / Debian 11+</li>
+                <li>AppImage 格式，开箱即用</li>
+                <li>大小约 {{ linuxSizeMB }}MB</li>
+              </ul>
+              <a :href="linuxUrl" download class="btn btn-primary download-btn">下载 .AppImage</a>
+              <p class="download-hash mono" :title="linuxSha256">SHA256: {{ linuxSha256Short }}</p>
+            </template>
+            <template v-else>
+              <p class="version">AppImage · x86_64</p>
+              <ul class="download-info">
+                <li>支持 Ubuntu 20.04+ / Debian 11+</li>
+                <li>AppImage 格式，开箱即用</li>
+              </ul>
+              <a class="btn btn-primary download-btn is-disabled" aria-disabled="true">暂未提供</a>
+              <p class="download-hash mono">可先使用 Windows 版或在线版</p>
+            </template>
           </div>
         </div>
 
@@ -118,7 +127,7 @@
             </div>
             <div class="req-item">
               <span class="req-label">网络</span>
-              <span>需访问 GitHub（内置代理，无需科学上网）</span>
+              <span>访问 GitHub 与 npm 官方源，内置直连加速</span>
             </div>
           </div>
         </div>
@@ -128,6 +137,42 @@
 </template>
 
 <script setup lang="ts">
+interface PlatformAsset {
+  version?: string
+  url?: string
+  sha256?: string
+  size_bytes?: number
+}
+interface LatestInfo {
+  version: string
+  platforms: Record<string, PlatformAsset>
+  changelog: string[]
+  published_at: string | null
+}
+
+// 最新发布信息：单一权威源 /api/updater/latest（服务器 version.json）
+const { data: latest } = await useFetch<LatestInfo>('/api/updater/latest')
+
+const win = computed(() => latest.value?.platforms?.windows || null)
+const linux = computed(() => latest.value?.platforms?.linux || null)
+
+const winVersion = computed(() => win.value?.version || latest.value?.version || '1.0.0')
+const winUrl = computed(() => win.value?.url || '/dsh-plugin-updater.exe')
+const winSha256 = computed(() => win.value?.sha256 || '')
+const winSha256Short = computed(() => (win.value?.sha256 || '').slice(0, 16) + '…')
+const winSizeMB = computed(() =>
+  win.value?.size_bytes ? Math.round((win.value.size_bytes / 1024 / 1024) * 10) / 10 : '—'
+)
+
+const linuxReady = computed(() => !!linux.value?.url)
+const linuxVersion = computed(() => linux.value?.version || latest.value?.version || '')
+const linuxUrl = computed(() => linux.value?.url || '#')
+const linuxSha256 = computed(() => linux.value?.sha256 || '')
+const linuxSha256Short = computed(() => (linux.value?.sha256 || '').slice(0, 16) + '…')
+const linuxSizeMB = computed(() =>
+  linux.value?.size_bytes ? Math.round((linux.value.size_bytes / 1024 / 1024) * 10) / 10 : '—'
+)
+
 useHead({
   title: '下载中心 - DSH 插件升级管理',
 })
@@ -297,6 +342,11 @@ useHead({
 .download-btn {
   width: 100%;
   margin-top: auto;
+}
+
+.download-btn.is-disabled {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 .download-hash {
