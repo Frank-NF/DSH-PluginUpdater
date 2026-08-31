@@ -513,10 +513,18 @@ async fn check_updates(state: State<'_, AppState>) -> AppResult<Vec<PluginInfo>>
 
 
     for plugin in plugins.iter_mut() {
-        // 路线 1：目录声明了 npm 包 → npm registry 查最新版本（无 API 配额，国内镜像快）
+        // 路线 1：目录声明了 npm 包 → npm registry 查最新版本（无 API 配额，国内镜像快）。
+        // 目录未命中时直接以 manifest.id 作为 npm 包名兜底——本地插件 id 即 npm 包名
+        // （扫描器取 package.json name），此前兜底缺失导致大量插件落到 GitHub 对比，
+        // 可更新数远低于宿主内置市场口径（真机 9 vs 1）。
         let npm_name = catalog_map
             .get(&plugin.manifest.id.to_lowercase())
-            .and_then(|e| e.npm.clone());
+            .and_then(|e| e.npm.clone())
+            .or_else(|| {
+                let id = plugin.manifest.id.trim();
+                (!id.is_empty() && (id.starts_with("dsh-") || id.contains("/dsh-")))
+                    .then(|| id.to_string())
+            });
         if let Some(npm_name) = npm_name.filter(|n| !n.is_empty()) {
             if let Ok((latest, tarball, shasum)) =
                 catalog::npm_latest_meta(proxy.http_client(), &npm_name).await

@@ -5,7 +5,7 @@
       :is-scanning="pluginStore.isScanning"
       :is-checking-updates="pluginStore.isCheckingUpdates"
       :auto-scanning="isAutoScanning"
-      :plugin-count="pluginStore.plugins.length"
+      :plugin-count="pluginStore.regularPlugins.length"
       :updatable-count="pluginStore.updatablePlugins.length"
       :market-count="pluginStore.marketPlugins.length"
       :last-scan-time="pluginStore.lastScanTime"
