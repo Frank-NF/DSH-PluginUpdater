@@ -137,7 +137,7 @@ export const zh: Record<string, string> = {
   'settings.autoBackupDesc': '更新插件前自动备份旧版本，可随时回滚',
   'settings.about': '关于',
   'settings.version': '工具版本',
-  'settings.currentVersion': '当前运行版本 v1.0.0',
+  'settings.currentVersion': '当前运行版本',
   'settings.checkAppUpdate': '检查更新',
   'settings.website': '官方网站',
   'settings.websiteDesc': '获取最新版本与使用文档',
