@@ -17,7 +17,7 @@ use github_proxy::GitHubProxyClient;
 use plugin_scan::scan_plugin_directory;
 use std::fs;
 use std::sync::Mutex;
-use tauri::{Emitter, State};
+use tauri::{Emitter, Manager, State};
 
 pub struct AppState {
     pub config: Mutex<AppConfig>,
@@ -1090,16 +1090,16 @@ async fn check_self_update() -> AppResult<SelfUpdateInfo> {
     use reqwest::Client;
     let client = Client::builder().timeout(std::time::Duration::from_secs(10)).build().unwrap_or_default();
     let resp = match client.get("https://dsh.huilinsh.cn/api/updater/latest").send().await {
-        Ok(r) => r, Err(e) => { eprintln!("[self_update] 请求失败: {}", e); return Ok(SelfUpdateInfo { available: false, current_version: env!("CARGO_PKG_VERSION").to_string(), latest_version: None, changelog: vec![], release_url: None, is_mandatory: false }); }
+        Ok(r) => r, Err(e) => { eprintln!("[self_update] 请求失败: {}", e); return Ok(SelfUpdateInfo { available: false, current_version: env!("CARGO_PKG_VERSION").to_string(), latest_version: None, changelog: vec![], release_url: None, is_mandatory: false, expected_sha256: None }); }
     };
-    if !resp.status().is_success() { return Ok(SelfUpdateInfo { available: false, current_version: env!("CARGO_PKG_VERSION").to_string(), latest_version: None, changelog: vec![], release_url: None, is_mandatory: false }); }
+    if !resp.status().is_success() { return Ok(SelfUpdateInfo { available: false, current_version: env!("CARGO_PKG_VERSION").to_string(), latest_version: None, changelog: vec![], release_url: None, is_mandatory: false, expected_sha256: None }); }
     #[derive(serde::Deserialize)]
-    struct UR { version: String, #[serde(default)] changelog: Vec<String>, #[serde(default)] release_url: Option<String>, #[serde(default)] is_mandatory: bool }
-    let data: UR = match resp.json().await { Ok(d) => d, Err(e) => { eprintln!("[self_update] 解析失败: {}", e); return Ok(SelfUpdateInfo { available: false, current_version: env!("CARGO_PKG_VERSION").to_string(), latest_version: None, changelog: vec![], release_url: None, is_mandatory: false }); } };
+    struct UR { version: String, #[serde(default)] changelog: Vec<String>, #[serde(default)] release_url: Option<String>, #[serde(default)] is_mandatory: bool, #[serde(default)] sha256: Option<String> }
+    let data: UR = match resp.json().await { Ok(d) => d, Err(e) => { eprintln!("[self_update] 解析失败: {}", e); return Ok(SelfUpdateInfo { available: false, current_version: env!("CARGO_PKG_VERSION").to_string(), latest_version: None, changelog: vec![], release_url: None, is_mandatory: false, expected_sha256: None }); } };
     let current = env!("CARGO_PKG_VERSION").to_string();
     let latest = data.version.clone();
     let available = match (semver::Version::parse(&current), semver::Version::parse(&latest)) { (Ok(a), Ok(b)) => b > a, _ => false };
-    Ok(SelfUpdateInfo { available, current_version: current, latest_version: Some(latest), changelog: data.changelog, release_url: data.release_url, is_mandatory: data.is_mandatory })
+    Ok(SelfUpdateInfo { available, current_version: current, latest_version: Some(latest), changelog: data.changelog, release_url: data.release_url, is_mandatory: data.is_mandatory, expected_sha256: data.sha256 })
 }
 
 /// 执行自我更新：下载新版 exe 并替换
@@ -1115,8 +1115,30 @@ async fn self_update(window: tauri::Window) -> AppResult<String> {
     let temp = std::env::temp_dir().join(format!("dsh-updater-{}.exe", latest));
     let temp_str = temp.to_string_lossy().to_string();
     emit_self_progress(&window, "download", 10, "正在下载新版本...");
-    let bytes = reqwest::Client::new().get(&url).send().await.map_err(|e| AppError::SelfUpdate(e.to_string()))?.bytes().await.map_err(|e| AppError::SelfUpdate(e.to_string()))?;
+    let bytes = match reqwest::Client::new().get(&url).send().await {
+        Ok(resp) => match resp.bytes().await {
+            Ok(b) => b,
+            Err(e) => { let _ = std::fs::remove_file(&temp); return Err(AppError::SelfUpdate(format!("下载失败: {}", e))); }
+        },
+        Err(e) => { let _ = std::fs::remove_file(&temp); return Err(AppError::SelfUpdate(format!("下载失败: {}", e))); }
+    };
     std::fs::write(&temp, &bytes).map_err(|e| AppError::SelfUpdate(e.to_string()))?;
+    // 完整性核对（V2 安全体系）：服务器提供 sha256 时强校验，不符即拒绝替换并清理临时文件
+    if let Some(expected) = info.expected_sha256.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        emit_self_progress(&window, "verify", 60, "正在校验更新包完整性...");
+        let actual = file_ops::calculate_sha256(&temp_str).map_err(|e| {
+            let _ = std::fs::remove_file(&temp);
+            AppError::SelfUpdate(format!("校验和计算失败: {}", e))
+        })?;
+        if !actual.eq_ignore_ascii_case(expected) {
+            let _ = std::fs::remove_file(&temp);
+            return Err(AppError::SelfUpdate(format!(
+                "更新包校验和不符（期望 {}，实际 {}），已拒绝安装",
+                &expected[..expected.len().min(16)],
+                &actual[..actual.len().min(16)]
+            )));
+        }
+    }
     emit_self_progress(&window, "launch", 80, "正在启动更新进程...");
     let current = std::env::current_exe().map_err(|e| AppError::SelfUpdate(e.to_string()))?;
     std::process::Command::new("cmd").args(["/c", "timeout", "/t", "2", "/nobreak >nul", "&", "move", "/Y", &temp_str, &current.to_string_lossy(), "&", "start", "", &current.to_string_lossy()]).spawn().map_err(|e| AppError::SelfUpdate(e.to_string()))?;
@@ -1128,7 +1150,7 @@ fn emit_self_progress(w: &tauri::Window, phase: &str, pct: u8, msg: &str) {
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
-pub struct SelfUpdateInfo { pub available: bool, pub current_version: String, pub latest_version: Option<String>, pub changelog: Vec<String>, pub release_url: Option<String>, pub is_mandatory: bool }
+pub struct SelfUpdateInfo { pub available: bool, pub current_version: String, pub latest_version: Option<String>, pub changelog: Vec<String>, pub release_url: Option<String>, pub is_mandatory: bool, #[serde(skip_serializing_if = "Option::is_none")] pub expected_sha256: Option<String> }
 #[tauri::command]
 fn uninstall_plugin(plugin_id: String, state: State<'_, AppState>) -> AppResult<()> {
     let config = state.config.lock().unwrap().clone();
@@ -1498,6 +1520,20 @@ fn main() {
             config: Mutex::new(load_config_from_disk()),
             plugins: Mutex::new(Vec::new()),
             bundle_cancels: Mutex::new(std::collections::HashMap::new()),
+        })
+        .setup(|app| {
+            // 半装检测（V2 §9 验收 #2）：上次安装事务若被中断，此处自动恢复并记录日志
+            let state = app.state::<AppState>();
+            let config = state.config.lock().unwrap().clone();
+            let file_manager = PluginFileManager::new(&config.plugin_directory);
+            let report = bundle::detect_and_recover_half_installed(&config.plugin_directory, &file_manager);
+            for line in &report {
+                log::warn!("[half-installed] {}", line);
+            }
+            if !report.is_empty() {
+                eprintln!("[half-installed] 检测到 {} 条恢复动作，详见日志", report.len());
+            }
+            Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             pick_directory,
