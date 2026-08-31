@@ -4,7 +4,7 @@
       <NuxtLink to="/" class="logo">
         <div class="logo-mark">DSH</div>
         <div class="logo-text">
-          <span class="logo-title">插件升级管理</span>
+          <span class="logo-title">插件升级管理<span class="logo-version">v{{ appVersion }}</span></span>
           <span class="logo-sub">插件市场 · 官方网站</span>
         </div>
       </NuxtLink>
@@ -75,6 +75,8 @@
 </template>
 
 <script setup lang="ts">
+import { version as appVersion } from '~/package.json'
+
 const { user, logout, openAuthDialog } = useAuth()
 
 const menuOpen = ref(false)
@@ -144,6 +146,19 @@ onUnmounted(() => document.removeEventListener('click', onDocClick))
   font-size: 14px;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.logo-version {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.5;
+  vertical-align: 1px;
+  color: var(--primary-light);
+  background: rgba(99, 102, 241, 0.12);
 }
 
 .logo-sub {
