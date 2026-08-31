@@ -124,8 +124,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { getVersion } from '@tauri-apps/api/app'
+import { computed, ref } from 'vue'
+import { useAppVersion } from '../composables/useAppVersion'
 import WButton from './WButton.vue'
 import WIcon from './WIcon.vue'
 import WSheet from './WSheet.vue'
@@ -157,14 +157,7 @@ const emit = defineEmits<{
 const sheetOpen = ref(false)
 
 // 应用自身版本（Tauri 环境；浏览器预览静默隐藏）
-const appVersion = ref('')
-onMounted(async () => {
-  try {
-    appVersion.value = await getVersion()
-  } catch {
-    /* 非 Tauri 环境 */
-  }
-})
+const { appVersion } = useAppVersion()
 
 const themeIcon = computed(() => (props.theme === 'dark' ? 'sun' : 'moon'))
 

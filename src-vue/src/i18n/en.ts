@@ -137,7 +137,7 @@ export const en: Record<string, string> = {
   'settings.autoBackupDesc': 'Back up the old version before updating; restore anytime',
   'settings.about': 'About',
   'settings.version': 'Version',
-  'settings.currentVersion': 'Running version v1.0.0',
+  'settings.currentVersion': 'Running version',
   'settings.checkAppUpdate': 'Check for updates',
   'settings.website': 'Website',
   'settings.websiteDesc': 'Get the latest release and documentation',

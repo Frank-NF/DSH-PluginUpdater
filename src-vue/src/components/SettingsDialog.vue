@@ -263,7 +263,7 @@
           <div class="weui-cell">
             <div class="weui-cell__bd">
               <p>{{ t('settings.version') }}</p>
-              <p class="w-switch-desc">{{ t('settings.currentVersion') }}</p>
+              <p class="w-switch-desc mono">{{ t('settings.currentVersion') }} v{{ appVersion || '…' }}</p>
             </div>
             <div class="weui-cell__ft">
               <WButton size="mini" icon="refresh" :loading="checkingUpdate" @click="checkAppUpdate">
@@ -299,6 +299,7 @@ import WDialog from './WDialog.vue'
 import WButton from './WButton.vue'
 import { pluginApi } from '../api'
 import { t } from '../i18n'
+import { useAppVersion } from '../composables/useAppVersion'
 import { useToast } from '../composables/useToast'
 import { useConfirm } from '../composables/useConfirm'
 import type { AppConfig } from '../types'
@@ -315,6 +316,7 @@ const emit = defineEmits<{
 }>()
 
 const toast = useToast()
+const { appVersion } = useAppVersion()
 const { confirm } = useConfirm()
 const visible = ref(props.modelValue)
 const testing = ref(false)
