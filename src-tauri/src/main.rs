@@ -6,6 +6,8 @@ mod github_proxy;
 mod manifest;
 mod plugin_scan;
 mod catalog;
+mod version_probe;
+mod bundle;
 
 use error::{AppConfig, AppError, AppResult, PluginInfo};
 use file_ops::{open_in_file_manager, PluginFileManager};
@@ -15,9 +17,11 @@ use std::fs;
 use std::sync::Mutex;
 use tauri::{Emitter, State};
 
-struct AppState {
-    config: Mutex<AppConfig>,
-    plugins: Mutex<Vec<PluginInfo>>,
+pub struct AppState {
+    pub config: Mutex<AppConfig>,
+    pub plugins: Mutex<Vec<PluginInfo>>,
+    /// Bundle 安装事务的取消令牌表（task_id → 标志位，V2 §3 规则 5）
+    pub bundle_cancels: Mutex<std::collections::HashMap<String, std::sync::Arc<std::sync::atomic::AtomicBool>>>,
 }
 
 
@@ -212,6 +216,23 @@ fn check_environment(state: State<'_, AppState>) -> Vec<error::EnvCheckItem> {
             fix_hint: "在设置中指定插件目录或使用自动扫描".into(),
         });
     }
+
+    // 8. DSH 运行时版本（V2 §5 / F5：读 plugin_directory 下 package.json 的 dsh 字段）
+    let dsh_version = version_probe::read_dsh_version(&config.plugin_directory);
+    items.push(error::EnvCheckItem {
+        id: "dsh_version".into(),
+        name: "DSH 运行时版本".into(),
+        status: if dsh_version.is_some() { "ok".into() } else { "warn".into() },
+        message: match &dsh_version {
+            Some(v) => format!("已检测到 DSH 运行时版本 v{}", v),
+            None => "未检测到 DSH 运行时版本".into(),
+        },
+        fix_hint: if dsh_version.is_some() {
+            String::new()
+        } else {
+            "未能从插件目录 package.json 的 dsh 字段读取版本；Bundle 版本区间校验将按通配符处理".into()
+        },
+    });
 
     items
 }
@@ -659,55 +680,10 @@ async fn install_plugin(
         );
     }
 
-    // Windows 经 cmd /c 调 npm（PATHEXT 解析 npm.cmd，绕过 PowerShell 执行策略）
-    let mut cmd = if cfg!(windows) {
-        let mut c = tokio::process::Command::new("cmd");
-        c.arg("/c").arg("npm");
-        c
-    } else {
-        tokio::process::Command::new("npm")
-    };
-    let mut npm_args: Vec<String> = vec![
-        "install".into(),
-        npm_name.clone(),
-        "--prefix".into(),
-        target_dir.clone(),
-        "--no-audit".into(),
-        "--no-fund".into(),
-        // DSH 插件族（@deepseek-ai/*）peer 依赖互相冲突，npm7+ 默认严格解析会 ERESOLVE
-        "--legacy-peer-deps".into(),
-        "--loglevel".into(),
-        "error".into(),
-    ];
-    if !registry.is_empty() {
-        npm_args.push("--registry".into());
-        npm_args.push(registry.clone());
-    }
-    cmd.args(&npm_args);
-    cmd.current_dir(&target_dir);
-
-    let output = tokio::time::timeout(std::time::Duration::from_secs(300), cmd.output())
+    // npm install 核心与 Bundle 事务安装共用同一条链路（bundle::npm_install_into）
+    bundle::npm_install_into(&npm_name, &target_dir, &registry)
         .await
-        .map_err(|_| error::AppError::Other("npm install 超时（5 分钟）".into()))?
-        .map_err(|e| {
-            error::AppError::Other(format!(
-                "启动 npm 失败: {}（请确认已安装 Node.js/npm 并在 PATH 中）",
-                e
-            ))
-        })?;
-
-    let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-    let stderr = String::from_utf8_lossy(&output.stderr).to_string();
-    if !output.status.success() {
-        let detail = if stderr.trim().is_empty() { stdout } else { stderr };
-        let d = detail.trim().to_string();
-        let detail: String = if d.chars().count() > 600 {
-            d.chars().skip(d.chars().count() - 600).collect()
-        } else {
-            d
-        };
-        return Err(error::AppError::Other(format!("npm install 失败: {}", detail)));
-    }
+        .map_err(error::AppError::Other)?;
 
     emit("done", "安装完成".into());
     Ok(format!("已安装 {} 到 {}", npm_name, target_dir))
@@ -1380,6 +1356,14 @@ async fn auto_scan_plugins(state: State<'_, AppState>) -> AppResult<Vec<PluginIn
 
     Ok(merged)
 }
+/// 读取 DSH 运行时版本（读配置 plugin_directory 下 package.json 的 "dsh" 字段，
+/// dsh.version 优先，其次 dsh.profile.version，均无则 None）。V2 §5 / F5。
+#[tauri::command]
+fn get_dsh_version(state: State<'_, AppState>) -> Option<String> {
+    let config = state.config.lock().unwrap().clone();
+    version_probe::read_dsh_version(&config.plugin_directory)
+}
+
 /// 弹出系统目录选择框，返回所选路径（取消返回 None）
 #[tauri::command]
 async fn pick_directory(window: tauri::WebviewWindow) -> Result<Option<String>, String> {
@@ -1405,6 +1389,7 @@ fn main() {
             // 从 ~/.dsh/plugin-updater-config.json 加载，修复设置重启丢失
             config: Mutex::new(load_config_from_disk()),
             plugins: Mutex::new(Vec::new()),
+            bundle_cancels: Mutex::new(std::collections::HashMap::new()),
         })
         .invoke_handler(tauri::generate_handler![
             pick_directory,
@@ -1432,6 +1417,12 @@ fn main() {
             list_install_targets,
             check_self_update,
             self_update,
+            get_dsh_version,
+            bundle::list_bundles,
+            bundle::preview_bundle,
+            bundle::install_bundle,
+            bundle::is_cancelled,
+            bundle::cancel_bundle_install,
         ])
         .run(tauri::generate_context!())
         .expect("error while running DSH Plugin Updater");
