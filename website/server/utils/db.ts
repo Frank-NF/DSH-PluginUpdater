@@ -99,6 +99,50 @@ function migrate(db: Database.Database) {
       UNIQUE(plugin_id, conflict_with)
     );
 
+    -- 组合包（Bundle 协议 V2，增量建表无迁移，V2 §2）
+    CREATE TABLE IF NOT EXISTS bundles (
+      id TEXT PRIMARY KEY,
+      name TEXT,
+      description TEXT,
+      tags TEXT,
+      mode TEXT,
+      min_dsh_version TEXT,
+      max_dsh_version TEXT,
+      recommend_preset TEXT,
+      version TEXT,
+      create_time TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS bundle_plugins (
+      bundle_id TEXT,
+      plugin_ref TEXT,
+      required INTEGER,
+      UNIQUE(bundle_id, plugin_ref)
+    );
+
+    CREATE TABLE IF NOT EXISTS bundle_mcp_servers (
+      bundle_id TEXT,
+      server_id TEXT,
+      name TEXT,
+      transport TEXT,
+      command TEXT,
+      args TEXT,
+      env_keys TEXT,
+      optional INTEGER,
+      description TEXT,
+      UNIQUE(bundle_id, server_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS bundle_skills (
+      bundle_id TEXT,
+      skill_id TEXT,
+      name TEXT,
+      source TEXT,
+      scope TEXT,
+      optional INTEGER,
+      UNIQUE(bundle_id, skill_id)
+    );
+
     CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id);
     CREATE INDEX IF NOT EXISTS idx_favorites_plugin ON favorites(plugin_id);
     CREATE INDEX IF NOT EXISTS idx_comments_plugin ON comments(plugin_id, deleted);

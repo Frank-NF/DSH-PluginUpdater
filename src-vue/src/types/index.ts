@@ -86,3 +86,83 @@ export interface SelfUpdateInfo {
 }
 
 export type UpdateStatus = 'idle' | 'checking' | 'updating' | 'success' | 'error'
+
+/* ================= 组合包（Bundle 协议 V2，camelCase 与后端 serde 对齐） ================= */
+
+export interface BundlePluginRef {
+  pluginRef: string
+  required: boolean
+}
+
+export interface BundleMcpServer {
+  serverId: string
+  name: string
+  transport: string
+  command: string
+  args: string[]
+  envKeys: string[]
+  optional: boolean
+  description: string
+}
+
+export interface BundleSkill {
+  skillId: string
+  name: string
+  source: string
+  scope: string
+  optional: boolean
+}
+
+export interface BundleDef {
+  id: string
+  name: string
+  description: string
+  tags: string[]
+  mode: string
+  minDshVersion: string | null
+  maxDshVersion: string | null
+  recommendPreset: string | null
+  version: string | null
+  createTime: string | null
+  plugins: BundlePluginRef[]
+  mcpServers: BundleMcpServer[]
+  skills: BundleSkill[]
+}
+
+export interface BundlePreviewItem {
+  pluginRef: string
+  required: boolean
+  installed: boolean
+  currentVersion: string | null
+  action: 'install' | 'overwrite' | 'skip'
+}
+
+export interface BundlePreview {
+  bundle: BundleDef
+  targetDir: string
+  items: BundlePreviewItem[]
+  mcpServers: BundleMcpServer[]
+  skills: BundleSkill[]
+}
+
+export interface BundlePluginResult {
+  pluginRef: string
+  status: string
+  detail: string
+}
+
+export interface BundleInstallResult {
+  taskId: string
+  bundleId: string
+  status: 'committed' | 'cancelled' | 'rolled_back' | 'failed'
+  message: string
+  plugins: BundlePluginResult[]
+}
+
+export interface BundleProgress {
+  taskId: string
+  bundleId: string
+  stage: string
+  percent: number
+  message: string
+}

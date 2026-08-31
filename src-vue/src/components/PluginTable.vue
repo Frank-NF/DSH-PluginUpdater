@@ -237,6 +237,58 @@
       </div>
     </section>
 
+    <!-- ============ 组合包 ============ -->
+    <section ref="bundlesPanel" v-show="activeTab === 'bundles'" class="w-panel">
+      <WLoading v-if="bundlesLoading" block :text="t('bundle.loading')" />
+
+      <WEmpty
+        v-else-if="!bundles.length"
+        type="empty"
+        icon="inbox"
+        :title="t('bundle.emptyTitle')"
+        :desc="t('bundle.emptyDesc')"
+      >
+        <template #action>
+          <WButton icon="refresh" @click="loadBundles(true)">
+            {{ t('common.retry') }}
+          </WButton>
+        </template>
+      </WEmpty>
+
+      <div v-else class="w-grid w-grid-market">
+        <article
+          v-for="b in bundles"
+          :key="b.id"
+          class="w-card w-plugin-card w-bundle-card"
+          @click="openBundleDetail(b)"
+        >
+          <div class="weui-media-box weui-media-box_appmsg">
+            <div class="weui-media-box__hd">
+              <span class="w-plugin-icon is-bundle"><WIcon name="package" :size="20" /></span>
+            </div>
+            <div class="weui-media-box__bd">
+              <h4 class="weui-media-box__title">
+                <span class="w-truncate">{{ b.name }}</span>
+                <span class="w-tag w-tag_brand">{{ t('bundle.presetTag') }}</span>
+              </h4>
+              <p class="weui-media-box__desc w-clamp-2" :title="b.description">
+                {{ b.description || t('table.noDesc') }}
+              </p>
+              <div v-if="b.tags.length" class="w-bundle-tags">
+                <span v-for="tag in b.tags" :key="tag" class="w-badge">{{ tag }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="w-card-metrics">
+            <span><WIcon name="plugin" :size="12" /> {{ t('bundle.pluginCount', { n: b.plugins.length }) }}</span>
+            <span v-if="b.mcpServers.length">{{ t('bundle.mcpCount', { n: b.mcpServers.length }) }}</span>
+            <span v-if="b.skills.length">{{ t('bundle.skillCount', { n: b.skills.length }) }}</span>
+          </div>
+        </article>
+      </div>
+    </section>
+
     <!-- ============ 已安装 ============ -->
     <section ref="installedPanel" v-show="activeTab === 'installed'" class="w-panel">
       <div class="w-toolbar">
@@ -609,6 +661,112 @@
       </a>
     </div>
 
+    <!-- ============ 组合包详情对话框 ============ -->
+    <WDialog
+      v-model="bundleDialogVisible"
+      :title="activeBundle?.name || t('bundle.detailTitle')"
+      :close-on-mask="!bundleInstalling"
+      :busy="bundleInstalling"
+      :closable="!bundleInstalling"
+      wide
+    >
+      <div v-if="activeBundle" class="w-bundle-detail">
+        <p class="w-bundle-desc">{{ activeBundle.description }}</p>
+
+        <!-- 安装中：分阶段进度（预检/备份/下载/安装/校验/提交/回滚） -->
+        <div v-if="bundleInstalling" class="w-bundle-progress">
+          <UpdateProgress
+            :percent="bundleProgress?.percent ?? 0"
+            :message="bundleProgressText"
+          />
+          <WButton size="mini" :disabled="!bundleProgress" @click="cancelBundleInstall">
+            {{ t('bundle.cancel') }}
+          </WButton>
+        </div>
+
+        <!-- 失败：错误 + 已回滚提示 -->
+        <div v-else-if="bundleError" class="w-bundle-error">
+          <span class="w-tag w-tag_danger">{{ t('bundle.installFailed') }}</span>
+          <span v-if="bundleRolledBack" class="w-tag w-tag_warn">{{ t('bundle.rolledBackTag') }}</span>
+          <p class="w-bundle-error-text">{{ bundleError }}</p>
+        </div>
+
+        <!-- 插件清单 -->
+        <p class="w-label">{{ t('bundle.pluginList') }}</p>
+        <WLoading v-if="bundlePreviewLoading" block :text="t('bundle.previewing')" />
+        <div class="weui-cells w-cells w-bundle-list">
+          <div
+            v-for="item in bundleDisplayItems"
+            :key="item.pluginRef"
+            class="weui-cell w-cell"
+          >
+            <div class="weui-cell__hd">
+              <span class="w-plugin-icon sm"><WIcon name="plugin" :size="16" /></span>
+            </div>
+            <div class="weui-cell__bd">
+              <p class="w-cell__name mono">{{ item.pluginRef }}</p>
+              <p class="w-cell-desc">
+                {{ bundleActionLabel(item.action) }}
+                <template v-if="item.currentVersion"> · v{{ item.currentVersion }}</template>
+              </p>
+            </div>
+            <div class="weui-cell__ft">
+              <span v-if="!item.required" class="w-tag">{{ t('bundle.optional') }}</span>
+              <span v-if="item.action === 'skip'" class="w-tag w-tag_success">{{ t('bundle.alreadyLatest') }}</span>
+              <span v-else-if="item.installed" class="w-tag w-tag_warn">{{ t('bundle.overwriteTag') }}</span>
+              <span v-else class="w-tag w-tag_info">{{ t('bundle.installTag') }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- MCP 服务模板（env 仅列键名） -->
+        <template v-if="activeBundle.mcpServers.length">
+          <p class="w-label">{{ t('bundle.mcpList') }}</p>
+          <div class="weui-cells w-cells w-bundle-list">
+            <div v-for="m in activeBundle.mcpServers" :key="m.serverId" class="weui-cell w-cell">
+              <div class="weui-cell__bd">
+                <p class="w-cell__name">{{ m.name }} <span class="mono w-text-2">{{ m.serverId }}</span></p>
+                <p class="w-cell-desc mono">{{ m.transport }} · {{ m.command }} {{ m.args.join(' ') }}</p>
+                <p v-if="m.envKeys.length" class="w-cell-desc">
+                  {{ t('bundle.envKeys') }}:
+                  <span v-for="k in m.envKeys" :key="k" class="w-badge mono">{{ k }}</span>
+                  <span class="w-text-2">{{ t('bundle.envKeysHint') }}</span>
+                </p>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <!-- 技能（Skill=插件，P0 载体） -->
+        <template v-if="activeBundle.skills.length">
+          <p class="w-label">{{ t('bundle.skillList') }}</p>
+          <div class="weui-cells w-cells w-bundle-list">
+            <div v-for="s in activeBundle.skills" :key="s.skillId" class="weui-cell w-cell">
+              <div class="weui-cell__bd">
+                <p class="w-cell__name">{{ s.name }} <span class="mono w-text-2">{{ s.skillId }}</span></p>
+                <p class="w-cell-desc mono">{{ s.source }} · {{ s.scope }}</p>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <template #footer>
+        <WButton :disabled="bundleInstalling" @click="bundleDialogVisible = false">
+          {{ t('common.close') }}
+        </WButton>
+        <WButton
+          type="primary"
+          icon="download"
+          :disabled="bundleInstalling || !!bundleError"
+          :loading="bundleInstalling"
+          @click="confirmBundleInstall"
+        >
+          {{ t('bundle.install') }}
+        </WButton>
+      </template>
+    </WDialog>
+
     <!-- ============ 安装插件对话框 ============ -->
     <WDialog
       v-model="installDialogVisible"
@@ -661,7 +819,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch, h, defineComponent, type PropType } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch, h, defineComponent, type PropType } from 'vue'
 import WButton from './WButton.vue'
 import WIcon from './WIcon.vue'
 import WMenu from './WMenu.vue'
@@ -671,12 +829,13 @@ import WLoading from './WLoading.vue'
 import UpdateProgress from './UpdateProgress.vue'
 import { usePluginStore } from '../stores/pluginStore'
 import { pluginApi } from '../api'
+import { bundleApi } from '../api/bundles'
 import { t, locale, categoryName, categoryColor, formatCount } from '../i18n'
 import { useToast } from '../composables/useToast'
 import { staggerIn, panelIn } from '../composables/useMotion'
-import type { PluginInfo, MarketPlugin } from '../types'
+import type { PluginInfo, MarketPlugin, BundleDef, BundlePreview, BundleProgress } from '../types'
 
-type TabName = 'market' | 'installed' | 'updates'
+type TabName = 'market' | 'bundles' | 'installed' | 'updates'
 
 const props = defineProps<{
   plugins: PluginInfo[]
@@ -709,6 +868,12 @@ const tabs = computed(() => [
     icon: 'grid',
   },
   {
+    name: 'bundles' as const,
+    label: `${t('tab.bundles')} (${bundles.value.length})`,
+    short: t('tab.bundlesShort'),
+    icon: 'package',
+  },
+  {
     name: 'installed' as const,
     label: `${t('tab.installed')} (${props.plugins.length})`,
     short: t('tab.installedShort'),
@@ -724,6 +889,7 @@ const tabs = computed(() => [
 
 /** 三个面板的元素引用：切换时用于 GSAP 进场 */
 const marketPanel = ref<HTMLElement | null>(null)
+const bundlesPanel = ref<HTMLElement | null>(null)
 const installedPanel = ref<HTMLElement | null>(null)
 const updatesPanel = ref<HTMLElement | null>(null)
 
@@ -731,6 +897,8 @@ function activePanel(): HTMLElement | null {
   switch (activeTab.value) {
     case 'market':
       return marketPanel.value
+    case 'bundles':
+      return bundlesPanel.value
     case 'installed':
       return installedPanel.value
     case 'updates':
@@ -743,6 +911,8 @@ function activePanel(): HTMLElement | null {
 function switchTab(name: TabName) {
   if (activeTab.value === name) return
   activeTab.value = name
+  // 组合包首次切换时懒加载
+  if (name === 'bundles') loadBundles()
   // 面板切换动画（横向淡入）
   nextTick(() => panelIn(activePanel()))
 }
@@ -900,6 +1070,144 @@ function matchesUpdatable(mp: MarketPlugin): boolean {
   if (mp.npm && updatableNpmKeys.value.has(mp.npm.toLowerCase())) return true
   return false
 }
+
+/* ---------------- 组合包（Bundle，V2 §3 事务安装） ---------------- */
+const bundles = ref<BundleDef[]>([])
+const bundlesLoading = ref(false)
+const bundlesLoaded = ref(false)
+const bundleDialogVisible = ref(false)
+const activeBundle = ref<BundleDef | null>(null)
+const bundlePreview = ref<BundlePreview | null>(null)
+const bundlePreviewLoading = ref(false)
+const bundleInstalling = ref(false)
+const bundleProgress = ref<BundleProgress | null>(null)
+const bundleError = ref('')
+const bundleRolledBack = ref(false)
+
+async function loadBundles(force = false) {
+  if (bundlesLoading.value) return
+  if (bundlesLoaded.value && !force) return
+  bundlesLoading.value = true
+  try {
+    bundles.value = await bundleApi.listBundles()
+    bundlesLoaded.value = true
+  } catch (e) {
+    console.error('[bundle] load failed:', e)
+  } finally {
+    bundlesLoading.value = false
+  }
+}
+
+/** 详情展示清单：优先预检结果，预检不可用时回退到原始插件清单 */
+const bundleDisplayItems = computed(() => {
+  const b = activeBundle.value
+  if (!b) return []
+  if (bundlePreview.value) return bundlePreview.value.items
+  return b.plugins.map((p) => ({
+    pluginRef: p.pluginRef,
+    required: p.required,
+    installed: false,
+    currentVersion: null as string | null,
+    action: 'install' as const,
+  }))
+})
+
+const bundleProgressText = computed(() => {
+  const p = bundleProgress.value
+  if (!p) return ''
+  return `${stageLabel(p.stage)}：${p.message}`
+})
+
+function stageLabel(stage: string): string {
+  const key = `bundle.stage.${stage}`
+  const label = t(key)
+  return label === key ? stage : label
+}
+
+function bundleActionLabel(action: string): string {
+  if (action === 'install') return t('bundle.actionInstall')
+  if (action === 'overwrite') return t('bundle.actionOverwrite')
+  return t('bundle.actionSkip')
+}
+
+async function openBundleDetail(b: BundleDef) {
+  activeBundle.value = b
+  bundlePreview.value = null
+  bundleError.value = ''
+  bundleRolledBack.value = false
+  bundleProgress.value = null
+  bundleDialogVisible.value = true
+  bundlePreviewLoading.value = true
+  try {
+    bundlePreview.value = await bundleApi.previewBundle(b.id)
+  } catch (e) {
+    // 预检失败不阻塞浏览（安装时后端会再次强校验）
+    bundlePreview.value = null
+    console.error('[bundle] preview failed:', e)
+  } finally {
+    bundlePreviewLoading.value = false
+  }
+}
+
+async function confirmBundleInstall() {
+  const b = activeBundle.value
+  if (!b || bundleInstalling.value) return
+  bundleInstalling.value = true
+  bundleError.value = ''
+  bundleRolledBack.value = false
+  bundleProgress.value = null
+  try {
+    const result = await bundleApi.installBundle(b.id)
+    if (result.status === 'committed') {
+      toast.success(t('bundle.installSuccess', { name: b.name }))
+      bundleDialogVisible.value = false
+      // 安装成功后刷新已安装列表（尽力而为，失败不阻塞结果提示）
+      const dir = pluginStore.config?.plugin_directory
+      if (dir) pluginStore.scanPlugins(dir).catch(() => {})
+    } else if (result.status === 'cancelled') {
+      toast.warn(t('bundle.cancelledDone'))
+    } else {
+      bundleError.value = result.message
+      bundleRolledBack.value = result.status === 'rolled_back'
+    }
+  } catch (e) {
+    const msg = String(e)
+    bundleError.value = msg
+    // 后端失败文案含「已回滚」即代表环境已恢复（V2 §3 规则 1）
+    bundleRolledBack.value = msg.includes('已回滚')
+    toast.error(t('bundle.installFailed'))
+  } finally {
+    bundleInstalling.value = false
+    bundleProgress.value = null
+  }
+}
+
+async function cancelBundleInstall() {
+  const taskId = bundleProgress.value?.taskId
+  if (taskId) {
+    try {
+      await bundleApi.cancelInstall(taskId)
+    } catch {
+      // 取消请求失败时事务继续，下次边界仍可取消
+    }
+  }
+}
+
+// 进度事件订阅（bundle_progress，按 taskId 路由；跟随现有 listen 封装）
+let unlistenBundleProgress: (() => void) | null = null
+onMounted(() => {
+  bundleApi
+    .onBundleProgress((p) => {
+      if (bundleInstalling.value) bundleProgress.value = p
+    })
+    .then((fn) => {
+      unlistenBundleProgress = fn
+    })
+    .catch(() => {})
+})
+onBeforeUnmount(() => {
+  if (unlistenBundleProgress) unlistenBundleProgress()
+})
 
 /* ---------------- 安装 ---------------- */
 const installDialogVisible = ref(false)
@@ -1196,6 +1504,92 @@ onMounted(() => animateCards())
 .w-card-status {
   flex-shrink: 0;
 }
+
+/* ============ 组合包 ============ */
+.w-bundle-card {
+  cursor: pointer;
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.w-bundle-card:hover {
+  box-shadow: var(--shadow-lg);
+}
+
+.w-plugin-icon.is-bundle {
+  color: var(--brand-2);
+  background: var(--brand-soft);
+}
+
+.w-bundle-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.w-bundle-tags .w-badge {
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand-2);
+}
+
+.w-card-metrics {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  padding: 8px 16px 12px;
+  font-size: 12px;
+  color: var(--fg-2);
+  border-top: 1px solid var(--line);
+}
+
+.w-card-metrics span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.w-bundle-detail .w-bundle-desc {
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--fg-2);
+  margin: 0 0 10px;
+}
+
+.w-bundle-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.w-bundle-error {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: rgba(239, 68, 68, 0.08);
+  margin-bottom: 12px;
+}
+
+.w-bundle-error-text {
+  width: 100%;
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--c-warn);
+  word-break: break-all;
+}
+
+.w-bundle-list {
+  max-height: 260px;
+  overflow-y: auto;
+}
+
 
 /* 指标 */
 .w-card-metrics {
