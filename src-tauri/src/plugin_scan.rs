@@ -70,7 +70,17 @@ fn sort_plugins(plugins: &mut Vec<PluginInfo>) {
 }
 
 /// 判断目录是否是 DSH profile（cordis 结构）：含 cordis.yml，或含 package.json 且带 node_modules
+/// 排除容器目录：如 `.dsh/profiles` 含子目录 desktop/web 等，不应被识别为独立 profile
 pub fn is_dsh_profile(dir: &Path) -> bool {
+    // 容器目录兜底：若当前目录是 profiles 容器（含标准子 profile 目录），不视为 profile
+    if let Some(parent) = dir.parent() {
+        if parent.file_name().map_or(false, |n| n == "profiles") {
+            let standard = ["desktop", "web", "cli", "mobile"];
+            if standard.iter().any(|c| dir.join(c).is_dir()) {
+                return false;
+            }
+        }
+    }
     if dir.join("cordis.yml").exists() {
         return true;
     }
