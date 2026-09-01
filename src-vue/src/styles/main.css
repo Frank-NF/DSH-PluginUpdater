@@ -375,6 +375,50 @@ button {
   min-width: 0;
 }
 
+/* ---------- 吸顶浮窗（下滚时工具栏玻璃化，零布局跳动） ----------
+   高度变量由 PluginTable 同步：--header-h=吸顶头高度，--bar-h=工具栏行实高 */
+:root {
+  --header-h: 0px;
+  --bar-h: 0px;
+}
+.w-toolbar-row {
+  position: sticky;
+  top: 0; /* 滚动上下文是 .w-body（骨架内已让开头部） */
+  z-index: 800;
+  padding: 5px 6px;
+  transition: background-color 0.28s var(--ease-out), box-shadow 0.28s var(--ease-out),
+    border-color 0.28s var(--ease-out);
+}
+.w-toolbar-row.is-floating {
+  margin: 0 -4px var(--sp-4);
+  padding: 5px 10px;
+  background: color-mix(in srgb, var(--bg-card) 82%, transparent);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+}
+.w-chips {
+  position: sticky;
+  top: var(--bar-h);
+  z-index: 790;
+  padding-top: 6px;
+  transition: background-color 0.28s var(--ease-out), box-shadow 0.28s var(--ease-out),
+    border-color 0.28s var(--ease-out);
+}
+.w-chips.is-floating {
+  margin: 0 -4px var(--sp-3);
+  padding-left: 12px;
+  padding-right: 12px;
+  background: color-mix(in srgb, var(--bg-card) 82%, transparent);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-lg);
+}
+
 /* 搜索占位装饰层不拦截点击（否则检索框无法聚焦输入） */
 .weui-search-bar__label {
   pointer-events: none;
