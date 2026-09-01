@@ -317,6 +317,17 @@ fn read_installed_version(target_dir: &str, plugin_ref: &str) -> Option<String> 
 /// npm install 核心：与市场单插件安装（install_plugin）共用同一条安装链路。
 /// Windows 经 cmd /c 调 npm（PATHEXT 解析 npm.cmd，绕过 PowerShell 执行策略），超时 300s。
 pub(crate) async fn npm_install_into(npm_name: &str, target_dir: &str, registry: &str) -> Result<(), String> {
+    // 瞬时失败（npm 缓存锁/杀毒扫描抖动）自动重试一次；调用方有回滚保护，重试安全
+    match npm_install_once(npm_name, target_dir, registry).await {
+        Ok(()) => Ok(()),
+        Err(e) => {
+            tokio::time::sleep(Duration::from_millis(800)).await;
+            npm_install_once(npm_name, target_dir, registry).await.map_err(|_| e)
+        }
+    }
+}
+
+async fn npm_install_once(npm_name: &str, target_dir: &str, registry: &str) -> Result<(), String> {
     let mut cmd = if cfg!(windows) {
         let mut c = tokio::process::Command::new("cmd");
         c.arg("/c").arg("npm");
@@ -342,7 +353,10 @@ pub(crate) async fn npm_install_into(npm_name: &str, target_dir: &str, registry:
         npm_args.push(registry.to_string());
     }
     cmd.args(&npm_args);
-    cmd.current_dir(target_dir);
+    // cwd 防呆：--prefix 已锁定安装目标；cwd 无效会导致进程直接启动失败
+    if Path::new(target_dir).is_dir() {
+        cmd.current_dir(target_dir);
+    }
 
     let output = tokio::time::timeout(Duration::from_secs(300), cmd.output())
         .await
@@ -366,6 +380,18 @@ pub(crate) async fn npm_install_into(npm_name: &str, target_dir: &str, registry:
         } else {
             d
         };
+        if detail.is_empty() {
+            // 零输出失败：补齐诊断上下文（此前用户看到「npm install 失败: 」空报错无从排查）
+            let code = output
+                .status
+                .code()
+                .map(|c| c.to_string())
+                .unwrap_or_else(|| "?".into());
+            return Err(format!(
+                "npm install 失败: 进程退出码 {}，无任何输出（npm 缓存损坏、杀毒软件拦截或 npm 安装不完整均会导致；可尝试 npm cache clean --force 后重试）",
+                code
+            ));
+        }
         return Err(format!("npm install 失败: {}", detail));
     }
     Ok(())
