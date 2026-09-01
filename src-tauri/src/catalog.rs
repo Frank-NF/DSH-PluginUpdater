@@ -226,10 +226,16 @@ pub async fn fetch_catalog_from_website(client: &reqwest::Client) -> AppResult<C
 
 /// 尽力而为补全 npm 月下载量（并发 8 路，单包失败静默跳过，总体限时）
 async fn enrich_npm_downloads(client: &reqwest::Client, entries: &mut [CatalogEntry]) {
+    // 官网目录已自带 npm 月下载量（downloads 字段）→ 仅对缺失的条目兜底补拉；
+    // 此前无条件对全部条目发起 api.npmjs.org 请求（目录 2100+ 条全部命中），
+    // 每次目录刷新触发 20s 预算的请求风暴且永远拉不完——列表加载慢的主因。
     let targets: Vec<(usize, String)> = entries
         .iter()
         .enumerate()
-        .filter_map(|(i, e)| e.npm.clone().map(|n| (i, n)))
+        .filter_map(|(i, e)| match (&e.npm, e.downloads) {
+            (Some(n), None) | (Some(n), Some(0)) => Some((i, n.clone())),
+            _ => None,
+        })
         .collect();
     if targets.is_empty() {
         return;
