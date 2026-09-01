@@ -64,8 +64,7 @@ impl PluginFileManager {
             return Err(AppError::DirectoryNotFound(plugin_path.to_string()));
         }
 
-        fs::remove_dir_all(path)?;
-        Ok(())
+        remove_dir_all_robust(path)
     }
 
     pub fn set_plugin_enabled(
@@ -251,6 +250,63 @@ pub struct BackupInfo {
     pub created: String,
 }
 
+/// Windows 稳健删除目录：node_modules 场景三类经典失败——
+/// ① npm 装包产生的只读文件（std remove_dir_all 遇只读直接失败）；
+/// ② 目标目录被 DSH Agent 运行时占用（EPERM/拒绝访问）；
+/// ③ 深层依赖路径超 260 字符（未启用 LongPathsEnabled 的机器报 NotFound）。
+/// 策略：清只读 → 原样删 → \\?\ 长路径前缀重试 → 重试等待占用释放，仍失败给友好错误。
+pub fn remove_dir_all_robust(path: &Path) -> AppResult<()> {
+    let _ = clear_readonly_recursive(path);
+
+    if fs::remove_dir_all(path).is_ok() {
+        return Ok(());
+    }
+
+    // 长路径前缀重试
+    let prefixed = PathBuf::from(format!(r"\\?\{}", path.display()));
+    if fs::remove_dir_all(&prefixed).is_ok() {
+        return Ok(());
+    }
+
+    // 被占用：短暂等待重试（运行时锁释放窗口）
+    for _ in 0..3 {
+        std::thread::sleep(std::time::Duration::from_millis(400));
+        if fs::remove_dir_all(&prefixed).is_ok() || fs::remove_dir_all(path).is_ok() {
+            return Ok(());
+        }
+    }
+
+    Err(AppError::Other(format!(
+        "目录无法删除（可能正被 DSH Agent 占用或权限不足）: {}",
+        path.display()
+    )))
+}
+
+/// 递归清除只读属性（尽力而为，失败忽略——只读只影响删除，不影响目录遍历）
+fn clear_readonly_recursive(path: &Path) -> std::io::Result<()> {
+    for entry in fs::read_dir(path)? {
+        let entry = entry?;
+        let p = entry.path();
+        let Ok(meta) = fs::symlink_metadata(&p) else {
+            continue;
+        };
+        if meta.file_type().is_symlink() {
+            continue;
+        }
+        if meta.is_dir() {
+            let _ = clear_readonly_recursive(&p);
+        } else {
+            let readonly = meta.permissions().readonly();
+            if readonly {
+                let mut perm = meta.permissions();
+                perm.set_readonly(false);
+                let _ = fs::set_permissions(&p, perm);
+            }
+        }
+    }
+    Ok(())
+}
+
 pub fn copy_directory_recursive(src: &Path, dst: &Path) -> AppResult<()> {
     let mut skipped = Vec::new();
     copy_directory_recursive_inner(src, dst, &mut skipped)
@@ -431,6 +487,37 @@ mod tests {
     use super::*;
     use flate2::write::GzEncoder;
     use std::io::Write;
+
+    #[test]
+    fn robust_remove_handles_readonly_files() {
+        let dir = unique_temp_dir("rm_ro");
+        let sub = dir.join("node_modules").join("dsh-x");
+        fs::create_dir_all(&sub).unwrap();
+        let f = sub.join("ro.txt");
+        fs::write(&f, b"x").unwrap();
+        let mut perm = fs::metadata(&f).unwrap().permissions();
+        perm.set_readonly(true);
+        fs::set_permissions(&f, perm).unwrap();
+
+        // std 对只读文件的行为随版本而异（新版已能删）——稳健删除必须始终成功
+        remove_dir_all_robust(&dir).expect("只读文件场景应删除成功");
+        assert!(!dir.exists());
+    }
+
+    #[test]
+    fn robust_remove_handles_deep_paths() {
+        let dir = unique_temp_dir("rm_deep");
+        // 深层路径逼近/超过 260 字符（Windows MAX_PATH）
+        let mut sub = dir.clone();
+        for i in 0..24 {
+            sub = sub.join(format!("level-{:02}-segment-of-node-modules-deps", i));
+        }
+        fs::create_dir_all(&sub).unwrap();
+        fs::write(sub.join("f.txt"), b"x").unwrap();
+
+        remove_dir_all_robust(&dir).expect("深路径场景应删除成功");
+        assert!(!dir.exists());
+    }
 
     fn unique_temp_dir(tag: &str) -> PathBuf {
         let nanos = std::time::SystemTime::now()
