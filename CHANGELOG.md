@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [1.13.5] - 2026-09-01
+
+### Changed
+
+- **bundled 插件重新计入可更新列表**：v1.13.0 将 profile 根 dependencies/bundles 声明的预装插件标记为 bundled 并跳过更新检查，导致用户看不到官网可查到的 9 款更新；现改为仅 agent-core 类型跳过（本体核心），bundled 插件正常显示 update_available，仍保留 bundled 字段供 UI 区分（如灰度标签）——更新后会被 DSH 本体重装是预期行为，用户可选择是否自行升级。
+
 ## [1.13.4] - 2026-09-01
 
 ### Fixed
