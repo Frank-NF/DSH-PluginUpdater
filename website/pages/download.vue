@@ -93,6 +93,7 @@
           <div style="display: flex; gap: 12px; flex-wrap: wrap">
             <a href="dshupdater://open" class="btn btn-primary">打开工具</a>
             <a href="dshupdater://check-updates" class="btn" style="background: var(--card); color: var(--text); border: 1px solid var(--border)">检查插件更新</a>
+            <NuxtLink to="/offline" class="btn" style="background: var(--card); color: var(--text); border: 1px solid var(--border)">离线部署指引 →</NuxtLink>
           </div>
         </div>
 

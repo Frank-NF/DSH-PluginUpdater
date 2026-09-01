@@ -161,10 +161,12 @@ onMounted(async () => {
   // 内容区淡入（GSAP）
   nextTick(() => fadeSlideIn(bodyEl.value?.querySelector('.w-page') ?? null, { y: 12 }))
 
-  // dshupdater:// 协议动作（后端转发）：官网「检查更新」按钮直达
+  // dshupdater:// 协议动作（后端转发）：官网「检查更新」「离线部署」按钮直达
   pluginApi.onDeepLinkAction((action) => {
     if (action === 'check-updates') {
       handleCheckUpdates()
+    } else if (action === 'offline') {
+      showSnapshot.value = true
     }
   })
 })

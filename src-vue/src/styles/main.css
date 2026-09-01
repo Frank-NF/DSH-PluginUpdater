@@ -422,6 +422,13 @@ button {
 /* 搜索占位装饰层不拦截点击（否则检索框无法聚焦输入） */
 .weui-search-bar__label {
   pointer-events: none;
+  font-size: 13px;
+  white-space: nowrap;
+}
+.weui-search-bar__label span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* WeUI 默认 .weui-search-bar__box { visibility:hidden }（官方交互依赖 label 点击聚焦），
