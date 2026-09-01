@@ -316,13 +316,37 @@ fn read_installed_version(target_dir: &str, plugin_ref: &str) -> Option<String> 
 
 /// npm install 核心：与市场单插件安装（install_plugin）共用同一条安装链路。
 /// Windows 经 cmd /c 调 npm（PATHEXT 解析 npm.cmd，绕过 PowerShell 执行策略），超时 300s。
-pub(crate) async fn npm_install_into(npm_name: &str, target_dir: &str, registry: &str) -> Result<(), String> {
-    // 瞬时失败（npm 缓存锁/杀毒扫描抖动）自动重试一次；调用方有回滚保护，重试安全
-    match npm_install_once(npm_name, target_dir, registry).await {
+pub(crate) async fn npm_install_into(
+    npm_name: &str,
+    target_dir: &str,
+    registry: &str,
+    version: Option<&str>,
+) -> Result<(), String> {
+    // 瞬时失败（npm 缓存锁/杀毒扫描抖动）自动重试；镜像源缺指定版本时回退官方 registry。
+    // 校验要求「期望=实际」，必须精确安装期望版本——装 latest 会与版本探测源漂移。
+    let pinned = version
+        .filter(|v| !v.trim().is_empty())
+        .map(|v| format!("{}@{}", npm_name, v.trim()))
+        .unwrap_or_else(|| npm_name.to_string());
+    match npm_install_once(&pinned, target_dir, registry).await {
         Ok(()) => Ok(()),
         Err(e) => {
             tokio::time::sleep(Duration::from_millis(800)).await;
-            npm_install_once(npm_name, target_dir, registry).await.map_err(|_| e)
+            if npm_install_once(&pinned, target_dir, registry).await.is_ok() {
+                return Ok(());
+            }
+            // 仅「镜像缺该版本」（404/ETARGET）→ 官方源兜底；
+            // registry 整体不可达（连接拒绝/超时）不回退——尊重用户配置的隔离/私有源
+            const OFFICIAL: &str = "https://registry.npmjs.org";
+            let version_missing = ["404", "ETARGET", "No matching version", "Not Found", "not found"]
+                .iter()
+                .any(|k| e.contains(k));
+            if version_missing && !registry.trim().is_empty() && registry.trim() != OFFICIAL {
+                if npm_install_once(&pinned, target_dir, OFFICIAL).await.is_ok() {
+                    return Ok(());
+                }
+            }
+            Err(e)
         }
     }
 }
@@ -1198,7 +1222,7 @@ async fn run_transaction(
         let npm = plan[i].npm.clone();
         let dl_pct = (20 + 60 * k / total_install.max(1)).min(85) as u8;
         emit("download", dl_pct, format!("正在下载/安装 {}…", npm));
-        if let Err(e) = npm_install_into(&npm, &target_dir, &registry).await {
+        if let Err(e) = npm_install_into(&npm, &target_dir, &registry, plan[i].expected_version.as_deref()).await {
             // INSTALL apply_fail → ROLLBACK（不原地重试）
             let reason = format!("{} 安装失败: {}", npm, truncate_str(&e, 200));
             plan[i].status = "failed".into();
@@ -1487,7 +1511,7 @@ mod e2e_tests {
     /// 提交路径：预检 → 下载/安装（真实 npm）→ 校验 → 提交，node_modules 落盘且版本与预期一致
     #[tokio::test]
     async fn e2e_commit_installs_and_verifies() {
-        let _g = SERIAL.lock().expect("serial");
+        let _g = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
         let base = temp_base("commit");
         let profile = make_profile(&base);
         let cache = seed_cache(&base, "commit", "[{\"pluginRef\":\"left-pad\",\"required\":true},{\"pluginRef\":\"ms\",\"required\":true}]");
@@ -1533,7 +1557,7 @@ mod e2e_tests {
     /// 回滚路径：npm 安装失败（不可达 registry）→ ROLLBACK，目录清理 + 记录 rolled_back
     #[tokio::test]
     async fn e2e_install_failure_rolls_back() {
-        let _g = SERIAL.lock().expect("serial");
+        let _g = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
         let base = temp_base("rollback");
         let profile = make_profile(&base);
         let cache = seed_cache(&base, "rollback", "[{\"pluginRef\":\"ms\",\"required\":true}]");
@@ -1570,7 +1594,7 @@ mod e2e_tests {
     /// 取消路径：BACKUP 前置取消 = 中止（V2 §3 规则 2），零改动 + 记录 cancelled
     #[tokio::test]
     async fn e2e_cancel_before_backup_aborts() {
-        let _g = SERIAL.lock().expect("serial");
+        let _g = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
         let base = temp_base("cancel");
         let profile = make_profile(&base);
         let cache = seed_cache(&base, "cancel", "[{\"pluginRef\":\"ms\",\"required\":true}]");
@@ -1606,7 +1630,7 @@ mod e2e_tests {
     /// MCP 合并：既有条目零丢失、缺失 server_id 补齐、env 只写键名空值、幂等
     #[tokio::test]
     async fn mcp_merge_preserves_existing_entries() {
-        let _g = SERIAL.lock().expect("serial");
+        let _g = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
         let base = temp_base("mcp");
         let mcp_path = base.join("dsh-mcp.json");
         std::fs::write(
@@ -1666,7 +1690,7 @@ mod e2e_tests {
     /// V2 §9 验收 #3：verify_ok 后到达的 cancel → 照常 DONE（取消仲裁，规则 3）
     #[tokio::test]
     async fn e2e_cancel_after_verify_still_commits() {
-        let _g = SERIAL.lock().expect("serial");
+        let _g = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
         let base = temp_base("cancel-verify");
         let profile = make_profile(&base);
         let cache = seed_cache(&base, "cancel-verify", "[{\"pluginRef\":\"left-pad\",\"required\":true}]");
@@ -1762,7 +1786,7 @@ mod e2e_tests {
     /// preset 适配：建议文件生成、内容含 MCP/Skill 清单、不触碰 dsh-mcp.json（V2 §8 P1）
     #[test]
     fn preset_suggestion_written_without_global_patch() {
-        let _serial = SERIAL.lock();
+        let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
         let base = std::env::temp_dir().join(format!("dsh-preset-test-{}", std::process::id()));
         std::fs::create_dir_all(&base).unwrap();
         std::env::set_var("DSH_PRESET_DIR", base.join("suggestions"));

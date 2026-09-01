@@ -161,7 +161,7 @@ pub async fn snapshot_apply(
         } else {
             format!("{}@{}", e.npm_name, e.version)
         };
-        match crate::bundle::npm_install_into(&e.npm_name, root_dir, registry).await {
+        match crate::bundle::npm_install_into(&spec, root_dir, registry, None).await {
             Ok(()) => results.push(SnapshotApplyItem {
                 id: e.id,
                 name: e.name,
