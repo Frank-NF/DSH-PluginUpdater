@@ -1066,7 +1066,7 @@ const filteredPlugins = computed(() => {
 })
 
 const isUpdatable = (p: PluginInfo) =>
-  p.update_available && p.manifest.type !== 'agent-core'
+  p.update_available && p.manifest.type !== 'agent-core' && !p.bundled
 const updatableCount = computed(() => props.plugins.filter(isUpdatable).length)
 const updatableList = computed(() => props.plugins.filter(isUpdatable))
 

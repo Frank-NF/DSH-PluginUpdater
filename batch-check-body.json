@@ -1,0 +1,109 @@
+{
+  "items": [
+    {
+      "id": "dsh-builtin-toggles",
+      "npm": "dsh-builtin-toggles",
+      "version": "0.3.2"
+    },
+    {
+      "id": "dsh-context",
+      "npm": "dsh-context",
+      "version": "0.38.5"
+    },
+    {
+      "id": "dsh-cost-meter",
+      "npm": "dsh-cost-meter",
+      "version": "1.7.1"
+    },
+    {
+      "id": "dsh-drop-md",
+      "npm": "dsh-drop-md",
+      "version": "0.1.0"
+    },
+    {
+      "id": "dsh-history-tree",
+      "npm": "dsh-history-tree",
+      "version": "1.0.4"
+    },
+    {
+      "id": "dsh-logicprobe",
+      "npm": "dsh-logicprobe",
+      "version": "0.6.0"
+    },
+    {
+      "id": "dsh-lsp-actions",
+      "npm": "dsh-lsp-actions",
+      "version": "0.4.0"
+    },
+    {
+      "id": "dsh-memoir",
+      "npm": "dsh-memoir",
+      "version": "0.5.6"
+    },
+    {
+      "id": "dsh-memory-nexus",
+      "npm": "dsh-memory-nexus",
+      "version": "0.1.0-alpha"
+    },
+    {
+      "id": "dsh-mnemon",
+      "npm": "dsh-mnemon",
+      "version": "0.4.4"
+    },
+    {
+      "id": "dsh-pilot",
+      "npm": "dsh-pilot",
+      "version": "0.7.1"
+    },
+    {
+      "id": "dsh-univer-office",
+      "npm": "dsh-univer-office",
+      "version": "0.2.12"
+    },
+    {
+      "id": "dsh-vision-router",
+      "npm": "dsh-vision-router",
+      "version": "2.0.1"
+    },
+    {
+      "id": "dshmarket",
+      "npm": "dshmarket",
+      "version": "1.39.0"
+    },
+    {
+      "id": "@a9i5k4/dsh-auto-memory",
+      "npm": "@a9i5k4/dsh-auto-memory",
+      "version": "0.0.0"
+    },
+    {
+      "id": "@changfenhuang/dsh-genui",
+      "npm": "@changfenhuang/dsh-genui",
+      "version": "0.9.6"
+    },
+    {
+      "id": "@dickpy/dsh-cloud-sync",
+      "npm": "@dickpy/dsh-cloud-sync",
+      "version": "0.20.7"
+    },
+    {
+      "id": "@linxin666/dsh-client-ui-skill-explorer",
+      "npm": "@linxin666/dsh-client-ui-skill-explorer",
+      "version": "0.3.6"
+    },
+    {
+      "id": "@liustack/modlens",
+      "npm": "@liustack/modlens",
+      "version": "3.25.0"
+    },
+    {
+      "id": "@opendsh/dsh-plugin-scheduled-tasks",
+      "npm": "@opendsh/dsh-plugin-scheduled-tasks",
+      "version": "0.2.4"
+    },
+    {
+      "id": "@wingsky-1/dsh-mcp-manager",
+      "npm": "@wingsky-1/dsh-mcp-manager",
+      "version": "0.1.13"
+    }
+  ]
+}

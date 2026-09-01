@@ -4,11 +4,20 @@
 
 ## [Unreleased]
 
+## [1.13.6] - 2026-09-01
+
+### Fixed
+
+- **已安装列表多出插件修复**：`auto_scan_plugins` 把 `.dsh/profiles` 容器目录当作候选源扫描，导致 `profiles/node_modules` 下的 `dsh-community-market`、`dsh-plugin-desktop` 等被重复识别；同时 `is_dsh_profile` 对容器目录误判为独立 profile。现增加容器目录兜底判断：若目录是 `profiles` 的子目录且包含标准子 profile（desktop/web/cli/mobile），则不视为独立 profile。
+- **bundled 语义回归**：v1.13.5 曾将 bundled 插件重新计入可更新列表，现回退至 v1.13.0 语义——bundled 插件（随本体 profile 声明）跳过 npm 更新检查并排除在可更新列表外。
+
 ## [1.13.5] - 2026-09-01
 
-### Changed
+### Reverted
 
-- **bundled 插件重新计入可更新列表**：v1.13.0 将 profile 根 dependencies/bundles 声明的预装插件标记为 bundled 并跳过更新检查，导致用户看不到官网可查到的 9 款更新；现改为仅 agent-core 类型跳过（本体核心），bundled 插件正常显示 update_available，仍保留 bundled 字段供 UI 区分（如灰度标签）——更新后会被 DSH 本体重装是预期行为，用户可选择是否自行升级。
+- **回退 bundled 插件显示**：v1.13.0 将 profile 根 dependencies/bundles 声明的预装插件标记为 bundled 并跳过更新检查；v1.13.5 曾改为显示 bundled 更新，但用户反馈「已安装列表多出很多插件、用户使用会弄不明白」——回归 bundled 排除语义（bundled 更新由 DSH Agent 本体统一管理）。bundled 字段仍保留供后续 UI 灰度标签用。
+
+## [1.13.4] - 2026-09-01
 
 ## [1.13.4] - 2026-09-01
 

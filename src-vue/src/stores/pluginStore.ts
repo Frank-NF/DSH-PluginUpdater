@@ -20,7 +20,7 @@ const isCheckingSelfUpdate = ref(false)
 
   const updatablePlugins = computed(() =>
     plugins.value.filter(
-      (p) => p.update_available && p.manifest.type !== 'agent-core'
+      (p) => p.update_available && p.manifest.type !== 'agent-core' && !p.bundled
     )
   )
 
