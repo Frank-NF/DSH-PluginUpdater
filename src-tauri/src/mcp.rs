@@ -279,11 +279,22 @@ pub async fn probe(server_id: &str, http: reqwest::Client) -> AppResult<McpProbe
         return match resp {
             Ok(r) => {
                 let status = r.status().as_u16();
-                // 2xx/4xx 都说明有服务在响应（401/403=鉴权未配，服务本身可达）
-                let ok = status < 500;
+                // 2xx/401/403=有服务响应（401/403=鉴权未配，端点存在）；
+                // 404/405=端点路径不存在（URL 不是 MCP 端点或服务没挂该路由）——常见误配，单列文案
+                let ok = status < 500 && status != 404 && status != 405;
+                let detail = match status {
+                    200..=299 => format!("HTTP {}，MCP 端点可达", status),
+                    401 | 403 => format!("HTTP {}，端点存在但需要鉴权（在配置中补全鉴权头/令牌）", status),
+                    404 | 405 => format!(
+                        "HTTP {}，该路径不是 MCP 端点——检查 URL 路径（streamable-http 通常以 /mcp 结尾），或服务未挂载该路由",
+                        status
+                    ),
+                    s if s < 500 => format!("HTTP {}，服务响应异常", s),
+                    s => format!("HTTP {}，服务异常", s),
+                };
                 Ok(McpProbeResult {
                     ok,
-                    detail: if ok { format!("HTTP {}，服务可达", status) } else { format!("HTTP {}，服务异常", status) },
+                    detail,
                     latency_ms: latency,
                 })
             }
