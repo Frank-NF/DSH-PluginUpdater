@@ -327,13 +327,67 @@ pub(crate) async fn npm_install_into(npm_name: &str, target_dir: &str, registry:
     }
 }
 
+/// 探测 node.exe + npm-cli.js（绕过 cmd /c npm 两层中转——GUI 程序派生 cmd
+/// 在桌面堆紧张时子进程初始化失败（退出码 0xC0000142，零输出））
+fn detect_npm_direct() -> Option<(PathBuf, PathBuf)> {
+    // 布局：nodejs 官方安装器 <dir>\node.exe + <dir>\node_modules\npm\bin\npm-cli.js
+    let mut candidates: Vec<PathBuf> = Vec::new();
+    if let Ok(path_var) = std::env::var("PATH") {
+        for p in std::env::split_paths(&path_var) {
+            candidates.push(p.join("npm.cmd"));
+            candidates.push(p.join("npm"));
+        }
+    }
+    if cfg!(windows) {
+        candidates.push(PathBuf::from(r"C:\Program Files\nodejs\npm.cmd"));
+    }
+    for npm_cmd in candidates {
+        let Some(dir) = npm_cmd.parent() else { continue };
+        let cli = dir.join("node_modules").join("npm").join("bin").join("npm-cli.js");
+        let node = dir.join("node.exe");
+        if cli.is_file() {
+            // node.exe 找不到时用 PATH 上的 node（npm.cmd 本身就是 node 脚本入口）
+            if node.is_file() {
+                return Some((node, cli));
+            }
+            if let Ok(node_path) = which_node() {
+                return Some((node_path, cli));
+            }
+        }
+    }
+    None
+}
+
+fn which_node() -> Result<PathBuf, ()> {
+    let path_var = std::env::var("PATH").map_err(|_| ())?;
+    for p in std::env::split_paths(&path_var) {
+        let node = p.join(if cfg!(windows) { "node.exe" } else { "node" });
+        if node.is_file() {
+            return Ok(node);
+        }
+    }
+    Err(())
+}
+
 async fn npm_install_once(npm_name: &str, target_dir: &str, registry: &str) -> Result<(), String> {
-    let mut cmd = if cfg!(windows) {
-        let mut c = tokio::process::Command::new("cmd");
-        c.arg("/c").arg("npm");
-        c
-    } else {
-        tokio::process::Command::new("npm")
+    // 首选直连 node + npm-cli.js（绕过 cmd 中转）；探测失败回退 cmd /c npm
+    let direct = detect_npm_direct();
+    let mut cmd = match &direct {
+        Some((node, cli)) => {
+            let mut c = tokio::process::Command::new(node);
+            c.arg(cli);
+            c
+        }
+        None => {
+            if cfg!(windows) {
+                let mut c = tokio::process::Command::new("cmd");
+                c.arg("/c").arg("npm");
+                c
+            } else {
+                let mut c = tokio::process::Command::new("npm");
+                c
+            }
+        }
     };
     let mut npm_args: Vec<String> = vec![
         "install".into(),
@@ -357,6 +411,9 @@ async fn npm_install_once(npm_name: &str, target_dir: &str, registry: &str) -> R
     if Path::new(target_dir).is_dir() {
         cmd.current_dir(target_dir);
     }
+    // GUI 进程派生控制台子进程：CREATE_NO_WINDOW 避免闪窗与桌面堆分配失败
+    #[cfg(windows)]
+    cmd.creation_flags(0x0800_0000); // CREATE_NO_WINDOW（tokio Command 自带 API）
 
     let output = tokio::time::timeout(Duration::from_secs(300), cmd.output())
         .await
