@@ -1517,12 +1517,58 @@ async fn offline_apply(state: State<'_, AppState>, path: String) -> AppResult<us
     snapshot::offline_apply(&path, &config.plugin_directory)
 }
 
+/// 注册 dshupdater:// URL 协议到 HKCU（便携 exe 无安装器，运行时自注册；失败仅记日志）
+#[cfg(windows)]
+fn register_url_protocol(scheme: &str) {
+    let exe = std::env::current_exe()
+        .map(|p| p.to_string_lossy().to_string())
+        .unwrap_or_default();
+    if exe.is_empty() {
+        return;
+    }
+    use winreg::enums::HKEY_CURRENT_USER;
+    use winreg::RegKey;
+    let hkcu = RegKey::predef(HKEY_CURRENT_USER);
+    let cmd = format!("\\\"{}\\\" \\\"%1\\\"", exe);
+    match hkcu.create_subkey(format!("Software\\Classes\\{}\\shell\\open\\command", scheme)) {
+        Ok((key, _)) => {
+            let _ = key.set_value("", &cmd);
+        }
+        Err(e) => log::warn!("[deep-link] 注册 {} 协议 command 失败: {}", scheme, e),
+    }
+    match hkcu.create_subkey(format!("Software\\Classes\\{}", scheme)) {
+        Ok((key, _)) => {
+            let _ = key.set_value("URL Protocol", &"");
+        }
+        Err(e) => log::warn!("[deep-link] 注册 {} 协议键失败: {}", scheme, e),
+    }
+    log::info!("[deep-link] {}:// 协议已注册 -> {}", scheme, exe);
+}
+
+#[cfg(not(windows))]
+fn register_url_protocol(_scheme: &str) {}
+
 fn main() {
     env_logger::init();
 
     tauri::Builder::default()
+        // 单实例：二次唤起（dshupdater:// 协议点击）时聚焦现有窗口而不是开新进程
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            if let Some(win) = app.get_webview_window("main") {
+                let _ = win.unminimize();
+                let _ = win.set_focus();
+                // 协议二次唤起：从启动参数中提取 dshupdater:// URL 并转发动作
+                for arg in &args {
+                    if let Some(rest) = arg.strip_prefix("dshupdater://") {
+                        let action = rest.split('?').next().unwrap_or("").trim_end_matches('/').to_string();
+                        let _ = win.emit("deep-link-action", action);
+                    }
+                }
+            }
+        }))
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_deep_link::init())
         .manage(AppState {
             // 从 ~/.dsh/plugin-updater-config.json 加载，修复设置重启丢失
             config: Mutex::new(load_config_from_disk()),
@@ -1530,6 +1576,25 @@ fn main() {
             bundle_cancels: Mutex::new(std::collections::HashMap::new()),
         })
         .setup(|app| {
+            // dshupdater:// 协议注册（HKCU\Software\Classes，免管理员；便携 exe 无安装器，需运行时注册）
+            register_url_protocol("dshupdater");
+
+            // 运行时深链事件：解析动作并转发前端（open=聚焦已在单实例回调完成；
+            // check-updates=前端自动发起检查更新）
+            use tauri_plugin_deep_link::DeepLinkExt;
+            let handle = app.handle().clone();
+            app.deep_link().on_open_url(move |event| {
+                for url in event.urls() {
+                    let action = url.host_str().unwrap_or("").to_string();
+                    log::info!("[deep-link] action={} url={}", action, url);
+                    if let Some(win) = handle.get_webview_window("main") {
+                        let _ = win.unminimize();
+                        let _ = win.set_focus();
+                        let _ = win.emit("deep-link-action", action);
+                    }
+                }
+            });
+
             // 半装检测（V2 §9 验收 #2）：上次安装事务若被中断，此处自动恢复并记录日志
             let state = app.state::<AppState>();
             let config = state.config.lock().unwrap().clone();

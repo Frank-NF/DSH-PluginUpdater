@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "默认窗口能力：允许读取应用自身版本号（左上角徽章与设置页显示）等核心能力",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "deep-link:default"]
 }

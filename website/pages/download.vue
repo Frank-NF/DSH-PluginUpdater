@@ -77,6 +77,25 @@
           </div>
         </div>
 
+        <!-- 一键唤起（dshupdater:// 协议） -->
+        <div class="section-title" style="margin-top: 56px">
+          <h2>已在用桌面客户端？</h2>
+          <p>安装最新版工具后，可直接从浏览器唤起</p>
+        </div>
+        <div class="online-banner card">
+          <div class="online-info">
+            <div class="online-icon">🚀</div>
+            <div>
+              <h3>一键唤起工具</h3>
+              <p>点击下方按钮直接打开桌面客户端（首次使用请先升级到 v1.10.0 及以上，工具会自动注册唤起协议）</p>
+            </div>
+          </div>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap">
+            <a href="dshupdater://open" class="btn btn-primary">打开工具</a>
+            <a href="dshupdater://check-updates" class="btn" style="background: var(--card); color: var(--text); border: 1px solid var(--border)">检查插件更新</a>
+          </div>
+        </div>
+
         <!-- 安装说明 -->
         <div class="install-guide">
           <h3>安装说明</h3>
