@@ -381,6 +381,54 @@ pub async fn fetch_catalog(client: &reqwest::Client) -> AppResult<Catalog> {
 /// npm registry 查询包的最新版本（无 API 配额限制）
 
 /// 查询 npm 包最新版本及其 tarball 下载地址（腾讯镜像优先）
+/// 批量检查结果（官网 batch-check 端点，一次请求替代逐插件串行查询）
+#[derive(Debug, Clone, Deserialize)]
+pub struct BatchCheckResult {
+    pub id: String,
+    #[serde(default)]
+    pub latest: Option<String>,
+    #[serde(default)]
+    pub tarball: Option<String>,
+    #[serde(default)]
+    pub sha: Option<String>,
+    #[serde(default)]
+    pub update_available: bool,
+}
+
+/// 官网批量检查更新：POST /api/updater/batch-check
+/// 服务端机房直连 npm registry，客户端只需一次国内请求（约 0.3s）
+pub async fn batch_check_website(
+    client: &reqwest::Client,
+    items: &[(String, String, String)],
+) -> AppResult<Vec<BatchCheckResult>> {
+    #[derive(serde::Serialize)]
+    struct Item<'a> {
+        id: &'a str,
+        npm: &'a str,
+        version: &'a str,
+    }
+    let payload: Vec<Item> = items
+        .iter()
+        .map(|(id, npm, ver)| Item { id, npm, version: ver })
+        .collect();
+    let resp = client
+        .post("https://dsh.huilinsh.cn/api/updater/batch-check")
+        .timeout(Duration::from_secs(12))
+        .json(&serde_json::json!({ "items": payload }))
+        .send()
+        .await
+        .map_err(|e| AppError::Other(format!("batch-check 请求失败: {}", e)))?;
+    if !resp.status().is_success() {
+        return Err(AppError::Other(format!("batch-check HTTP {}", resp.status())));
+    }
+    #[derive(Deserialize)]
+    struct Resp {
+        results: Vec<BatchCheckResult>,
+    }
+    let parsed: Resp = resp.json().await?;
+    Ok(parsed.results)
+}
+
 pub async fn npm_latest_meta(
     client: &reqwest::Client,
     npm_name: &str,
