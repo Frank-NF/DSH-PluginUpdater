@@ -1,7 +1,7 @@
 <template>
   <div ref="rootEl" class="plugin-view">
     <!-- ============ 工具栏一行：Tab + 搜索 + 排序 + 视图 ============ -->
-    <div class="w-toolbar-row">
+    <div ref="toolbarRow" class="w-toolbar-row" :class="{ 'is-floating': barFloating }">
       <div class="w-tabs">
         <a
           v-for="tab in tabs"
@@ -69,7 +69,7 @@
     <!-- ============ 插件市场 ============ -->
     <section ref="marketPanel" v-show="activeTab === 'market'" class="w-panel">
       <!-- 分类筛选 -->
-      <div v-if="marketCategories.length" class="w-chips">
+      <div v-if="marketCategories.length" class="w-chips" :class="{ 'is-floating': barFloating }">
         <button
           class="w-chip"
           :class="{ active: marketCatFilter === null }"
@@ -301,7 +301,7 @@
       </div>
 
       <!-- 分类筛选 -->
-      <div v-if="categories.length" class="w-chips">
+      <div v-if="categories.length" class="w-chips" :class="{ 'is-floating': barFloating }">
         <button
           class="w-chip"
           :class="{ active: categoryFilter === null }"
@@ -847,7 +847,8 @@ import { pluginApi } from '../api'
 import { bundleApi } from '../api/bundles'
 import { t, locale, categoryName, categoryColor, formatCount } from '../i18n'
 import { useToast } from '../composables/useToast'
-import { staggerIn, panelIn } from '../composables/useMotion'
+import { gsap } from 'gsap'
+import { staggerIn, panelIn, prefersReducedMotion, EASE } from '../composables/useMotion'
 import type { PluginInfo, MarketPlugin, BundleDef, BundlePreview, BundlePreviewItem, BundleProgress } from '../types'
 
 type TabName = 'market' | 'bundles' | 'installed' | 'updates'
@@ -1231,6 +1232,56 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   if (unlistenBundleProgress) unlistenBundleProgress()
+})
+
+/* ---------------- 吸顶浮窗：下滚时工具栏/分类行玻璃化（transform/opacity 微动效） ---------------- */
+const toolbarRow = ref<HTMLElement | null>(null)
+const barFloating = ref(false)
+let barTick = false
+
+/** 同步吸顶高度变量：--bar-h（工具栏行实高，chips 吸顶偏移用） */
+function syncStickyVars() {
+  document.documentElement.style.setProperty(
+    '--bar-h',
+    `${Math.round(toolbarRow.value?.offsetHeight ?? 0)}px`
+  )
+}
+
+function onBarScroll() {
+  if (barTick) return
+  barTick = true
+  requestAnimationFrame(() => {
+    barTick = false
+    syncStickyVars()
+    const bar = toolbarRow.value
+    if (!bar) return
+    // 滚动容器是骨架 .w-body；工具栏贴住容器可视顶即进入浮窗态
+    const containerTop = scrollEl ? scrollEl.getBoundingClientRect().top : 0
+    const shouldFloat = bar.getBoundingClientRect().top <= containerTop + 0.5
+    if (shouldFloat !== barFloating.value) {
+      barFloating.value = shouldFloat
+      if (shouldFloat && !prefersReducedMotion()) {
+        gsap.fromTo(
+          bar,
+          { y: -6, opacity: 0.92 },
+          { y: 0, opacity: 1, duration: 0.32, ease: EASE.out, clearProps: 'transform,opacity' }
+        )
+      }
+    }
+  })
+}
+
+let scrollEl: HTMLElement | null = null
+
+onMounted(() => {
+  scrollEl = document.querySelector('.w-body')
+  scrollEl?.addEventListener('scroll', onBarScroll, { passive: true })
+  window.addEventListener('resize', onBarScroll, { passive: true })
+  nextTick(syncStickyVars)
+})
+onBeforeUnmount(() => {
+  scrollEl?.removeEventListener('scroll', onBarScroll)
+  window.removeEventListener('resize', onBarScroll)
 })
 
 /* ---------------- 安装 ---------------- */
