@@ -331,6 +331,11 @@ export const pluginApi = isTauri
         listen<UpdateProgress>('update_progress', (event) => {
           callback(event.payload)
         }),
+
+      onDeepLinkAction: (callback: (action: string) => void) =>
+        listen<string>('deep-link-action', (event) => {
+          callback(event.payload)
+        }),
     }
   : {
       ...mockApi,
@@ -358,6 +363,9 @@ export const pluginApi = isTauri
 
       isDshRunning: async (): Promise<boolean> => false,
 
+      onDeepLinkAction: (_callback: (action: string) => void) => {
+        return Promise.resolve(() => {})
+      },
 
       onUpdateProgress: (callback: (progress: UpdateProgress) => void) => {
         progressListeners.add(callback)
