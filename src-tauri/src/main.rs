@@ -510,13 +510,9 @@ async fn check_updates(state: State<'_, AppState>) -> AppResult<Vec<PluginInfo>>
     // 先拉官方插件目录（npm 包源 → 官方 Pages fallback），建立 name/npm → entry 索引
     let catalog_map = build_catalog_map(proxy.http_client()).await;
 
-
-
-    for plugin in plugins.iter_mut() {
-        // 路线 1：目录声明了 npm 包 → npm registry 查最新版本（无 API 配额，国内镜像快）。
-        // 目录未命中时直接以 manifest.id 作为 npm 包名兜底——本地插件 id 即 npm 包名
-        // （扫描器取 package.json name），此前兜底缺失导致大量插件落到 GitHub 对比，
-        // 可更新数远低于宿主内置市场口径（真机 9 vs 1）。
+    // 解析每个插件的 npm 包名（目录命中 → manifest.id 兜底：本地插件 id 即 npm 包名）
+    let mut npm_jobs: Vec<(usize, String)> = Vec::new();
+    for (idx, plugin) in plugins.iter().enumerate() {
         let npm_name = catalog_map
             .get(&plugin.manifest.id.to_lowercase())
             .and_then(|e| e.npm.clone())
@@ -526,23 +522,72 @@ async fn check_updates(state: State<'_, AppState>) -> AppResult<Vec<PluginInfo>>
                     .then(|| id.to_string())
             });
         if let Some(npm_name) = npm_name.filter(|n| !n.is_empty()) {
-            if let Ok((latest, tarball, shasum)) =
-                catalog::npm_latest_meta(proxy.http_client(), &npm_name).await
-            {
-                let current = &plugin.manifest.current_version;
-                let newer = match (semver::Version::parse(&latest), semver::Version::parse(current)) {
+            npm_jobs.push((idx, npm_name));
+        }
+    }
+
+    // 路线 1（首选）：官网批量检查——一次请求替代逐插件串行 npm 查询（20 插件 20-40s → 约 0.3s）
+    let mut resolved: std::collections::HashMap<usize, (String, Option<String>, Option<String>, bool)> =
+        std::collections::HashMap::new();
+    if !npm_jobs.is_empty() {
+        let items: Vec<(String, String, String)> = npm_jobs
+            .iter()
+            .map(|(idx, npm)| {
+                (
+                    plugins[*idx].manifest.id.clone(),
+                    npm.clone(),
+                    plugins[*idx].manifest.current_version.clone(),
+                )
+            })
+            .collect();
+        if let Ok(results) = catalog::batch_check_website(proxy.http_client(), &items).await {
+            for r in results {
+                if let Some(latest) = r.latest {
+                    if let Some((idx, _)) = npm_jobs
+                        .iter()
+                        .find(|(i, _)| plugins[*i as usize].manifest.id == r.id)
+                    {
+                        resolved.insert(*idx, (latest, r.tarball, r.sha, r.update_available));
+                    }
+                }
+            }
+        } else {
+            eprintln!("[check-updates] 官网批量检查不可用，回退本地并发查询");
+        }
+    }
+
+    // 路线 1b：批量未覆盖的插件（端点失败/服务端未查到）→ 本地并发查镜像链（8 路）
+    let fallback: Vec<(usize, String)> = npm_jobs
+        .iter()
+        .filter(|(idx, _)| !resolved.contains_key(idx))
+        .cloned()
+        .collect();
+    if !fallback.is_empty() {
+        let client = proxy.http_client().clone();
+        let handles: Vec<_> = fallback
+            .into_iter()
+            .map(|(idx, npm)| {
+                let client = client.clone();
+                tokio::spawn(async move {
+                    let meta = catalog::npm_latest_meta(&client, &npm).await.ok();
+                    (idx, meta)
+                })
+            })
+            .collect();
+        for handle in handles {
+            if let Ok((idx, Some((latest, tarball, shasum)))) = handle.await {
+                let current = plugins[idx].manifest.current_version.clone();
+                let newer = match (semver::Version::parse(&latest), semver::Version::parse(&current)) {
                     (Ok(l), Ok(c)) => l > c,
-                    _ => latest != *current,
+                    _ => latest != current,
                 };
-                plugin.latest_version = Some(latest);
-                plugin.download_url = tarball;
-                plugin.sha256 = shasum;
-                plugin.update_available = newer;
-                continue;
+                resolved.insert(idx, (latest, tarball, shasum, newer));
             }
         }
+    }
 
-        // 路线 2：本地插件缺 repo 时，用目录条目补全 github_repo 再走现有 GitHub 检查
+    // 写回结果；GitHub 兜底路线照旧处理未被 npm 解析覆盖的插件
+    for plugin in plugins.iter_mut() {
         if plugin.manifest.github_repo.is_empty() {
             if let Some(entry) = catalog_map.get(&plugin.manifest.id.to_lowercase()) {
                 if let Some(url) = &entry.url {
@@ -552,8 +597,17 @@ async fn check_updates(state: State<'_, AppState>) -> AppResult<Vec<PluginInfo>>
                 }
             }
         }
+    }
+    for (idx, (latest, tarball, shasum, newer)) in resolved {
+        let plugin = &mut plugins[idx];
+        plugin.latest_version = Some(latest);
+        plugin.download_url = tarball;
+        plugin.sha256 = shasum;
+        plugin.update_available = newer;
+    }
 
-        // 官方目录元数据 → 双语描述 + 分类 + star + 下载量（无需任何翻译 API）
+    // 官方目录元数据 → 双语描述 + 分类 + star + 下载量（无需任何翻译 API，全量插件）
+    for plugin in plugins.iter_mut() {
         apply_catalog_metadata(&catalog_map, std::slice::from_mut(plugin));
     }
 
