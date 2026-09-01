@@ -14,6 +14,7 @@
         <NuxtLink to="/plugins" class="nav-link" active-class="active">插件市场</NuxtLink>
         <NuxtLink to="/download" class="nav-link" active-class="active">下载</NuxtLink>
         <NuxtLink to="/docs" class="nav-link" active-class="active">文档</NuxtLink>
+      <NuxtLink to="/offline" class="nav-link" active-class="active">离线部署</NuxtLink>
       </nav>
 
       <div class="header-actions">
