@@ -1,6 +1,6 @@
 [package]
 name = "dsh-plugin-updater"
-version = "1.13.1"
+version = "1.13.2"
 description = "DSH 独立插件升级管理工具"
 authors = ["DSH Team"]
 license = "MIT"
