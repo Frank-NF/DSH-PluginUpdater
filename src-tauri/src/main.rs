@@ -751,7 +751,7 @@ async fn install_plugin(
     }
 
     // npm install 核心与 Bundle 事务安装共用同一条链路（bundle::npm_install_into）
-    bundle::npm_install_into(&npm_name, &target_dir, &registry)
+    bundle::npm_install_into(&npm_name, &target_dir, &registry, None)
         .await
         .map_err(error::AppError::Other)?;
 
