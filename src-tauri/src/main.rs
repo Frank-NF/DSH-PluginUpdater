@@ -510,9 +510,14 @@ async fn check_updates(state: State<'_, AppState>) -> AppResult<Vec<PluginInfo>>
     // 先拉官方插件目录（npm 包源 → 官方 Pages fallback），建立 name/npm → entry 索引
     let catalog_map = build_catalog_map(proxy.http_client()).await;
 
-    // 解析每个插件的 npm 包名（目录命中 → manifest.id 兜底：本地插件 id 即 npm 包名）
+    // 解析每个插件的 npm 包名（目录命中 → manifest.id 兜底：本地插件 id 即 npm 包名）。
+    // 本体预装（bundled）与 agent-core 不参与：npm 上游更新由 DSH 本体统一管理，
+    // 工具提示更新会误导（更新后会被本体重装覆盖）
     let mut npm_jobs: Vec<(usize, String)> = Vec::new();
     for (idx, plugin) in plugins.iter().enumerate() {
+        if plugin.bundled || plugin.manifest.r#type == "agent-core" {
+            continue;
+        }
         let npm_name = catalog_map
             .get(&plugin.manifest.id.to_lowercase())
             .and_then(|e| e.npm.clone())

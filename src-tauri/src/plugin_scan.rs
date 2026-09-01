@@ -37,6 +37,7 @@ pub fn scan_plugin_directory(root_dir: &str) -> AppResult<Vec<PluginInfo>> {
                 stars: None,
                 downloads: None,
             sha256: None,
+            bundled: false,
             });
         }
     }
@@ -259,6 +260,8 @@ fn scan_cordis_plugin(dir: &Path) -> Option<PluginInfo> {
     if !is_dsh_plugin {
         return None;
     }
+    // 本体预装判定（独立于 dsh 识别）：被 profile 根 dependencies/bundles 声明即随本体分发
+    let is_bundled = is_declared_plugin(dir);
 
     let version = pkg.get("version").and_then(|v| v.as_str()).unwrap_or("0.0.0").to_string();
     // 系统内置（DSH 本体/官方运行时组件）：@deepseek-ai/* scope 与内置市场 dshmarket。
@@ -300,6 +303,7 @@ fn scan_cordis_plugin(dir: &Path) -> Option<PluginInfo> {
         stars: None,
         downloads: None,
     sha256: None,
+    bundled: is_bundled,
     })
 }
 
@@ -347,6 +351,7 @@ fn scan_single_plugin(dir: &Path) -> Option<PluginInfo> {
             stars: None,
             downloads: None,
         sha256: None,
+        bundled: false,
         }),
         Err(_) => None,
     }
@@ -374,6 +379,7 @@ fn scan_nested_plugin(dir: &Path) -> Option<PluginInfo> {
                         stars: None,
                         downloads: None,
                     sha256: None,
+                    bundled: false,
                     });
                 }
             }

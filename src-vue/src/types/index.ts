@@ -45,6 +45,8 @@ export interface PluginInfo {
   category: string | null
   stars: number | null
   downloads: number | null
+  /** 本体预装插件（随本体分发，npm 上游由本体统一管理，不计入可更新） */
+  bundled?: boolean
 }
 
 export interface UpdateProgress {

@@ -125,6 +125,10 @@ pub struct PluginInfo {
     pub downloads: Option<u64>,
     #[serde(default)]
     pub sha256: Option<String>,
+    /// 本体预装（profile 根 package.json dependencies/bundles 声明）：
+    /// npm 上游更新由 DSH 本体统一管理，工具不提示更新、不计入可更新数
+    #[serde(default)]
+    pub bundled: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

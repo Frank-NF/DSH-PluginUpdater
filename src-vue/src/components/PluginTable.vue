@@ -1065,12 +1065,10 @@ const filteredPlugins = computed(() => {
   )
 })
 
-const updatableCount = computed(
-  () => props.plugins.filter((p) => p.update_available && p.manifest.type !== 'agent-core').length
-)
-const updatableList = computed(() =>
-  props.plugins.filter((p) => p.update_available && p.manifest.type !== 'agent-core')
-)
+const isUpdatable = (p: PluginInfo) =>
+  p.update_available && p.manifest.type !== 'agent-core' && !p.bundled
+const updatableCount = computed(() => props.plugins.filter(isUpdatable).length)
+const updatableList = computed(() => props.plugins.filter(isUpdatable))
 
 /** 可更新插件的匹配 key（manifest.id 及其短名），用于市场列表置顶 */
 const updatableNpmKeys = computed(() => {
