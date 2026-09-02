@@ -515,7 +515,7 @@ async fn check_updates(state: State<'_, AppState>) -> AppResult<Vec<PluginInfo>>
     // 工具提示更新会误导（更新后会被本体重装覆盖）
     let mut npm_jobs: Vec<(usize, String)> = Vec::new();
     for (idx, plugin) in plugins.iter().enumerate() {
-        if plugin.bundled || plugin.manifest.r#type == "agent-core" {
+        if plugin.manifest.r#type == "agent-core" {
             continue;
         }
         let npm_name = catalog_map

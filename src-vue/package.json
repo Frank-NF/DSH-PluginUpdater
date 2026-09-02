@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-updater-ui",
-  "version": "1.13.6",
+  "version": "1.13.8",
   "private": true,
   "type": "module",
   "scripts": {

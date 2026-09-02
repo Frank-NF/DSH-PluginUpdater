@@ -1,0 +1,17 @@
+{
+  "version": "1.13.8",
+  "platforms": {
+    "windows": {
+      "version": "1.13.8",
+      "url": "https://dsh.huilinsh.cn/dsh-plugin-updater.exe",
+      "sha256": "545f47282998d6b89c1f62c3d6889ce72a324acac019496ce4aef7bfef895218",
+      "size_bytes": 18207232
+    }
+  },
+  "release_url": "https://dsh.huilinsh.cn/download",
+  "changelog": [
+    "1.13.8 bundled插件重新计入可更新列表",
+    "1.13.7 修复modlens等非dsh-*前缀插件"
+  ],
+  "published_at": "2026-09-02T15:50:20.245Z"
+}

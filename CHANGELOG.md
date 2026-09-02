@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [1.13.8] - 2026-09-01
+
+### Changed
+
+- **bundled 插件重新计入可更新列表**：bundled 插件（随本体 profile 声明）现在正常参与更新检查并显示在可更新列表中。注意：更新 bundled 插件后，DSH Agent 重启时可能被本体重装覆盖（本体 bundles 清单说了算）。
+
 ## [1.13.7] - 2026-09-01
 
 ### Fixed
