@@ -259,14 +259,17 @@ fn scan_cordis_plugin(dir: &Path) -> Option<PluginInfo> {
     // 注意：裸 deepseek-harness 关键词匹配曾把官方依赖包（cordis/minato 等普遍打此
     // keyword）整树误收进插件列表（真机 238 个），必须限定到 -plugin 后缀。
     let keywords = pkg.get("keywords").and_then(|k| k.as_array());
-    let is_dsh_plugin = name.starts_with("dsh-")
+    // is_declared_plugin 必须在最前面：bundles/dependencies 里声明的插件（如 @liustack/modlens）
+    // 即使名字不含 dsh-* 也应被识别，否则后续 bundled 判定无法执行
+    let declared = is_declared_plugin(dir);
+    let is_dsh_plugin = declared
+        || name.starts_with("dsh-")
         || name.contains("/dsh-")
         || keywords.map_or(false, |ks| ks.iter().any(|k| {
             k.as_str().map_or(false, |s| {
                 s == "dsh-plugin" || s == "deepseek-harness-plugin"
             })
-        }))
-        || is_declared_plugin(dir);
+        }));
     if !is_dsh_plugin {
         return None;
     }

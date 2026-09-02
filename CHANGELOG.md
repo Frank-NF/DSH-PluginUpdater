@@ -4,6 +4,12 @@
 
 ## [Unreleased]
 
+## [1.13.7] - 2026-09-01
+
+### Fixed
+
+- **bundles 内非 dsh-* 前缀插件可被识别**：`@liustack/modlens` 等插件名字不含 `dsh-` 前缀、keywords 也无 `dsh-plugin`，此前被扫描逻辑过滤掉导致工具看不到；现把 `is_declared_plugin`（bundles/dependencies 声明判定）提到识别逻辑最前面，确保随本体分发的插件即使名字特殊也能被正确识别并参与更新检查。
+
 ## [1.13.6] - 2026-09-01
 
 ### Fixed
