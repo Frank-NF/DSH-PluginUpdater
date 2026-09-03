@@ -1,4 +1,4 @@
-﻿Unicode true
+Unicode true
 ManifestDPIAware true
 ; Add in `dpiAwareness` `PerMonitorV2` to manifest for Windows 10 1607+ (note this should not affect lower versions since they should be able to ignore this and pick up `dpiAware` `true` set by `ManifestDPIAware true`)
 ; Currently undocumented on NSIS's website but is in the Docs folder of source tree, see
@@ -463,8 +463,8 @@ FunctionEnd
 !insertmacro MUI_LANGUAGE "English"
 !insertmacro MUI_LANGUAGE "SimplifiedChinese"
 !insertmacro MUI_RESERVEFILE_LANGDLL
-  !include "G:\DSH\DSH-PluginUpdater\src-tauri\target\release\nsis\x64\English.nsh"
-  !include "G:\DSH\DSH-PluginUpdater\src-tauri\nsis\Chinese.nsh"
+  !include "English.nsh"
+  ; Chinese translations loaded via customLanguageFiles
 
 Function .onInit
   ${GetOptions} $CMDLINE "/P" $PassiveMode
