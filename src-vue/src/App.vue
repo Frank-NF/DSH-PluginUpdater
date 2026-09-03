@@ -105,6 +105,9 @@
 
     <McpDialog v-model="showMcp" />
     <SnapshotDialog v-model="showSnapshot" />
+
+    <!-- 后台自动更新悬浮窗 -->
+    <AutoUpdateFloat />
   </div>
 </template>
 
@@ -127,6 +130,7 @@ import ReleaseNotesDialog from './components/ReleaseNotesDialog.vue'
 import RepairDialog from './components/RepairDialog.vue'
 import McpDialog from './components/McpDialog.vue'
 import SnapshotDialog from './components/SnapshotDialog.vue'
+import AutoUpdateFloat from './components/AutoUpdateFloat.vue'
 import WToast from './components/WToast.vue'
 import WConfirmHost from './components/WConfirmHost.vue'
 import WActionHost from './components/WActionHost.vue'

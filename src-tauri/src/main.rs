@@ -16,7 +16,8 @@ use file_ops::{open_in_file_manager, PluginFileManager};
 use github_proxy::GitHubProxyClient;
 use plugin_scan::scan_plugin_directory;
 use std::fs;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
+use std::sync::atomic::{AtomicBool, Ordering};
 use tauri::{Emitter, Manager, State};
 
 pub struct AppState {
@@ -24,6 +25,34 @@ pub struct AppState {
     pub plugins: Mutex<Vec<PluginInfo>>,
     /// Bundle 安装事务的取消令牌表（task_id → 标志位，V2 §3 规则 5）
     pub bundle_cancels: Mutex<std::collections::HashMap<String, std::sync::Arc<std::sync::atomic::AtomicBool>>>,
+    /// 后台自动更新状态：最新版本信息 + 下载进度
+    pub auto_update: Mutex<AutoUpdateState>,
+}
+
+/// 后台自动更新状态
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct AutoUpdateState {
+    pub available: bool,
+    pub current_version: String,
+    pub latest_version: Option<String>,
+    pub download_percent: u8,
+    pub download_phase: String,  // "checking" | "download" | "done" | "error"
+    pub download_message: String,
+    pub is_downloaded: bool,
+}
+
+impl Default for AutoUpdateState {
+    fn default() -> Self {
+        Self {
+            available: false,
+            current_version: env!("CARGO_PKG_VERSION").to_string(),
+            latest_version: None,
+            download_percent: 0,
+            download_phase: "idle".to_string(),
+            download_message: String::new(),
+            is_downloaded: false,
+        }
+    }
 }
 
 
@@ -866,6 +895,26 @@ fn open_external(url: String) -> AppResult<()> {
     Ok(())
 }
 
+/// 启动已下载的安装包（用于后台自动更新完成后触发安装）
+#[tauri::command]
+fn launch_auto_update(temp_path: String) -> AppResult<()> {
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("cmd")
+            .args(["/c", "start", "", "/wait", &temp_path])
+            .spawn()
+            .map_err(|e| error::AppError::Other(format!("启动安装包失败: {}", e)))?;
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(&temp_path)
+            .spawn()
+            .map_err(|e| error::AppError::Other(format!("启动安装包失败: {}", e)))?;
+    }
+    Ok(())
+}
+
 /// 提权强杀 DSH 进程：经 PowerShell Start-Process -Verb RunAs 弹 UAC 授权框。
 /// 标准用户也可在弹窗输入管理员密码完成（不要求预先以管理员运行本工具）。
 /// 非阻塞：发出请求即返回尝试的进程数，由前端轮询 is_dsh_running 确认结果。
@@ -1483,6 +1532,12 @@ fn get_dsh_version(state: State<'_, AppState>) -> Option<String> {
     version_probe::read_dsh_version(&config.plugin_directory)
 }
 
+/// 获取后台自动更新状态
+#[tauri::command]
+fn get_auto_update_state(state: State<'_, AppState>) -> AutoUpdateState {
+    state.auto_update.lock().unwrap().clone()
+}
+
 /// 弹出系统目录选择框，返回所选路径（取消返回 None）
 #[tauri::command]
 async fn pick_directory(window: tauri::WebviewWindow) -> Result<Option<String>, String> {
@@ -1624,6 +1679,7 @@ fn main() {
             config: Mutex::new(load_config_from_disk()),
             plugins: Mutex::new(Vec::new()),
             bundle_cancels: Mutex::new(std::collections::HashMap::new()),
+            auto_update: Mutex::new(AutoUpdateState::default()),
         })
         .setup(|app| {
             // dshupdater:// 协议注册（HKCU\Software\Classes，免管理员；便携 exe 无安装器，需运行时注册）
@@ -1687,11 +1743,13 @@ fn main() {
             list_dsh_processes,
             kill_dsh_processes,
             open_external,
+            launch_auto_update,
             kill_dsh_processes_elevated,
             list_install_targets,
             check_self_update,
             self_update,
             get_dsh_version,
+            get_auto_update_state,
             mcp_list,
             mcp_save_env,
             mcp_apply_config,
@@ -1703,6 +1761,222 @@ fn main() {
             bundle::is_cancelled,
             bundle::cancel_bundle_install,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running DSH Plugin Updater");
+        .build(tauri::generate_context!())
+        .expect("error while building DSH Plugin Updater")
+        .run(|app, event| {
+            // 窗口显示时检查更新
+            if let tauri::RunEvent::Ready = event {
+                let state = app.state::<AppState>();
+                let config = state.config.lock().unwrap().clone();
+                if config.auto_check_updates {
+                    let handle = app.app_handle().clone();
+                    let proxy_url = config.proxy_base_url.clone();
+                    tokio::spawn(async move {
+                        check_auto_update_background(handle, proxy_url).await;
+                    });
+                }
+            }
+        });
 }
+
+/// 后台自动检查更新（不阻塞 UI）
+async fn check_auto_update_background(handle: tauri::AppHandle, proxy_url: String) {
+    use reqwest::Client;
+    use std::time::Duration;
+
+    let client = Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .unwrap_or_default();
+
+    // 尝试代理，失败则直连
+    let version_url = format!("{}/api/updater/latest", proxy_url.trim_end_matches('/'));
+    let resp = match client.get(&version_url).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("[auto-update] 请求失败: {}", e);
+            return;
+        }
+    };
+
+    if !resp.status().is_success() {
+        eprintln!("[auto-update] 返回非成功状态: {}", resp.status());
+        return;
+    }
+
+    #[derive(serde::Deserialize)]
+    struct UR {
+        version: String,
+        #[serde(default)]
+        changelog: Vec<String>,
+        #[serde(default)]
+        release_url: Option<String>,
+        #[serde(default)]
+        is_mandatory: bool,
+        #[serde(default)]
+        sha256: Option<String>,
+    }
+
+    let data: UR = match resp.json().await {
+        Ok(d) => d,
+        Err(e) => {
+            eprintln!("[auto-update] 解析失败: {}", e);
+            return;
+        }
+    };
+
+    let current = env!("CARGO_PKG_VERSION").to_string();
+    let latest = data.version.clone();
+
+    let available = match (semver::Version::parse(&current), semver::Version::parse(&latest)) {
+        (Ok(a), Ok(b)) => b > a,
+        _ => false,
+    };
+
+    let state = handle.state::<AppState>();
+    {
+        let mut auto_update = state.auto_update.lock().unwrap();
+        auto_update.available = available;
+        auto_update.current_version = current.clone();
+        auto_update.latest_version = Some(latest.clone());
+        auto_update.download_phase = "idle".to_string();
+        auto_update.download_message = String::new();
+    }
+
+    // 发事件给前端
+    if let Some(win) = handle.get_webview_window("main") {
+        let _ = win.emit("auto_update_check", serde_json::json!({
+            "available": available,
+            "current_version": current,
+            "latest_version": latest,
+            "changelog": data.changelog,
+            "release_url": data.release_url,
+            "is_mandatory": data.is_mandatory,
+        }));
+    }
+
+    // 有新版本且未下载，触发后台下载
+    if available {
+        let release_url = data.release_url.clone().unwrap_or_else(|| {
+            "https://dsh.huilinsh.cn/dsh-plugin-updater.exe".to_string()
+        });
+        let version = data.version.clone();
+        let sha256 = data.sha256.clone();
+        tokio::spawn(download_auto_update_background(handle.clone(), release_url, version, sha256));
+    }
+}
+
+/// 后台静默下载更新包
+async fn download_auto_update_background(
+    handle: tauri::AppHandle,
+    url: String,
+    latest_version: String,
+    expected_sha256: Option<String>,
+) {
+    use reqwest::Client;
+    use std::io::Write;
+
+    let temp = std::env::temp_dir().join(format!("dsh-updater-{}.exe", latest_version));
+    let temp_str = temp.to_string_lossy().to_string();
+
+    // 创建临时文件
+    let mut file = match std::fs::File::create(&temp) {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("[auto-update] 创建临时文件失败: {}", e);
+            return;
+        }
+    };
+
+    let client = Client::new();
+    let mut response = match client.get(&url).send().await {
+        Ok(r) => r,
+        Err(e) => {
+            eprintln!("[auto-update] 下载失败: {}", e);
+            let _ = std::fs::remove_file(&temp);
+            return;
+        }
+    };
+
+    let total_size = response.content_length().unwrap_or(0);
+    let mut downloaded: u64 = 0;
+    let mut buffer = vec![0u8; 8192];
+
+    loop {
+        let n = match response.chunk().await {
+            Ok(Some(bytes)) => bytes.len(),
+            Ok(None) => break,
+            Err(e) => {
+                eprintln!("[auto-update] 读取数据失败: {}", e);
+                break;
+            }
+        };
+
+        if n == 0 { break; }
+
+        file.write_all(&buffer[..n]).ok();
+        downloaded += n as u64;
+
+        // 计算进度百分比
+        let percent = if total_size > 0 {
+            (downloaded as f64 / total_size as f64 * 100.0) as u8
+        } else {
+            50u8 // 未知大小时给个中间值
+        };
+
+        // 更新状态并发送事件
+        let state = handle.state::<AppState>();
+        {
+            let mut auto_update = state.auto_update.lock().unwrap();
+            auto_update.download_percent = percent;
+            auto_update.download_phase = "download".to_string();
+            auto_update.download_message = format!("已下载 {}/{}", format_size(downloaded), format_size(total_size));
+        }
+
+        if let Some(win) = handle.get_webview_window("main") {
+            let _ = win.emit("auto_update_progress", serde_json::json!({
+                "percent": percent,
+                "phase": "download",
+                "message": format!("已下载 {} / {}", format_size(downloaded), format_size(total_size)),
+            }));
+        }
+    }
+
+    drop(file);
+
+    // 校验 SHA256
+    if let Some(expected_sha256) = expected_sha256.as_deref().map(str::trim).filter(|s| !s.is_empty()) {
+        let actual_sha256 = match file_ops::calculate_sha256(&temp_str) {
+            Ok(hash) => hash,
+            Err(e) => {
+                eprintln!("[auto-update] 校验和计算失败: {}", e);
+                let _ = std::fs::remove_file(&temp);
+                return;
+            }
+        };
+
+        if !actual_sha256.eq_ignore_ascii_case(expected_sha256) {
+            eprintln!("[auto-update] SHA256 校验失败");
+            let _ = std::fs::remove_file(&temp);
+            return;
+        }
+    }
+
+    // 下载完成
+    {
+        let state = handle.state::<AppState>();
+        let mut auto_update = state.auto_update.lock().unwrap();
+        auto_update.is_downloaded = true;
+        auto_update.download_percent = 100;
+        auto_update.download_phase = "done".to_string();
+        auto_update.download_message = "下载完成，请安装".to_string();
+    }
+
+    if let Some(win) = handle.get_webview_window("main") {
+        let _ = win.emit("auto_update_done", serde_json::json!({
+            "temp_path": temp_str,
+            "version": latest_version,
+        }));
+    }
+}
+

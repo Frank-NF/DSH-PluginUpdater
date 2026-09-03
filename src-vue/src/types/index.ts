@@ -87,6 +87,16 @@ export interface SelfUpdateInfo {
   is_mandatory: boolean
 }
 
+export interface AutoUpdateState {
+  available: boolean
+  current_version: string
+  latest_version: string | null
+  download_percent: number
+  download_phase: string  // 'idle' | 'checking' | 'download' | 'done' | 'error'
+  download_message: string
+  is_downloaded: boolean
+}
+
 export type UpdateStatus = 'idle' | 'checking' | 'updating' | 'success' | 'error'
 
 /* ================= 组合包（Bundle 协议 V2，camelCase 与后端 serde 对齐） ================= */

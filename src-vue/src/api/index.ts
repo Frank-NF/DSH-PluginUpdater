@@ -7,6 +7,7 @@ import type {
   EnvCheckItem,
   MarketPlugin,
   SelfUpdateInfo,
+  AutoUpdateState,
 } from '../types'
 import { listen } from '@tauri-apps/api/event'
 
@@ -379,6 +380,33 @@ export const eventApi = {
       return Promise.resolve(() => {})
     }
     return listen<UpdateProgress>('update_progress', (event) => {
+      callback(event.payload)
+    })
+  },
+
+  onAutoUpdateCheck: (callback: (data: any) => void) => {
+    if (!isTauri) {
+      return Promise.resolve(() => {})
+    }
+    return listen<any>('auto_update_check', (event) => {
+      callback(event.payload)
+    })
+  },
+
+  onAutoUpdateProgress: (callback: (data: any) => void) => {
+    if (!isTauri) {
+      return Promise.resolve(() => {})
+    }
+    return listen<any>('auto_update_progress', (event) => {
+      callback(event.payload)
+    })
+  },
+
+  onAutoUpdateDone: (callback: (data: any) => void) => {
+    if (!isTauri) {
+      return Promise.resolve(() => {})
+    }
+    return listen<any>('auto_update_done', (event) => {
       callback(event.payload)
     })
   },

@@ -17,6 +17,9 @@ export const usePluginStore = defineStore('plugin', () => {
   const installingNpm = ref<string | null>(null)
 const selfUpdateInfo = ref<SelfUpdateInfo | null>(null)
 const isCheckingSelfUpdate = ref(false)
+const autoUpdateState = ref<AutoUpdateState | null>(null)
+const showAutoUpdateFloat = ref(false)
+const autoUpdateInstallPath = ref<string | null>(null)
 
   const updatablePlugins = computed(() =>
     plugins.value.filter(
@@ -280,5 +283,10 @@ return {
     selfUpdate,
     selfUpdateInfo,
     isCheckingSelfUpdate,
+    autoUpdateState,
+    showAutoUpdateFloat,
+    autoUpdateInstallPath,
+    getAutoUpdateState,
+    launchAutoUpdate,
   }
 })
