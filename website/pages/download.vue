@@ -21,7 +21,7 @@
             </div>
           </div>
           <a
-            href="http://64.90.30.139:8071/"
+            :href="previewUrl"
             target="_blank"
             rel="noopener"
             class="btn btn-primary"
@@ -157,6 +157,7 @@
 </template>
 
 <script setup lang="ts">
+const previewUrl = useRuntimeConfig().public.previewUrl
 interface PlatformAsset {
   version?: string
   url?: string

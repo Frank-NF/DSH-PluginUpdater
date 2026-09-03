@@ -23,7 +23,7 @@
             浏览插件市场
           </NuxtLink>
           <a
-            href="http://64.90.30.139:8071/"
+            :href="previewUrl"
             target="_blank"
             rel="noopener"
             class="btn btn-outline"
@@ -122,7 +122,7 @@
               <li>无需下载，随开随用</li>
             </ul>
             <a
-              href="http://64.90.30.139:8071/"
+              :href="previewUrl"
               target="_blank"
               rel="noopener"
               class="btn btn-primary mode-btn"
@@ -173,6 +173,7 @@
 useHead({
   title: 'DSH 插件升级管理 - 官方网站 | 插件市场 · 在线版 · 桌面客户端',
 })
+const previewUrl = useRuntimeConfig().public.previewUrl
 
 interface PluginData {
   id: string

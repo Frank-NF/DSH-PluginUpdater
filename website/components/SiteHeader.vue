@@ -19,7 +19,7 @@
 
       <div class="header-actions">
         <a
-          href="http://64.90.30.139:8071/"
+          :href="previewUrl"
           target="_blank"
           rel="noopener"
           class="btn btn-outline btn-sm"
@@ -79,6 +79,7 @@
 import { version as appVersion } from '~/package.json'
 
 const { user, logout, openAuthDialog } = useAuth()
+const previewUrl = useRuntimeConfig().public.previewUrl
 
 const menuOpen = ref(false)
 const userWrap = ref<HTMLElement | null>(null)

@@ -56,11 +56,13 @@ struct CatalogFile {
     plugins: Vec<CatalogEntry>,
 }
 
-/// 已加载的目录（含获取时间，用于 TTL 缓存）
+/// 已加载的目录（含获取时间，用于 TTL 缓存；sig_valid 为 None 表示未验证/无签名头）
 pub struct Catalog {
     pub entries: Vec<CatalogEntry>,
     pub fetched_at: Instant,
     pub source: String,
+    /// 签名验证结果：Some(true)=验证通过，Some(false)=验证失败（不可信），None=服务器未返回签名头
+    pub sig_valid: Option<bool>,
 }
 
 impl Catalog {
@@ -159,16 +161,20 @@ fn read_cache() -> Option<Vec<CatalogEntry>> {
 pub async fn fetch_catalog_from_website(client: &reqwest::Client) -> AppResult<Catalog> {
     let mut items: Vec<WebsitePluginItem> = Vec::new();
     let mut expected_total: Option<usize> = None;
+    let mut all_sig_valid: Option<bool> = None;
     for page in 1..=30usize {
         let sep = if CATALOG_WEBSITE_URL.contains('?') { '&' } else { '?' };
         let url = format!("{}{}page={}", CATALOG_WEBSITE_URL, sep, page);
-        let resp = client.get(&url).timeout(TIMEOUT).send().await?;
-        if !resp.status().is_success() {
-            return Err(AppError::Other(format!("官网目录 HTTP {}", resp.status())));
-        }
-        let parsed: WebsiteCatalogResponse = resp.json().await?;
+        let (parsed, sig_valid) = verify_page_signature(client, &url).await?;
         if expected_total.is_none() {
             expected_total = parsed.total;
+        }
+        // 累积签名结果：第一页有签名则后续页也应有，全部通过才为 true
+        if let Some(sv) = sig_valid {
+            match all_sig_valid {
+                None => all_sig_valid = Some(sv),
+                Some(prev) => { if !sv { all_sig_valid = Some(false); } }
+            }
         }
         let got = parsed.plugins.len();
         items.extend(parsed.plugins);

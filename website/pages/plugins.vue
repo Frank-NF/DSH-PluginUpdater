@@ -208,7 +208,7 @@
 
           <div class="install-options">
             <a
-              href="http://64.90.30.139:8071/"
+              :href="previewUrl"
               target="_blank"
               rel="noopener"
               class="install-option"
@@ -267,6 +267,7 @@
 useHead({
   title: '插件市场 - DSH 插件升级管理',
 })
+const previewUrl = useRuntimeConfig().public.previewUrl
 
 interface PluginData {
   id: string

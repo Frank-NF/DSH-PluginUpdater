@@ -61,11 +61,18 @@ src-tauri/.updater_backups/
 
 
 # ============ Obsolete ============
-proxy-server/
 website/pages.bak/
 
 
+# ============ Proxy Server ============
+# 源码纳入版本控制，仅忽略编译产物
+proxy-server/*.exe
+proxy-server/*.mod
+proxy-server/*.sum
+
+
 # Ed25519 keys (deploy manually)
+src-tauri/keys/
 scripts/ed25519-*.pem
 scripts/key-info.json
 **/dist-preview/

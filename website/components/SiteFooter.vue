@@ -19,7 +19,7 @@
             <li><NuxtLink to="/plugins">插件市场</NuxtLink></li>
             <li><NuxtLink to="/download">下载客户端</NuxtLink></li>
             <li>
-              <a href="http://64.90.30.139:8071/" target="_blank" rel="noopener">在线版</a>
+              <a :href="previewUrl" target="_blank" rel="noopener">在线版</a>
             </li>
           </ul>
         </div>
@@ -50,6 +50,7 @@
 </template>
 
 <script setup lang="ts">
+const previewUrl = useRuntimeConfig().public.previewUrl
 </script>
 
 <style scoped>

@@ -420,20 +420,23 @@ async fn sync_to_server(
 }
 async fn build_catalog_map(
     client: &reqwest::Client,
-) -> std::collections::HashMap<String, catalog::CatalogEntry> {
+) -> (std::collections::HashMap<String, catalog::CatalogEntry>, Option<bool>) {
     match catalog::get_catalog(client).await {
-        Ok(cat) => cat
-            .entries
-            .into_iter()
-            .flat_map(|e| {
-                let mut keys = vec![(e.name.to_lowercase(), e.clone())];
-                if let Some(npm) = &e.npm {
-                    keys.push((npm.to_lowercase(), e.clone()));
-                }
-                keys
-            })
-            .collect(),
-        Err(_) => std::collections::HashMap::new(),
+        Ok(cat) => {
+            let map = cat
+                .entries
+                .into_iter()
+                .flat_map(|e| {
+                    let mut keys = vec![(e.name.to_lowercase(), e.clone())];
+                    if let Some(npm) = &e.npm {
+                        keys.push((npm.to_lowercase(), e.clone()));
+                    }
+                    keys
+                })
+                .collect();
+            (map, cat.sig_valid)
+        }
+        Err(_) => (std::collections::HashMap::new(), None),
     }
 }
 
@@ -463,21 +466,12 @@ async fn scan_plugins(directory: String, state: State<'_, AppState>) -> AppResul
     {
         let config = state.config.lock().unwrap().clone();
         let proxy = GitHubProxyClient::new(&config.proxy_base_url, None);
-        let catalog_map = build_catalog_map(proxy.http_client()).await;
-    // 签名验证（如果服务器返回了签名）
-    // 注：当前版本暂不强校验，仅记录签名状态
-    // 生产环境可取消注释下方代码启用严格验证
-    /*
-    let sig_valid = true;
-    if let Some(sig_header) = resp.headers().get("X-DSH-SIGNATURE") {
-        let sig = sig_header.to_str().unwrap_or("");
-        let pub_key = catalog::SIGNING_PUB_KEY;
-        sig_valid = catalog::verify_catalog_signature(sig, &catalog_json, pub_key);
-        if !sig_valid {
-            eprintln!("[catalog] 签名验证失败，信任降级为缓存模式");
+        let (catalog_map, sig_valid) = build_catalog_map(proxy.http_client()).await;
+        if let Some(false) = sig_valid {
+            eprintln!("[catalog] 签名验证失败，目录可信度存疑");
+        } else if let Some(true) = sig_valid {
+            eprintln!("[catalog] 签名验证通过");
         }
-    }
-    */
 
         apply_catalog_metadata(&catalog_map, &mut plugins);
     }
@@ -508,7 +502,7 @@ async fn check_updates(state: State<'_, AppState>) -> AppResult<Vec<PluginInfo>>
     let mut plugins = state.plugins.lock().unwrap().clone();
 
     // 先拉官方插件目录（npm 包源 → 官方 Pages fallback），建立 name/npm → entry 索引
-    let catalog_map = build_catalog_map(proxy.http_client()).await;
+    let (catalog_map, _) = build_catalog_map(proxy.http_client()).await;
 
     // 解析每个插件的 npm 包名（目录命中 → manifest.id 兜底：本地插件 id 即 npm 包名）。
     // 本体预装（bundled）与 agent-core 不参与：npm 上游更新由 DSH 本体统一管理，
@@ -1431,7 +1425,7 @@ async fn auto_scan_plugins(state: State<'_, AppState>) -> AppResult<Vec<PluginIn
 
     // 官方目录元数据补全
     let proxy = GitHubProxyClient::new(&config.proxy_base_url, None);
-    let catalog_map = build_catalog_map(proxy.http_client()).await;
+    let (catalog_map, _) = build_catalog_map(proxy.http_client()).await;
     apply_catalog_metadata(&catalog_map, &mut merged);
 
     // 保存状态；插件目录保持用户设置，未设置时记录首个命中目录
