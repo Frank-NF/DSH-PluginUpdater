@@ -1862,7 +1862,7 @@ async fn check_auto_update_background(handle: tauri::AppHandle, proxy_url: Strin
         });
         let version = data.version.clone();
         let sha256 = data.sha256.clone();
-        tokio::spawn(download_auto_update_background(handle.clone(), release_url, version, sha256));
+        tauri::async_runtime::spawn(download_auto_update_background(handle.clone(), release_url, version, sha256));
     }
 }
 
