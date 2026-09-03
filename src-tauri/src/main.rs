@@ -1771,7 +1771,7 @@ fn main() {
                 if config.auto_check_updates {
                     let handle = app.app_handle().clone();
                     let proxy_url = config.proxy_base_url.clone();
-                    tokio::spawn(async move {
+                    tauri::async_runtime::spawn(async move {
                         check_auto_update_background(handle, proxy_url).await;
                     });
                 }
