@@ -1,6 +1,6 @@
 {
-  "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEA6lqTKfhqmjPWr/GCON/uunQkTF4DFba7o0+NC72oAKg=\n-----END PUBLIC KEY-----",
-  "public_key_hex": "9BC1745BBA9FE68D298BCA5A1B096E87624DD1F627A257A6F2FF83BA7871CF6F",
-  "private_key_pem": "-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIOXk2FVwVLlwYAvEYFRVfYtw3NVyK7YS3B1p41rwPrav\n-----END PRIVATE KEY-----",
+  "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAv2hG+GzGutaVEBvoADQznbwCb8TS0j+GO4zemc2kcbQ=\n-----END PUBLIC KEY-----",
+  "public_key_hex": "BF6846F86CC6BAD695101BE80034339DBC026FC4D2D23F863B8CDE99CDA471B4",
+  "private_key_pem": "-----BEGIN PRIVATE KEY-----\nMC4CAQAwBQYDK2VwBCIEIG6zVlTaiB8GbFzOXgd10bBgNgEI08oAhTshxZ7+Ymqr\n-----END PRIVATE KEY-----",
   "note": "Rotated on 2026-09-03 due to key leakage. Old keys are compromised."
 }
