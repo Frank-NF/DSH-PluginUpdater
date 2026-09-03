@@ -4,8 +4,8 @@
     "windows": {
       "version": "1.13.9",
       "url": "https://dsh.huilinsh.cn/dsh-plugin-updater.exe",
-      "sha256": "a1424250fc4852878cbfe5e67f85c91260d725060ad544e7473e146146b33789",
-      "size_bytes": 18555904
+      "sha256": "ad657d2c3efc489c73ae7357f7b87a47e485b31ad4638c6cbe7814d1f7170682",
+      "size_bytes": 4607109
     }
   },
   "release_url": "https://dsh.huilinsh.cn/download",
