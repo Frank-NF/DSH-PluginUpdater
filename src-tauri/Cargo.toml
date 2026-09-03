@@ -1,0 +1,51 @@
+[package]
+name = "dsh-plugin-updater"
+version = "1.13.8"
+description = "DSH 独立插件升级管理工具"
+authors = ["DSH Team"]
+license = "MIT"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+tauri-plugin-deep-link = "2"
+tauri-plugin-single-instance = "2"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.52"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls"], default-features = false }
+tokio = { version = "1", features = ["full"] }
+semver = "1"
+zip = "2"
+anyhow = "1"
+thiserror = "1"
+chrono = { version = "0.4", features = ["serde"] }
+log = "0.4"
+env_logger = "0.11"
+futures-util = "0.3"
+dirs = "5"
+walkdir = "2"
+sysinfo = "0.32"
+hmac = "0.12"
+sha1 = "0.10"
+sha2 = "0.10"
+ed25519-dalek = "2"
+hex = "0.4"
+flate2 = "1"
+tar = "0.4"
+urlencoding = "2"
+tauri-plugin-dialog = "2.7.2"
+keyring = "3"
+
+[dev-dependencies]
+serial_test = "3"
+
+[features]
+default = ["custom-protocol"]
+custom-protocol = ["tauri/custom-protocol"]

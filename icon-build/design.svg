@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#6D6FF5"/>
+      <stop offset="1" stop-color="#4032C8"/>
+    </linearGradient>
+    <radialGradient id="sheen" cx="0.28" cy="0.2" r="0.9">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.16"/>
+      <stop offset="0.55" stop-color="#FFFFFF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- 圆角方块底 -->
+  <rect x="0" y="0" width="1024" height="1024" rx="224" fill="url(#bg)"/>
+  <rect x="0" y="0" width="1024" height="1024" rx="224" fill="url(#sheen)"/>
+
+  <!-- 环形刷新箭头（缺口朝右上，箭头指向缺口） -->
+  <path d="M 898.4 408.5 A 400 400 0 1 1 615.5 125.6"
+        fill="none" stroke="#FFFFFF" stroke-width="64" stroke-linecap="round"/>
+  <polygon points="707.3,150.2 611.0,181.3 639.4,75.1" fill="#FFFFFF"/>
+
+  <!-- 拼图块（插件）：顶+右双凸钮 -->
+  <path fill="#FFFFFF" d="
+    M 300 320
+    Q 300 300 320 300
+    L 440 300
+    A 75 75 0 1 1 590 300
+    L 710 300
+    Q 730 300 730 320
+    L 730 440
+    A 75 75 0 1 1 730 590
+    L 730 710
+    Q 730 730 710 730
+    L 320 730
+    Q 300 730 300 710
+    Z"/>
+</svg>

@@ -1,0 +1,81 @@
+# ============ Rust / Tauri ============
+src-tauri/target/
+src-tauri/Cargo.lock
+src-tauri/gen/
+*.rs.bk
+
+# ============ Node / Vue / Nuxt ============
+node_modules/
+dist/
+.nuxt/
+.output/
+.nitro/
+.cache/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ============ Environment ============
+.env
+.env.local
+.env.*.local
+*.env
+
+# ============ IDE ============
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ============ Build artifacts ============
+*.exe
+*.dll
+*.so
+*.dylib
+*.AppImage
+*.deb
+*.rpm
+*.msi
+
+# ============ Temp ============
+tmp/
+temp/
+*.tmp
+*.bak
+*.zip
+*.tar.gz
+
+# ============ Project specific ============
+src-tauri/.updater_backups/
+*.pid
+*.seed
+
+# ============ WorkBuddy ============
+.workbuddy/
+
+
+# ============ Obsolete ============
+website/pages.bak/
+
+
+# ============ Proxy Server ============
+# 源码纳入版本控制，仅忽略编译产物
+proxy-server/*.exe
+proxy-server/*.mod
+proxy-server/*.sum
+
+
+# Ed25519 keys (deploy manually)
+src-tauri/keys/
+scripts/ed25519-*.pem
+scripts/key-info.json
+**/dist-preview/
+**/dist-v3/
+**/.dsh-vision-router/
+docs/archived/

@@ -1,0 +1,17 @@
+{
+  "version": "1.13.8",
+  "platforms": {
+    "windows": {
+      "version": "1.13.8",
+      "url": "https://dsh.huilinsh.cn/dsh-plugin-updater.exe",
+      "sha256": "2693b023147febf44f1db3f5c77847f59aac62fe888b9ce72778d601d64490a6",
+      "size_bytes": 4597218
+    }
+  },
+  "release_url": "https://dsh.huilinsh.cn/download",
+  "changelog": [
+    "1.13.8 移除独立可更新标签页；已安装列表仅展示用户插件、内置插件不再显示；卸载后重新扫描修复缓存残留；内置 agent-core 与 dshmarket 插件不进入更新检查",
+    "1.13.7 修复modlens等非dsh-*前缀插件"
+  ],
+  "published_at": "2026-09-03T08:28:00.000Z"
+}

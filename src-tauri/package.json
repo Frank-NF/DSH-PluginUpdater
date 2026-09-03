@@ -1,0 +1,9 @@
+{
+  "name": "dsh-plugin-updater-tauri",
+  "version": "1.13.8",
+  "private": true,
+  "scripts": {
+    "build": "cd ../src-vue && npm run build",
+    "dev": "cd ../src-vue && npm run dev"
+  }
+}
