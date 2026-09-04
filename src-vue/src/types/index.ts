@@ -95,6 +95,7 @@ export interface AutoUpdateState {
   download_phase: string  // 'idle' | 'checking' | 'download' | 'done' | 'error'
   download_message: string
   is_downloaded: boolean
+  temp_path: string | null
 }
 
 export type UpdateStatus = 'idle' | 'checking' | 'updating' | 'success' | 'error'

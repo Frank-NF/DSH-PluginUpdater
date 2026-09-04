@@ -250,6 +250,17 @@ const mockApi = {
     is_mandatory: false,
   }),
   selfUpdate: async (): Promise<string> => '预览模式：暂不支持自更新',
+  getAutoUpdateState: async (): Promise<AutoUpdateState> => ({
+    available: false,
+    current_version: '1.0.0',
+    latest_version: null,
+    download_percent: 0,
+    download_phase: 'idle',
+    download_message: '',
+    is_downloaded: false,
+    temp_path: null,
+  }),
+  launchAutoUpdate: async (): Promise<void> => {},
 }
 
 /* 进度事件监听器（Mock 用） */
@@ -327,6 +338,11 @@ export const pluginApi = isTauri
       checkSelfUpdate: (): Promise<SelfUpdateInfo> => invoke('check_self_update'),
 
       selfUpdate: (): Promise<string> => invoke('self_update'),
+
+      getAutoUpdateState: (): Promise<AutoUpdateState> => invoke('get_auto_update_state'),
+
+      launchAutoUpdate: (tempPath: string): Promise<void> =>
+        invoke('launch_auto_update', { tempPath }),
 
       onUpdateProgress: (callback: (progress: UpdateProgress) => void) =>
         listen<UpdateProgress>('update_progress', (event) => {

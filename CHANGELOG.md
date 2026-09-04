@@ -4,6 +4,15 @@
 
 ## [Unreleased]
 
+## [1.13.10] - 2026-09-04
+
+### Fixed
+
+- **软件白屏修复（关键）**：v1.13.9 的 pluginStore 导出了 `getAutoUpdateState` / `launchAutoUpdate` 但两个函数从未定义，store 初始化时抛 ReferenceError 导致 Vue 挂载失败白屏。现已补齐实现（invoke 后端同名命令），并通过 vue-tsc 全量类型检查。
+- **在线版「在线预览」链接修复**：previewUrl 原默认值指向 /updater/ 落地页自身（死循环），现修正为真实在线版地址 http://dsh.huilinsh.cn:8071/。
+- **后台自动下载修复**：download_auto_update_background 曾把 reqwest chunk 返回的数据丢弃、写入未填充的旧 buffer（下载文件必损坏），现直接写入真实分块。
+- **自动更新状态补全**：AutoUpdateState 增加 temp_path 字段，下载完成后前端悬浮窗可直接「立即安装」；前端监听 auto_update_check / progress / done 三个事件并在启动时主动拉取一次状态（避免事件早于监听建立而丢失）。
+
 ## [1.13.8] - 2026-09-01
 
 ### Changed

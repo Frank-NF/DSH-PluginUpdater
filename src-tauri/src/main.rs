@@ -39,6 +39,8 @@ pub struct AutoUpdateState {
     pub download_phase: String,  // "checking" | "download" | "done" | "error"
     pub download_message: String,
     pub is_downloaded: bool,
+    /// 已下载安装包的本地路径（下载完成后由 launch_auto_update 使用）
+    pub temp_path: Option<String>,
 }
 
 impl Default for AutoUpdateState {
@@ -51,6 +53,7 @@ impl Default for AutoUpdateState {
             download_phase: "idle".to_string(),
             download_message: String::new(),
             is_downloaded: false,
+            temp_path: None,
         }
     }
 }
@@ -1900,11 +1903,10 @@ async fn download_auto_update_background(
 
     let total_size = response.content_length().unwrap_or(0);
     let mut downloaded: u64 = 0;
-    let mut buffer = vec![0u8; 8192];
 
     loop {
-        let n = match response.chunk().await {
-            Ok(Some(bytes)) => bytes.len(),
+        let chunk = match response.chunk().await {
+            Ok(Some(chunk)) => chunk,
             Ok(None) => break,
             Err(e) => {
                 eprintln!("[auto-update] 读取数据失败: {}", e);
@@ -1912,10 +1914,10 @@ async fn download_auto_update_background(
             }
         };
 
-        if n == 0 { break; }
+        if chunk.is_empty() { break; }
 
-        file.write_all(&buffer[..n]).ok();
-        downloaded += n as u64;
+        file.write_all(&chunk).ok();
+        downloaded += chunk.len() as u64;
 
         // 计算进度百分比
         let percent = if total_size > 0 {
@@ -1970,6 +1972,7 @@ async fn download_auto_update_background(
         auto_update.download_percent = 100;
         auto_update.download_phase = "done".to_string();
         auto_update.download_message = "下载完成，请安装".to_string();
+        auto_update.temp_path = Some(temp_str.clone());
     }
 
     if let Some(win) = handle.get_webview_window("main") {

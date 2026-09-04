@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { PluginInfo, AppConfig, UpdateProgress, MarketPlugin, SelfUpdateInfo } from '../types'
+import type { PluginInfo, AppConfig, UpdateProgress, MarketPlugin, SelfUpdateInfo, AutoUpdateState } from '../types'
 import { pluginApi, eventApi } from '../api'
 import { t } from '../i18n'
 
@@ -20,6 +20,25 @@ const isCheckingSelfUpdate = ref(false)
 const autoUpdateState = ref<AutoUpdateState | null>(null)
 const showAutoUpdateFloat = ref(false)
 const autoUpdateInstallPath = ref<string | null>(null)
+
+async function getAutoUpdateState(): Promise<AutoUpdateState | null> {
+  try {
+    const s = await pluginApi.getAutoUpdateState()
+    autoUpdateState.value = s
+    if (s.available) {
+      showAutoUpdateFloat.value = true
+      if (s.temp_path) autoUpdateInstallPath.value = s.temp_path
+    }
+    return s
+  } catch (e) {
+    console.error('[auto-update] 获取后台更新状态失败:', e)
+    return null
+  }
+}
+
+async function launchAutoUpdate(tempPath: string): Promise<void> {
+  await pluginApi.launchAutoUpdate(tempPath)
+}
 
   const updatablePlugins = computed(() =>
     plugins.value.filter(
@@ -223,6 +242,44 @@ const autoUpdateInstallPath = ref<string | null>(null)
     eventApi.onUpdateProgress((progress) => {
       updateProgressMap.value.set(progress.plugin_id, progress)
     })
+    // 后台自动更新：启动检查结果 / 静默下载进度 / 下载完成
+    eventApi.onAutoUpdateCheck((data) => {
+      autoUpdateState.value = {
+        available: !!data?.available,
+        current_version: data?.current_version ?? '',
+        latest_version: data?.latest_version ?? null,
+        download_percent: 0,
+        download_phase: 'idle',
+        download_message: '',
+        is_downloaded: false,
+        temp_path: null,
+      }
+      if (data?.available) showAutoUpdateFloat.value = true
+    })
+    eventApi.onAutoUpdateProgress((data) => {
+      if (!autoUpdateState.value) return
+      autoUpdateState.value = {
+        ...autoUpdateState.value,
+        download_percent: data?.percent ?? 0,
+        download_phase: data?.phase ?? 'download',
+        download_message: data?.message ?? '',
+      }
+    })
+    eventApi.onAutoUpdateDone((data) => {
+      if (!autoUpdateState.value) return
+      autoUpdateState.value = {
+        ...autoUpdateState.value,
+        is_downloaded: true,
+        download_percent: 100,
+        download_phase: 'done',
+        download_message: '下载完成，请安装',
+        temp_path: data?.temp_path ?? null,
+      }
+      autoUpdateInstallPath.value = data?.temp_path ?? null
+      showAutoUpdateFloat.value = true
+    })
+    // 启动即拉一次状态：后端可能在 WebView 监听建立前就已发出事件
+    void getAutoUpdateState()
   }
 
   function getUpdateProgress(pluginId: string): UpdateProgress | undefined {

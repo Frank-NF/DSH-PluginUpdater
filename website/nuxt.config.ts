@@ -35,7 +35,7 @@ export default defineNuxtConfig({
       proxyBaseUrl: process.env.PROXY_BASE_URL || '',
       appVersion: '1.0.0',
       githubClientId: process.env.GITHUB_CLIENT_ID || '',
-      previewUrl: process.env.PREVIEW_URL || 'https://dsh.huilinsh.cn/updater/',
+      previewUrl: process.env.PREVIEW_URL || 'http://dsh.huilinsh.cn:8071/',
     },
   },
 
