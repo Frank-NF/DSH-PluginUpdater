@@ -4,6 +4,18 @@
 
 ## [Unreleased]
 
+## [1.13.13] - 2026-09-04
+
+### Changed
+
+- **已安装列表全量显示**：不再隐藏内置/系统插件，bundled 显示「内置」角标、agent-core 显示「系统」角标，一眼区分来源。
+- **扫描覆盖 pnpm workspace 根 node_modules**：容器目录下钻 node_modules 顶层包（含 @scope/*），检出 profiles/node_modules 中的独立插件（此前 scan_nested_plugin 只返回首个命中，@wingsky-1/dsh-mcp-manager 0.2.0 等被漏掉——dsh-market 可见而桌面工具查不出的主因）。
+- **更新检查纳入 dshmarket**：仅 @deepseek-ai/* 本体组件跳过 npm 检查，dshmarket 等独立发布的 agent-core 类型插件同样参与。
+
+### Removed
+
+- **在线版下线**：8071 预览站点停止服务，官网移除「在线预览」入口，前端浏览器 Mock 层整体删除（pluginApi 仅保留 Tauri invoke 实现），杜绝假数据混淆。
+
 ## [1.13.12] - 2026-09-04
 
 ### Fixed

@@ -332,8 +332,8 @@
         v-if="!plugins.length"
         type="empty"
         icon="inbox"
-        :title="isTauriEnv ? t('installed.emptyTitle') : '在线预览模式'"
-        :desc="isTauriEnv ? t('installed.emptyDesc') : '浏览器无法读取本机插件——已安装列表与更新检查请使用桌面端；市场数据与桌面端同源（全量目录）'"
+        :title="t('installed.emptyTitle')"
+        :desc="t('installed.emptyDesc')"
       />
 
       <!-- 空：筛选无结果 -->
@@ -373,6 +373,7 @@
               <h4 class="weui-media-box__title">
                 <span class="w-truncate">{{ row.manifest.name }}</span>
                 <span v-if="row.bundled" class="w-tag w-tag_plain" title="本体预装插件，由 DSH 本体统一管理">{{ '内置' }}</span>
+                <span v-if="row.manifest.type === 'agent-core'" class="w-tag w-tag_plain" title="DSH 系统组件">{{ '系统' }}</span>
               </h4>
               <p class="weui-media-box__desc w-clamp-2" :title="row.manifest.description">
                 {{ localeDescription(row) }}
@@ -469,6 +470,7 @@
             <p class="w-cell-title">
               {{ row.manifest.name }}
               <span v-if="row.bundled" class="w-tag w-tag_plain" title="本体预装插件，由 DSH 本体统一管理">{{ '内置' }}</span>
+              <span v-if="row.manifest.type === 'agent-core'" class="w-tag w-tag_plain" title="DSH 系统组件">{{ '系统' }}</span>
               <StatusTag :row="row" />
             </p>
             <p class="w-cell-desc w-clamp-2">{{ localeDescription(row) }}</p>
@@ -725,7 +727,7 @@ import WEmpty from './WEmpty.vue'
 import WLoading from './WLoading.vue'
 import UpdateProgress from './UpdateProgress.vue'
 import { usePluginStore } from '../stores/pluginStore'
-import { pluginApi, isTauriEnv } from '../api'
+import { pluginApi } from '../api'
 import { bundleApi } from '../api/bundles'
 import { t, locale, categoryName, categoryColor, formatCount } from '../i18n'
 import { useToast } from '../composables/useToast'
@@ -773,7 +775,7 @@ const tabs = computed(() => [
   },
   {
     name: 'installed' as const,
-    label: `${t('tab.installed')} (${props.plugins.filter((p) => p.manifest.type !== 'agent-core' && (!p.bundled || p.update_available)).length})`,
+    label: `${t('tab.installed')} (${props.plugins.length})`,
     short: t('tab.installedShort'),
     icon: 'package',
   },
@@ -921,7 +923,6 @@ const categoryFilter = ref<string | null>(null)
 const categories = computed(() => {
   const map = new Map<string, number>()
   for (const p of props.plugins) {
-    if (p.manifest.type === 'agent-core' || (p.bundled && !p.update_available)) continue
     if (p.category) map.set(p.category, (map.get(p.category) || 0) + 1)
   }
   return [...map.entries()].sort((a, b) => b[1] - a[1])
@@ -929,10 +930,8 @@ const categories = computed(() => {
 
 /** 按分类筛选后的插件（网格与列表视图共用——修复原列表视图未筛选的问题） */
 const filteredPlugins = computed(() => {
-  // 已安装列表：用户插件全量显示；内置（bundled）默认隐藏，但有可用更新时显示并带「内置」标记
-  let list = props.plugins.filter(
-    (p) => p.manifest.type !== 'agent-core' && (!p.bundled || p.update_available)
-  )
+  // 已安装列表展示全部已检出插件；内置/系统通过角标区分
+  let list = [...props.plugins]
   if (categoryFilter.value) {
     list = list.filter((p) => p.category === categoryFilter.value)
   }

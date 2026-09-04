@@ -537,11 +537,11 @@ async fn check_updates(state: State<'_, AppState>) -> AppResult<Vec<PluginInfo>>
     let (catalog_map, _) = build_catalog_map(proxy.http_client()).await;
 
     // 解析每个插件的 npm 包名（目录命中 → manifest.id 兜底：本地插件 id 即 npm 包名）。
-    // 本体预装（bundled）与 agent-core 不参与：npm 上游更新由 DSH 本体统一管理，
-    // 工具提示更新会误导（更新后会被本体重装覆盖）
+    // 仅 @deepseek-ai/* 本体组件不参与（npm 上游由 DSH 本体统一管理）；
+    // dshmarket 等 agent-core 类型插件独立 npm 发布，同样纳入更新检查
     let mut npm_jobs: Vec<(usize, String)> = Vec::new();
     for (idx, plugin) in plugins.iter().enumerate() {
-        if plugin.manifest.r#type == "agent-core" {
+        if plugin.manifest.id.starts_with("@deepseek-ai/") {
             continue;
         }
         let npm_name = catalog_map

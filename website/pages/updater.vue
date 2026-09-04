@@ -8,9 +8,6 @@
           <NuxtLink to="/download" class="btn btn-primary">
             ↓ 下载客户端
           </NuxtLink>
-          <a :href="previewUrl" target="_blank" rel="noopener" class="btn btn-secondary">
-            → 在线预览
-          </a>
         </div>
       </div>
 
@@ -55,10 +52,7 @@
   </div>
 </template>
 
-<script setup lang="ts">
-const runtimeConfig = useRuntimeConfig()
-const previewUrl = runtimeConfig.public.previewUrl || 'https://dsh.huilinsh.cn:8071/'
-</script>
+
 
 <style scoped>
 .updater-page {

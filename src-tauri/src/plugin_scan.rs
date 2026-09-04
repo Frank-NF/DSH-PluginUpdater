@@ -46,11 +46,38 @@ pub fn scan_plugin_directory(root_dir: &str) -> AppResult<Vec<PluginInfo>> {
     if let Ok(entries) = fs::read_dir(root) {
         for entry in entries.flatten() {
             let path = entry.path();
-            if path.is_dir() {
-                // 子目录若是 DSH profile（如 plugin-sources 本身是目录），先按普通插件扫描
-                if let Some(plugin_info) = scan_single_plugin(&path) {
-                    plugins.push(plugin_info);
+            if !path.is_dir() {
+                continue;
+            }
+            // node_modules 目录：下钻扫描顶层包（含 @scope/*），覆盖 pnpm workspace 根
+            if path.file_name().and_then(|n| n.to_str()) == Some("node_modules") {
+                if let Ok(pkg_entries) = fs::read_dir(&path) {
+                    for pkg in pkg_entries.flatten() {
+                        let pkg_path = pkg.path();
+                        if !pkg_path.is_dir() {
+                            continue;
+                        }
+                        let name = pkg.file_name().to_string_lossy().to_string();
+                        if name.starts_with('@') {
+                            if let Ok(scoped) = fs::read_dir(&pkg_path) {
+                                for se in scoped.flatten() {
+                                    if se.path().is_dir() {
+                                        if let Some(p) = scan_cordis_plugin(&se.path()) {
+                                            plugins.push(p);
+                                        }
+                                    }
+                                }
+                            }
+                        } else if let Some(p) = scan_cordis_plugin(&pkg_path) {
+                            plugins.push(p);
+                        }
+                    }
                 }
+                continue;
+            }
+            // 子目录若是 DSH profile（如 plugin-sources 本身是目录），先按普通插件扫描
+            if let Some(plugin_info) = scan_single_plugin(&path) {
+                plugins.push(plugin_info);
             }
         }
     }
