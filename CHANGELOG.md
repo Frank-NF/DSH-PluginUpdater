@@ -11,6 +11,7 @@
 - **组合包库扩充（94 个行业预制组合包）**：将 docs/DSH_INDUSTRY_PLUGIN_MCP_SKILL_COMPLETE.md 的全部预制组合包入库官网 bundle 种子——通用基础 4 个 + 13 大行业组（医疗/法律/金融/教育/电商/制造/房地产/媒体/政务/IT/农业/物流/旅游等，含殡葬与生命服务），共 281 条插件引用、284 个 MCP 服务模板、282 个 Skill。组合包标签页与官网 /api/bundles 即时可见。
 - **组合包索引分页拉全量**：桌面端 list_bundles 此前仅取默认页 50 条，现按 total 循环分页（page_size=200）拉全量。
 - **MCP 模板预览增强**：command 为空的模板显示「需手动配置（见说明）」并展示功能说明文字。
+- **下载文件名带版本号**：分发文件改为 dsh-plugin-updater-<版本>.exe（nginx 正则映射），version.json 的 platforms.windows.url 指向带版本文件名；不带版本号的 /dsh-plugin-updater.exe 保留为最新版别名。
 
 ## [1.13.14] - 2026-09-04
 
