@@ -13,6 +13,17 @@ import { useTheme } from './composables/useTheme'
 const { applyTheme, theme } = useTheme()
 applyTheme(theme.value)
 
+// 全局错误捕获
+if (typeof window !== 'undefined') {
+  window.addEventListener('error', (e) => {
+    console.error('[Global Error]', e.error)
+  })
+  window.addEventListener('unhandledrejection', (e) => {
+    console.error('[Unhandled Rejection]', e.reason)
+  })
+}
+
 const app = createApp(App)
 app.use(createPinia())
 app.mount('#app')
+console.log('[DSH] App mounted')

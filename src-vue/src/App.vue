@@ -160,19 +160,27 @@ const hasContent = computed(
 )
 
 onMounted(async () => {
-  await boot()
-  booting.value = false
-  // 内容区淡入（GSAP）
-  nextTick(() => fadeSlideIn(bodyEl.value?.querySelector('.w-page') ?? null, { y: 12 }))
+  console.log('[DSH] onMounted start')
+  try {
+    await boot()
+    console.log('[DSH] boot completed, plugins:', pluginStore.plugins.length, 'market:', pluginStore.marketPlugins.length)
+    booting.value = false
+    // 内容区淡入（GSAP）
+    nextTick(() => fadeSlideIn(bodyEl.value?.querySelector('.w-page') ?? null, { y: 12 }))
 
-  // dshupdater:// 协议动作（后端转发）：官网「检查更新」「离线部署」按钮直达
-  pluginApi.onDeepLinkAction((action) => {
-    if (action === 'check-updates') {
-      handleCheckUpdates()
-    } else if (action === 'offline') {
-      showSnapshot.value = true
-    }
-  })
+    // dshupdater:// 协议动作（后端转发）：官网「检查更新」「离线部署」按钮直达
+    pluginApi.onDeepLinkAction((action) => {
+      if (action === 'check-updates') {
+        handleCheckUpdates()
+      } else if (action === 'offline') {
+        showSnapshot.value = true
+      }
+    })
+  } catch (e) {
+    console.error('[DSH] Boot failed:', e)
+    pluginStore.errorMessage = e instanceof Error ? e.message : String(e)
+    booting.value = false
+  }
 })
 
 async function boot() {
