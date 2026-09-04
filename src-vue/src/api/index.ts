@@ -16,9 +16,10 @@ import { listen } from '@tauri-apps/api/event'
  * - Tauri 桌面端：走真实 invoke
  * - 纯浏览器（如服务器预览调试）：走 Mock 数据，避免 invoke 不存在导致白屏
  */
-const isTauri =
+export const isTauriEnv =
   typeof window !== 'undefined' &&
   ('__TAURI_INTERNALS__' in window || '__TAURI__' in window)
+const isTauri = isTauriEnv
 
 /* ============================================================
  * Mock 层（仅浏览器预览用，Tauri 环境完全不加载这部分逻辑）
@@ -128,18 +129,18 @@ let mockPlugins: PluginInfo[] = [
 const delay = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 const mockApi = {
-  scanPlugins: async (directory: string): Promise<PluginInfo[]> => {
-    await delay(800)
-    return mockPlugins
+  // 在线预览无法读取本机插件：已安装/更新检查返回空，界面展示「在线预览模式」提示
+  scanPlugins: async (_directory: string): Promise<PluginInfo[]> => {
+    await delay(300)
+    return []
   },
   autoScanPlugins: async (): Promise<PluginInfo[]> => {
-    await delay(1200)
-    mockConfig.plugin_directory = 'C:\\Users\\niufe\\.dsh\\plugins'
-    return mockPlugins
+    await delay(300)
+    return []
   },
   checkUpdates: async (): Promise<PluginInfo[]> => {
-    await delay(1500)
-    return mockPlugins
+    await delay(300)
+    return []
   },
   checkSingleUpdate: async (pluginId: string): Promise<PluginInfo> => {
     await delay(600)
@@ -356,27 +357,42 @@ export const pluginApi = isTauri
     }
   : {
       ...mockApi,
-      // 在线版（浏览器）：市场数据走官网真实目录 API（2189 款，与桌面端/官网同源）
+      // 在线版（浏览器）：市场数据走官网真实目录 API（全量分页拉取，与桌面端/官网同源）
       listCatalogPlugins: async (): Promise<MarketPlugin[]> => {
         try {
-          const res = await fetch('https://dsh.huilinsh.cn/api/plugins', { timeout: 15000 } as RequestInit)
-          if (!res.ok) throw new Error(String(res.status))
-          const data = await res.json()
-          return (data.plugins ?? []).map((p: Record<string, unknown>) => ({
-            name: (p.name as string) ?? '',
-            category: (p.category as string) ?? null,
-            stars: (p.stars as number) ?? null,
-            downloads: null,
-            desc_zh: (p.description as string) ?? null,
-            desc_en: (p.github_description as string) ?? null,
-            npm: (p.id as string) ?? null,
-            url: (p.github_url as string) ?? null,
-          }))
+          const out: MarketPlugin[] = []
+          let page = 1
+          let total = Infinity
+          while (out.length < total && page <= 15) {
+            const res = await fetch(
+              `https://dsh.huilinsh.cn/api/plugins?page_size=200&page=${page}`,
+              { timeout: 15000 } as RequestInit,
+            )
+            if (!res.ok) throw new Error(String(res.status))
+            const data = await res.json()
+            total = typeof data.total === 'number' ? data.total : out.length
+            for (const p of (data.plugins ?? []) as Record<string, unknown>[]) {
+              out.push({
+                name: (p.name as string) ?? '',
+                category: (p.category as string) ?? null,
+                stars: (p.stars as number) ?? null,
+                downloads: null,
+                desc_zh: (p.description as string) ?? null,
+                desc_en: (p.github_description as string) ?? null,
+                npm: (p.id as string) ?? null,
+                url: (p.github_url as string) ?? null,
+              })
+            }
+            if (!(data.plugins ?? []).length) break
+            page++
+          }
+          return out
         } catch {
           // 网络不可达时市场置空，界面照常
           return []
         }
       },
+
 
       isDshRunning: async (): Promise<boolean> => false,
 

@@ -142,6 +142,9 @@
                 <span v-if="isInstalled(mp)" class="w-tag w-tag_success">
                   {{ t('tab.installedTag') }}
                 </span>
+                <span v-if="matchesUpdatable(mp)" class="w-tag w-tag_warn">
+                  {{ t('header.updatable') }}
+                </span>
               </h4>
               <p class="weui-media-box__desc w-clamp-2" :title="marketDesc(mp)">
                 <span
@@ -199,6 +202,9 @@
               >{{ categoryName(mp.category) }}</span>
               <span v-if="isInstalled(mp)" class="w-tag w-tag_success">
                 {{ t('tab.installedTag') }}
+              </span>
+              <span v-if="matchesUpdatable(mp)" class="w-tag w-tag_warn">
+                {{ t('header.updatable') }}
               </span>
             </div>
             <p class="w-cell__desc w-truncate" :title="marketDesc(mp)">{{ marketDesc(mp) }}</p>
@@ -326,8 +332,8 @@
         v-if="!plugins.length"
         type="empty"
         icon="inbox"
-        :title="t('installed.emptyTitle')"
-        :desc="t('installed.emptyDesc')"
+        :title="isTauriEnv ? t('installed.emptyTitle') : '在线预览模式'"
+        :desc="isTauriEnv ? t('installed.emptyDesc') : '浏览器无法读取本机插件——已安装列表与更新检查请使用桌面端；市场数据与桌面端同源（全量目录）'"
       />
 
       <!-- 空：筛选无结果 -->
@@ -366,6 +372,7 @@
             <div class="weui-media-box__bd">
               <h4 class="weui-media-box__title">
                 <span class="w-truncate">{{ row.manifest.name }}</span>
+                <span v-if="row.bundled" class="w-tag w-tag_plain" title="本体预装插件，由 DSH 本体统一管理">{{ '内置' }}</span>
               </h4>
               <p class="weui-media-box__desc w-clamp-2" :title="row.manifest.description">
                 {{ localeDescription(row) }}
@@ -461,6 +468,7 @@
           <div class="weui-cell__bd">
             <p class="w-cell-title">
               {{ row.manifest.name }}
+              <span v-if="row.bundled" class="w-tag w-tag_plain" title="本体预装插件，由 DSH 本体统一管理">{{ '内置' }}</span>
               <StatusTag :row="row" />
             </p>
             <p class="w-cell-desc w-clamp-2">{{ localeDescription(row) }}</p>
@@ -717,7 +725,7 @@ import WEmpty from './WEmpty.vue'
 import WLoading from './WLoading.vue'
 import UpdateProgress from './UpdateProgress.vue'
 import { usePluginStore } from '../stores/pluginStore'
-import { pluginApi } from '../api'
+import { pluginApi, isTauriEnv } from '../api'
 import { bundleApi } from '../api/bundles'
 import { t, locale, categoryName, categoryColor, formatCount } from '../i18n'
 import { useToast } from '../composables/useToast'
@@ -765,7 +773,7 @@ const tabs = computed(() => [
   },
   {
     name: 'installed' as const,
-    label: `${t('tab.installed')} (${props.plugins.filter((p) => p.manifest.type !== 'agent-core' && !p.bundled).length})`,
+    label: `${t('tab.installed')} (${props.plugins.filter((p) => p.manifest.type !== 'agent-core' && (!p.bundled || p.update_available)).length})`,
     short: t('tab.installedShort'),
     icon: 'package',
   },
@@ -913,7 +921,7 @@ const categoryFilter = ref<string | null>(null)
 const categories = computed(() => {
   const map = new Map<string, number>()
   for (const p of props.plugins) {
-    if (p.manifest.type === 'agent-core' || p.bundled) continue
+    if (p.manifest.type === 'agent-core' || (p.bundled && !p.update_available)) continue
     if (p.category) map.set(p.category, (map.get(p.category) || 0) + 1)
   }
   return [...map.entries()].sort((a, b) => b[1] - a[1])
@@ -921,8 +929,10 @@ const categories = computed(() => {
 
 /** 按分类筛选后的插件（网格与列表视图共用——修复原列表视图未筛选的问题） */
 const filteredPlugins = computed(() => {
-  // 已安装列表仅展示用户插件：内置运行时（agent-core）与本体预装（bundled）不显示
-  let list = props.plugins.filter((p) => p.manifest.type !== 'agent-core' && !p.bundled)
+  // 已安装列表：用户插件全量显示；内置（bundled）默认隐藏，但有可用更新时显示并带「内置」标记
+  let list = props.plugins.filter(
+    (p) => p.manifest.type !== 'agent-core' && (!p.bundled || p.update_available)
+  )
   if (categoryFilter.value) {
     list = list.filter((p) => p.category === categoryFilter.value)
   }
