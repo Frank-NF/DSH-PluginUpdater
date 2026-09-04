@@ -625,7 +625,8 @@
             <div v-for="m in activeBundle.mcpServers" :key="m.serverId" class="weui-cell w-cell">
               <div class="weui-cell__bd">
                 <p class="w-cell__name">{{ m.name }} <span class="mono w-text-2">{{ m.serverId }}</span></p>
-                <p class="w-cell-desc mono">{{ m.transport }} · {{ m.command }} {{ m.args.join(' ') }}</p>
+                <p class="w-cell-desc mono">{{ m.transport }} · {{ m.command || t('bundle.manualConfig') }}</p>
+                <p v-if="m.description" class="w-cell-desc">{{ m.description }}</p>
                 <p v-if="m.envKeys.length" class="w-cell-desc">
                   {{ t('bundle.envKeys') }}:
                   <span v-for="k in m.envKeys" :key="k" class="w-badge mono">{{ k }}</span>

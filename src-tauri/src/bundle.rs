@@ -218,6 +218,8 @@ impl PluginPlan {
 struct BundlesIndexResponse {
     #[serde(default)]
     bundles: Vec<BundleDef>,
+    #[serde(default)]
+    total: u64,
 }
 
 fn cache_file_path() -> Option<PathBuf> {
@@ -249,19 +251,28 @@ fn read_cache() -> Option<Vec<BundleDef>> {
 }
 
 async fn fetch_bundles(client: &reqwest::Client) -> AppResult<Vec<BundleDef>> {
-    let resp = client
-        .get(BUNDLES_URL)
-        .timeout(TIMEOUT)
-        .send()
-        .await?;
-    if !resp.status().is_success() {
-        return Err(AppError::Other(format!(
-            "官网组合包索引 HTTP {}",
-            resp.status()
-        )));
+    // 官网索引分页（默认页 50），循环拉全量（page_size=200，最多 10 页防失控）
+    let mut out: Vec<BundleDef> = Vec::new();
+    let mut page: u32 = 1;
+    loop {
+        let url = format!("{}?page_size=200&page={}", BUNDLES_URL, page);
+        let resp = client.get(&url).timeout(TIMEOUT).send().await?;
+        if !resp.status().is_success() {
+            return Err(AppError::Other(format!(
+                "官网组合包索引 HTTP {}",
+                resp.status()
+            )));
+        }
+        let parsed: BundlesIndexResponse = resp.json().await?;
+        let fetched = parsed.bundles.len();
+        let total = parsed.total as usize;
+        out.extend(parsed.bundles);
+        if out.len() >= total || fetched == 0 || page >= 10 {
+            break;
+        }
+        page += 1;
     }
-    let parsed: BundlesIndexResponse = resp.json().await?;
-    Ok(parsed.bundles)
+    Ok(out)
 }
 
 async fn fetch_bundle_detail(client: &reqwest::Client, id: &str) -> AppResult<Option<BundleDef>> {
