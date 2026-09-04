@@ -23,8 +23,18 @@
 
     <div ref="bodyEl" class="w-body">
       <div class="w-page">
-        <!-- 错误提示条 -->
-        <div v-if="pluginStore.errorMessage" class="w-alert">
+        <!-- 启动错误提示（屏幕可见） -->
+        <div v-if="pluginStore.errorMessage && booting" class="w-start-error">
+          <WIcon name="alert" :size="24" />
+          <div>
+            <div class="w-start-error-title">启动失败</div>
+            <div class="w-start-error-msg">{{ pluginStore.errorMessage }}</div>
+            <button @click="boot()" class="w-btn-retry">重试</button>
+          </div>
+        </div>
+
+        <!-- 错误提示条（启动后显示） -->
+        <div v-else-if="pluginStore.errorMessage" class="w-alert">
           <WIcon name="alert" :size="16" />
           <span class="w-flex-1">{{ pluginStore.errorMessage }}</span>
           <WButton size="mini" icon="refresh" @click="handleAutoScan">
