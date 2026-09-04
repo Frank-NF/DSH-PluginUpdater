@@ -48,6 +48,7 @@ export const zh: Record<string, string> = {
   'update.done': '「{name}」已更新到 v{version}',
   'update.failed': '更新失败',
   'update.killAndContinue': '强杀 DSH 进程并更新',
+  'update.killFailedHint': '\n\n结束 DSH 进程失败（可能权限不足）。\n可以强制继续，但更新过程中 DSH 可能重新写入文件导致失败。',
   'update.killDone': '已强制结束 {n} 个 DSH 进程',
   'update.killFailed': '强杀 DSH 进程失败（可尝试以管理员身份运行本工具）',
   'update.elevatePrompt': '普通权限强杀失败（目标进程可能以管理员运行）。是否弹出系统授权框（UAC）提权强杀？标准用户需输入管理员密码。',

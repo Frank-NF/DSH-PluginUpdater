@@ -58,6 +58,10 @@ pub fn scan_plugin_directory(root_dir: &str) -> AppResult<Vec<PluginInfo>> {
                             continue;
                         }
                         let name = pkg.file_name().to_string_lossy().to_string();
+                        // @deepseek-ai/* 是 DSH 本体运行时组件（依赖树随插件带入），不是可管理插件
+                        if name == "@deepseek-ai" {
+                            continue;
+                        }
                         if name.starts_with('@') {
                             if let Ok(scoped) = fs::read_dir(&pkg_path) {
                                 for se in scoped.flatten() {
@@ -151,7 +155,10 @@ pub fn scan_dsh_profile(dir: &Path) -> Vec<PluginInfo> {
                     continue;
                 }
                 let name = entry.file_name().to_string_lossy().to_string();
-                if name.starts_with('@') {
+                if name == "@deepseek-ai" {
+                    // 本体运行时组件，跳过
+                    continue;
+                } else if name.starts_with('@') {
                     // scoped 包：@scope/dsh-xxx
                     if let Ok(scoped) = fs::read_dir(&path) {
                         for se in scoped.flatten() {
@@ -162,7 +169,7 @@ pub fn scan_dsh_profile(dir: &Path) -> Vec<PluginInfo> {
                             }
                         }
                     }
-                } else if name.starts_with("dsh-") {
+                } else if name.starts_with("dsh-") || name == "dshmarket" {
                     if let Some(p) = scan_cordis_plugin(&path) {
                         plugins.push(p);
                     }
@@ -289,6 +296,10 @@ fn scan_cordis_plugin(dir: &Path) -> Option<PluginInfo> {
     // is_declared_plugin 必须在最前面：bundles/dependencies 里声明的插件（如 @liustack/modlens）
     // 即使名字不含 dsh-* 也应被识别，否则后续 bundled 判定无法执行
     let declared = is_declared_plugin(dir);
+    // profile 根目录（dsh-profile-*）是宿主环境而非插件，永不收录
+    if name.starts_with("dsh-profile-") {
+        return None;
+    }
     let is_dsh_plugin = declared
         || name.starts_with("dsh-")
         || name.contains("/dsh-")

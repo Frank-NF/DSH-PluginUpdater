@@ -128,7 +128,6 @@ import { t, toggleLocale, locale } from './i18n'
 import { pluginApi } from './api'
 import { useToast } from './composables/useToast'
 import { useConfirm } from './composables/useConfirm'
-import { useActionSheet } from './composables/useActionSheet'
 import { useTheme } from './composables/useTheme'
 import { fadeSlideIn } from './composables/useMotion'
 import type { PluginInfo, AppConfig } from './types'
@@ -151,7 +150,6 @@ import WIcon from './components/WIcon.vue'
 const pluginStore = usePluginStore()
 const toast = useToast()
 const { confirm } = useConfirm()
-const { actionSheet } = useActionSheet()
 const { theme, toggleTheme } = useTheme()
 
 const booting = ref(true)
@@ -267,25 +265,27 @@ async function handleUpdatePlugin(plugin: PluginInfo) {
   let force = false
 
   if (dshRunning) {
-    const message =
-      detail +
-      t('update.dshRunningHint')
-    const choice = await actionSheet({
+    // 居中对话框逐步确认（原底部 actionSheet 观感差，已弃用）
+    const killOk = await confirm({
       title: t('update.dshRunningTitle'),
-      message,
-      items: [
-        { label: t('update.killAndContinue'), value: 'kill' },
-        { label: t('update.continueAnyway'), value: 'force', type: 'warn' },
-      ],
+      message: detail + t('update.dshRunningHint'),
+      confirmText: t('update.killAndContinue'),
+      cancelText: t('common.cancel'),
+      type: 'warn',
     })
-    if (!choice) return
+    if (!killOk) return
 
-    if (choice === 'force') {
-      // 仍要继续（不推荐）→ 后端 force 放行
-      force = true
-    } else {
-      const ok = await killDsh()
-      if (!ok) return
+    const ok = await killDsh()
+    if (!ok) {
+      // 结束失败 → 提供强制继续选项
+      force = await confirm({
+        title: t('update.dshRunningTitle'),
+        message: t('update.killFailedHint'),
+        confirmText: t('update.continueAnyway'),
+        cancelText: t('common.cancel'),
+        type: 'warn',
+      })
+      if (!force) return
     }
   } else {
     const ok = await confirm({

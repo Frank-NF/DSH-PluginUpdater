@@ -48,6 +48,7 @@ export const en: Record<string, string> = {
   'update.done': '"{name}" updated to v{version}',
   'update.failed': 'Update failed',
   'update.killAndContinue': 'Kill DSH processes & update',
+  'update.killFailedHint': '\n\nFailed to stop DSH (insufficient permissions?).\nYou can force-continue, but DSH may rewrite files during the update and break it.',
   'update.killDone': 'Killed {n} DSH process(es)',
   'update.killFailed': 'Failed to kill DSH processes (try running this tool as administrator)',
   'update.elevatePrompt': 'Regular kill failed (target may run elevated). Launch a UAC prompt to kill as administrator? Standard users need the admin password.',
