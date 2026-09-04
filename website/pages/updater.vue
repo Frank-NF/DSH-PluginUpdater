@@ -57,7 +57,7 @@
 
 <script setup lang="ts">
 const runtimeConfig = useRuntimeConfig()
-const previewUrl = runtimeConfig.public.previewUrl || 'http://dsh.huilinsh.cn:8071/'
+const previewUrl = runtimeConfig.public.previewUrl || 'https://dsh.huilinsh.cn:8071/'
 </script>
 
 <style scoped>

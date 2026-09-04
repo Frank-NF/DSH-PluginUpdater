@@ -765,7 +765,7 @@ const tabs = computed(() => [
   },
   {
     name: 'installed' as const,
-    label: `${t('tab.installed')} (${props.plugins.filter((p) => p.manifest.type !== 'agent-core').length})`,
+    label: `${t('tab.installed')} (${props.plugins.filter((p) => p.manifest.type !== 'agent-core' && !p.bundled).length})`,
     short: t('tab.installedShort'),
     icon: 'package',
   },
@@ -913,6 +913,7 @@ const categoryFilter = ref<string | null>(null)
 const categories = computed(() => {
   const map = new Map<string, number>()
   for (const p of props.plugins) {
+    if (p.manifest.type === 'agent-core' || p.bundled) continue
     if (p.category) map.set(p.category, (map.get(p.category) || 0) + 1)
   }
   return [...map.entries()].sort((a, b) => b[1] - a[1])
@@ -920,7 +921,8 @@ const categories = computed(() => {
 
 /** 按分类筛选后的插件（网格与列表视图共用——修复原列表视图未筛选的问题） */
 const filteredPlugins = computed(() => {
-  let list = props.plugins
+  // 已安装列表仅展示用户插件：内置运行时（agent-core）与本体预装（bundled）不显示
+  let list = props.plugins.filter((p) => p.manifest.type !== 'agent-core' && !p.bundled)
   if (categoryFilter.value) {
     list = list.filter((p) => p.category === categoryFilter.value)
   }
