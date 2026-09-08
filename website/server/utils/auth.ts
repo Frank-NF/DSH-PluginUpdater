@@ -9,8 +9,13 @@ import { getDB } from './db'
 
 const JWT_SECRET =
   process.env.DSH_JWT_SECRET || randomBytes(32).toString('hex')
-// 注意：不设环境变量时每次重启会换密钥（所有登录态失效），
-// 生产部署必须在 systemd 里固定 DSH_JWT_SECRET
+// 注意：不设环境变量时每次重启会换密钥（所有登录态失效）。
+// 生产部署必须在 systemd 里固定 DSH_JWT_SECRET；未设时 fail-fast 防止 session 劫持。
+// fallback 随机值仅允许开发环境使用。
+if (process.env.NODE_ENV === 'production' && !process.env.DSH_JWT_SECRET) {
+  console.error('[auth] FAILFAST: NODE_ENV=production 但 DSH_JWT_SECRET 未设置，已阻止服务启动')
+  throw new Error('DSH_JWT_SECRET must be set in production environment')
+}
 
 export interface AuthUser {
   id: number

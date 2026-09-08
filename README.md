@@ -28,13 +28,21 @@ DSH-PluginUpdater/
 │   │   ├── manifest.rs     # 插件清单读写
 │   │   ├── plugin_scan.rs  # 插件目录扫描
 │   │   ├── github_proxy.rs # GitHub 请求客户端
-│   │   └── file_ops.rs     # 文件操作（更新/卸载/备份）
+│   │   ├── file_ops.rs     # 文件操作（更新/卸载/备份）
+│   │   ├── catalog.rs      # 官方插件目录拉取与 Ed25519 签名验证（V3 安全）
+│   │   ├── bundle.rs       # 组合包协议（含冲突预检、事务撤销）
+│   │   ├── snapshot.rs     # 插件环境快照导出/导入/比对
+│   │   ├── mcp.rs          # MCP Server 环境配置管理
+│   │   ├── dsh_server.rs   # 本地 DSH Web 服务器启停（路径自动探测）
+│   │   └── version_probe.rs # 版本探测
+│   ├── keys/               # Ed25519 密钥对（私钥 gitignore，仅公钥入库供编译期 include_bytes!）
+│   ├── icons/              # 应用图标（多尺寸）
 │   ├── Cargo.toml
 │   ├── tauri.conf.json
 │   └── build.rs
 ├── src-vue/                # Vue3 前端界面
 │   ├── src/
-│   │   ├── components/     # UI 组件
+│   │   ├── components/     # UI 组件（含 ServerPanel.vue）
 │   │   ├── stores/         # Pinia 状态管理
 │   │   ├── api/            # Tauri 调用封装
 │   │   ├── types/          # TypeScript 类型定义
@@ -48,6 +56,116 @@ DSH-PluginUpdater/
 │   ├── pages/              # 页面（首页/插件市场/下载/文档）
 │   ├── components/         # 网站组件
 │   ├── assets/css/         # 网站样式
+│   ├── server/             # Nitro 服务端（API 路由 + Ed25519 签名）
+│   ├── nuxt.config.ts
+│   └── package.json
+├── proxy-server/           # Go 代理服务器（GitHub/npm 加速）
+├── scripts/                # 构建与部署脚本（含密钥管理、图标导出、git 钩子）
+├── docs/                   # 项目文档（设计规范、用户手册）
+├── 安装包/                 # NSIS 打包产物（归档历史版本）
+├── version.json            # 自更新渠道清单（version/platforms/sha256/changelog）
+└── README.md
+```
+
+## 技术栈
+
+### 桌面客户端
+- **Tauri 2.0**：桌面应用框架，Rust 后端 + Web 前端
+- **Vue 3**：前端框架，Composition API
+- **TypeScript**：类型安全
+- **Element Plus**：UI 组件库
+- **Pinia**：状态管理
+- **Rust**：后端核心逻辑
+  - `reqwest`：HTTP 客户端
+  - `semver`：语义化版本解析
+  - `zip`：压缩包解压
+  - `serde`：序列化/反序列化
+  - `walkdir`：目录遍历
+  - `ed25519-dalek`：Ed25519 签名验证（目录/自更新双链路，V3 安全）
+
+### 官方网站
+- **Nuxt 3**：SSR 框架
+- **Vue 3**：前端框架
+- **Element Plus**：UI 组件库
+- **SQLite + jsonwebtoken + bcryptjs**：后台权限与认证
+
+## 安全设计（V3）
+
+- **Ed25519 签名链**：官网 `/api/plugins` 与 `/api/updater/latest` 对原始 body 字节签名；桌面端编译时嵌入公钥，响应体经 `verify_page_signature` / `verify_response_signature` 验证；验签失败 → 市场列表拒绝（降级磁盘缓存），自更新拒绝（fail-closed）
+- **密钥轮换**：旧密钥已在 git 历史中清除；新密钥通过环境变量 `DSH_SIGNING_KEY_PATH` 部署到服务端
+- **JWT fail-fast**：`NODE_ENV=production` 下缺失 `DSH_JWT_SECRET` 时服务启动即拒绝（避免 session 劫持）
+- **Cookie secure flag**：生产环境 token cookie 强制 `Secure`
+
+## 快速开始
+
+### 1. 克隆项目
+
+```bash
+git clone https://github.com/Frank-NF/DSH-PluginUpdater.git
+cd DSH-PluginUpdater
+```
+
+### 2. 开发桌面客户端
+
+```bash
+# 安装前端依赖
+cd src-vue
+npm install
+
+# 安装 Rust 依赖（自动）
+cd ../src-tauri
+cargo build
+
+# 启动开发模式
+cd ..
+npm run tauri dev
+```
+
+### 3. 构建生产版本
+
+```bash
+cd src-tauri
+cargo tauri build
+```
+
+构建产物位于 `src-tauri/target/release/bundle/` 目录下。
+
+### 4. 启动官方网站
+
+```bash
+cd website
+npm install
+npm run dev
+```
+
+### 5. 密钥配置（仅服务端部署）
+
+将 `scripts/ed25519-private.pem` 复制到服务器并设置环境变量：
+```
+DSH_SIGNING_KEY_PATH=/var/www/dsh-updater/ed25519-private.pem
+DSH_SIGNING_PUB_KEY=/var/www/dsh-updater/ed25519-public.pem
+DSH_JWT_SECRET=<强随机 32+ 字节>
+```
+
+## 许可证
+
+MIT License - 详见 [LICENSE](LICENSE)
+
+## 更新日志
+
+详见 [CHANGELOG.md](CHANGELOG.md)
+
+## 插件清单规范
+
+每个插件目录下需要包含 `plugin.manifest.json` 文件：
+
+```json
+{
+  "id": "dsh-plugin-example",
+  "name": "示例插件",
+  "description": "插件功能介绍",
+  "github_repo": "owner/repo",
+  "current_version": "1.0.0",
 │   ├── nuxt.config.ts
 │   └── package.json
 ├── docs/                   # 项目文档

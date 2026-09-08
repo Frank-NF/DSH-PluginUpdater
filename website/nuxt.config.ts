@@ -33,7 +33,7 @@ export default defineNuxtConfig({
     superAdminEmails: process.env.SUPER_ADMIN_EMAILS || '',
     public: {
       proxyBaseUrl: process.env.PROXY_BASE_URL || '',
-      appVersion: '1.0.0',
+      appVersion: '1.14.0',
       githubClientId: process.env.GITHUB_CLIENT_ID || '',
     },
   },

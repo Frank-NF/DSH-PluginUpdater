@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { PluginInfo, AppConfig, UpdateProgress, MarketPlugin, SelfUpdateInfo, AutoUpdateState } from '../types'
+import type { PluginInfo, AppConfig, UpdateProgress, MarketPlugin, SelfUpdateInfo, AutoUpdateState, CatalogStatus } from '../types'
 import { pluginApi, eventApi } from '../api'
 import { t } from '../i18n'
 
@@ -20,6 +20,8 @@ const isCheckingSelfUpdate = ref(false)
 const autoUpdateState = ref<AutoUpdateState | null>(null)
 const showAutoUpdateFloat = ref(false)
 const autoUpdateInstallPath = ref<string | null>(null)
+/** 目录安全状态（V3）：sig_valid=false 时全局显示篡改告警条 */
+const catalogStatus = ref<CatalogStatus | null>(null)
 
 async function getAutoUpdateState(): Promise<AutoUpdateState | null> {
   try {

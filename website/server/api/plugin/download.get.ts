@@ -72,7 +72,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: '下载地址不在白名单' })
   }
 
-  setHeader(event, 'X-DSH-SHA256', shasum || '')
+  // X-DSH-SH1：上游 npm dist shasum（MD5 已弱化，改头名以消除安全隐患暗示）
+  setHeader(event, 'X-DSH-SH1', shasum || '')
   setHeader(event, 'X-DSH-Version', targetVersion)
   setHeader(event, 'X-DSH-NPM', npmName)
   setHeader(event, 'Cache-Control', 'public, max-age=600')

@@ -173,7 +173,7 @@ pub async fn fetch_catalog_from_website(client: &reqwest::Client) -> AppResult<C
         if let Some(sv) = sig_valid {
             match all_sig_valid {
                 None => all_sig_valid = Some(sv),
-                Some(prev) => { if !sv { all_sig_valid = Some(false); } }
+                Some(_prev) => { if !sv { all_sig_valid = Some(false); } }
             }
         }
         let got = parsed.plugins.len();
@@ -301,6 +301,23 @@ async fn enrich_npm_downloads(client: &reqwest::Client, entries: &mut [CatalogEn
 pub async fn fetch_catalog(client: &reqwest::Client) -> AppResult<Catalog> {
     // 0. 优先官网权威源（统一数据入口）
     match fetch_catalog_from_website(client).await {
+        // 签名验证失败 = 目录在传输途中被篡改或密钥不匹配（V3 安全体系：强制拦截，不消费被篡改的目录）。
+        // 降级到磁盘缓存（缓存是上次签名验证通过时写入的，可信），而不是用攻击者可控的数据。
+        Ok(cat) if cat.sig_valid == Some(false) => {
+            eprintln!("[catalog] ⚠️ 官网目录签名验证失败，拒绝消费，降级本地缓存");
+            if let Some(cached) = read_cache() {
+                eprintln!("[catalog] 已降级磁盘缓存（{} 条，上次验证通过时写入）", cached.len());
+                return Ok(Catalog {
+                    entries: cached,
+                    fetched_at: Instant::now(),
+                    source: "disk-cache(sig-fallback)".to_string(),
+                    sig_valid: Some(false),
+                });
+            }
+            return Err(AppError::Other(
+                "官网目录签名验证失败且无本地缓存，已拒绝加载（数据可能被篡改）".to_string(),
+            ));
+        }
         Ok(cat) => return Ok(cat),
         Err(e) => eprintln!("[catalog] 官网源失败，降级 npm/Pages: {}", e),
     }
@@ -640,4 +657,17 @@ pub async fn verify_page_signature(
     }
 
     Ok((parsed, None))
+}
+
+/// 从 HTTP 响应头提取签名并验证原始 body 字节（供自更新链复用）
+/// 与 verify_page_signature 的区别：此函数直接接收 headers + body_bytes，不发起请求。
+/// 签名头缺失 → None；签名头存在但验证失败 → Some(false)；通过 → Some(true)
+pub fn verify_response_signature(
+    headers: &reqwest::header::HeaderMap,
+    body_bytes: &[u8],
+) -> Option<bool> {
+    let sig_header = headers.get("X-DSH-SIGNATURE").cloned()?;
+    let sig = sig_header.to_str().ok()?;
+    let body_str = String::from_utf8_lossy(body_bytes);
+    Some(verify_catalog_signature(sig, &body_str, SIGNING_PUB_KEY))
 }

@@ -10,6 +10,7 @@ mod version_probe;
 mod bundle;
 mod mcp;
 mod snapshot;
+mod dsh_server;
 
 use error::{AppConfig, AppError, AppResult, PluginInfo};
 use file_ops::{open_in_file_manager, PluginFileManager};
@@ -27,6 +28,8 @@ pub struct AppState {
     pub bundle_cancels: Mutex<std::collections::HashMap<String, std::sync::Arc<std::sync::atomic::AtomicBool>>>,
     /// 后台自动更新状态：最新版本信息 + 下载进度
     pub auto_update: Mutex<AutoUpdateState>,
+    /// 目录安全状态（V3 安全：最近一次目录拉取的签名验证结果，透传给前端 UI 告警）
+    pub catalog_status: Mutex<CatalogStatus>,
 }
 
 /// 后台自动更新状态
@@ -58,10 +61,32 @@ impl Default for AutoUpdateState {
     }
 }
 
+impl Default for CatalogStatus {
+    fn default() -> Self {
+        Self {
+            sig_valid: None,
+            source: "none".to_string(),
+        }
+    }
+}
 
-/// 返回官方目录全部插件（市场浏览用），不依赖本地安装
+
+/// 市场目录状态（V3 安全：签名验证结果透传前端，失败时 UI 显著告警）
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct CatalogStatus {
+    /// 官网目录是否消费了被篡改/未签名的数据（Some(false)=签名验证失败）
+    pub sig_valid: Option<bool>,
+    /// 实际数据源（官网 / npm 镜像 / Pages / 磁盘缓存）
+    pub source: String,
+}
+
+/// 返回官方目录全部插件（市场浏览用），不依赖本地安装。
+/// 签名验证结果通过 Tauri 事件 catalog_status 推送给前端（列表与状态一起取会有竞态）。
 #[tauri::command]
-async fn list_catalog_plugins(state: State<'_, AppState>) -> AppResult<Vec<error::MarketPlugin>> {
+async fn list_catalog_plugins(
+    window: tauri::Window,
+    state: State<'_, AppState>,
+) -> AppResult<Vec<error::MarketPlugin>> {
     let config = state.config.lock().unwrap().clone();
     let proxy = GitHubProxyClient::new(&config.proxy_base_url, None);
 
@@ -69,9 +94,19 @@ async fn list_catalog_plugins(state: State<'_, AppState>) -> AppResult<Vec<error
         Ok(cat) => cat,
         Err(e) => {
             eprintln!("[market] 拉取插件目录失败: {}", e);
+            // 目录彻底不可用（含签名失败且无缓存）：明确告知前端，而非静默空列表
+            let _ = window.emit(
+                "catalog_status",
+                CatalogStatus { sig_valid: None, source: format!("unavailable: {}", e) },
+            );
             return Ok(Vec::new());
         }
     };
+
+    let sig_valid = catalog.sig_valid;
+    let source = catalog.source.clone();
+    // 目录级签名状态：Some(false) = 拒绝了被篡改数据并降级缓存；Some(true) = 验证通过；None = 该数据源未签名
+    let _ = window.emit("catalog_status", CatalogStatus { sig_valid, source });
 
     Ok(catalog
         .entries
@@ -490,8 +525,50 @@ fn apply_catalog_metadata(
     }
 }
 
+/// 扫描核心逻辑（无 Window 版本，供卸载后自动重扫等内部调用复用）
+async fn scan_plugins_inner(directory: String, state: State<'_, AppState>) -> AppResult<Vec<PluginInfo>> {
+    let mut plugins = scan_plugin_directory(&directory)?;
+
+    // 扫描时即用官方目录填充元数据（描述/分类/star/下载），无需等检查更新
+    {
+        let config = state.config.lock().unwrap().clone();
+        let proxy = GitHubProxyClient::new(&config.proxy_base_url, None);
+        let (catalog_map, sig_valid) = build_catalog_map(proxy.http_client()).await;
+        if sig_valid == Some(false) {
+            // V3 安全体系：签名验证失败 = 目录被篡改 → 不用其元数据污染本地列表
+            eprintln!("[catalog] ⚠️ 签名验证失败，跳过目录元数据填充（防篡改元数据注入）");
+        } else {
+            if sig_valid == Some(true) {
+                eprintln!("[catalog] 签名验证通过");
+            }
+            apply_catalog_metadata(&catalog_map, &mut plugins);
+        }
+    }
+
+    // 更新配置中的插件目录并持久化
+    {
+        let mut config = state.config.lock().unwrap();
+        config.plugin_directory = directory.clone();
+        let snapshot = config.clone();
+        drop(config);
+        let _ = save_config_to_disk(&snapshot);
+    }
+
+    // 保存到状态
+    {
+        let mut state_plugins = state.plugins.lock().unwrap();
+        *state_plugins = plugins.clone();
+    }
+
+    Ok(plugins)
+}
+
 #[tauri::command]
-async fn scan_plugins(directory: String, state: State<'_, AppState>) -> AppResult<Vec<PluginInfo>> {
+async fn scan_plugins(
+    window: tauri::Window,
+    directory: String,
+    state: State<'_, AppState>,
+) -> AppResult<Vec<PluginInfo>> {
     let mut plugins = scan_plugin_directory(&directory)?;
 
     // 扫描时即用官方目录填充元数据（描述/分类/star/下载），无需等检查更新
@@ -500,12 +577,18 @@ async fn scan_plugins(directory: String, state: State<'_, AppState>) -> AppResul
         let proxy = GitHubProxyClient::new(&config.proxy_base_url, None);
         let (catalog_map, sig_valid) = build_catalog_map(proxy.http_client()).await;
         if let Some(false) = sig_valid {
-            eprintln!("[catalog] 签名验证失败，目录可信度存疑");
-        } else if let Some(true) = sig_valid {
-            eprintln!("[catalog] 签名验证通过");
+            // V3 安全体系：签名验证失败 = 目录被篡改 → 不用其元数据污染本地列表
+            eprintln!("[catalog] ⚠️ 签名验证失败，跳过目录元数据填充（防篡改元数据注入）");
+            let _ = window.emit(
+                "catalog_status",
+                CatalogStatus { sig_valid: Some(false), source: "scan: signature rejected".to_string() },
+            );
+        } else {
+            if let Some(true) = sig_valid {
+                eprintln!("[catalog] 签名验证通过");
+            }
+            apply_catalog_metadata(&catalog_map, &mut plugins);
         }
-
-        apply_catalog_metadata(&catalog_map, &mut plugins);
     }
 
     // 更新配置中的插件目录并持久化
@@ -533,8 +616,11 @@ async fn check_updates(state: State<'_, AppState>) -> AppResult<Vec<PluginInfo>>
 
     let mut plugins = state.plugins.lock().unwrap().clone();
 
-    // 先拉官方插件目录（npm 包源 → 官方 Pages fallback），建立 name/npm → entry 索引
-    let (catalog_map, _) = build_catalog_map(proxy.http_client()).await;
+    // 先拉官方插件目录（npm 包源 → 官方 Pages fallback），建立 name/npm → entry 索引。
+    // V3 安全：签名验证失败的目录不参与更新元数据解析（catalog::fetch_catalog 内部已
+    // 拦截被篡改数据并降级磁盘缓存，这里再对结果做双保险——sig false 时不回填 github_repo）
+    let (catalog_map, catalog_sig_valid) = build_catalog_map(proxy.http_client()).await;
+    let catalog_trusted = catalog_sig_valid != Some(false);
 
     // 解析每个插件的 npm 包名（目录命中 → manifest.id 兜底：本地插件 id 即 npm 包名）。
     // 仅 @deepseek-ai/* 本体组件不参与（npm 上游由 DSH 本体统一管理）；
@@ -618,12 +704,15 @@ async fn check_updates(state: State<'_, AppState>) -> AppResult<Vec<PluginInfo>>
     }
 
     // 写回结果；GitHub 兜底路线照旧处理未被 npm 解析覆盖的插件
-    for plugin in plugins.iter_mut() {
-        if plugin.manifest.github_repo.is_empty() {
-            if let Some(entry) = catalog_map.get(&plugin.manifest.id.to_lowercase()) {
-                if let Some(url) = &entry.url {
-                    if let Some(rest) = url.strip_prefix("https://github.com/") {
-                        plugin.manifest.github_repo = rest.trim_matches('/').to_string();
+    // V3 安全：仅当目录可信（签名通过或该源无签名但未被判定篡改）时才回填 github_repo
+    if catalog_trusted {
+        for plugin in plugins.iter_mut() {
+            if plugin.manifest.github_repo.is_empty() {
+                if let Some(entry) = catalog_map.get(&plugin.manifest.id.to_lowercase()) {
+                    if let Some(url) = &entry.url {
+                        if let Some(rest) = url.strip_prefix("https://github.com/") {
+                            plugin.manifest.github_repo = rest.trim_matches('/').to_string();
+                        }
                     }
                 }
             }
@@ -638,8 +727,10 @@ async fn check_updates(state: State<'_, AppState>) -> AppResult<Vec<PluginInfo>>
     }
 
     // 官方目录元数据 → 双语描述 + 分类 + star + 下载量（无需任何翻译 API，全量插件）
-    for plugin in plugins.iter_mut() {
-        apply_catalog_metadata(&catalog_map, std::slice::from_mut(plugin));
+    if catalog_trusted {
+        for plugin in plugins.iter_mut() {
+            apply_catalog_metadata(&catalog_map, std::slice::from_mut(plugin));
+        }
     }
 
     // 更新状态
@@ -1206,9 +1297,25 @@ async fn check_self_update() -> AppResult<SelfUpdateInfo> {
         Ok(r) => r, Err(e) => { eprintln!("[self_update] 请求失败: {}", e); return Ok(SelfUpdateInfo { available: false, current_version: env!("CARGO_PKG_VERSION").to_string(), latest_version: None, changelog: vec![], release_url: None, is_mandatory: false, expected_sha256: None }); }
     };
     if !resp.status().is_success() { return Ok(SelfUpdateInfo { available: false, current_version: env!("CARGO_PKG_VERSION").to_string(), latest_version: None, changelog: vec![], release_url: None, is_mandatory: false, expected_sha256: None }); }
+    // V3 安全体系：若服务端带签名头，验签失败直接拒绝（防中间人篡改更新包）。签名头缺失则 fail-open（过渡期兼容旧部署）
+    let (headers, body_bytes) = {
+        let h = resp.headers().clone();
+        let b = match resp.bytes().await {
+            Ok(b) => b,
+            Err(e) => { eprintln!("[self_update] 读取 body 失败: {}", e); return Ok(SelfUpdateInfo { available: false, current_version: env!("CARGO_PKG_VERSION").to_string(), latest_version: None, changelog: vec![], release_url: None, is_mandatory: false, expected_sha256: None }); }
+        };
+        (h, b)
+    };
+    if let Some(false) = catalog::verify_response_signature(&headers, &body_bytes) {
+        eprintln!("[self_update] ⚠️ 版本清单签名验证失败，拒绝更新");
+        return Ok(SelfUpdateInfo { available: false, current_version: env!("CARGO_PKG_VERSION").to_string(), latest_version: None, changelog: vec![], release_url: None, is_mandatory: false, expected_sha256: None });
+    }
     #[derive(serde::Deserialize)]
     struct UR { version: String, #[serde(default)] changelog: Vec<String>, #[serde(default)] release_url: Option<String>, #[serde(default)] is_mandatory: bool, #[serde(default)] sha256: Option<String> }
-    let data: UR = match resp.json().await { Ok(d) => d, Err(e) => { eprintln!("[self_update] 解析失败: {}", e); return Ok(SelfUpdateInfo { available: false, current_version: env!("CARGO_PKG_VERSION").to_string(), latest_version: None, changelog: vec![], release_url: None, is_mandatory: false, expected_sha256: None }); } };
+    let data: UR = match serde_json::from_slice(&body_bytes) {
+        Ok(d) => d,
+        Err(e) => { eprintln!("[self_update] 解析失败: {}", e); return Ok(SelfUpdateInfo { available: false, current_version: env!("CARGO_PKG_VERSION").to_string(), latest_version: None, changelog: vec![], release_url: None, is_mandatory: false, expected_sha256: None }); }
+    };
     let current = env!("CARGO_PKG_VERSION").to_string();
     let latest = data.version.clone();
     let available = match (semver::Version::parse(&current), semver::Version::parse(&latest)) { (Ok(a), Ok(b)) => b > a, _ => false };
@@ -1285,7 +1392,8 @@ async fn uninstall_plugin(plugin_id: String, state: State<'_, AppState>) -> AppR
         .map_err(|e| error::AppError::Other(format!("卸载失败: {}", e)))?;
 
     // 卸载后重新扫描目录，确保状态与磁盘一致（避免缓存残留）
-    let _ = scan_plugins(config.plugin_directory.clone(), state).await;
+    // （内部调用不带 Window：catalog_status 由下一次用户触发的扫描上报，此处无需重复推送）
+    let _ = scan_plugins_inner(config.plugin_directory.clone(), state).await;
 
     Ok(())
 }
@@ -1541,6 +1649,17 @@ fn get_auto_update_state(state: State<'_, AppState>) -> AutoUpdateState {
     state.auto_update.lock().unwrap().clone()
 }
 
+/// 目录安全状态查询（V3 安全）：返回最近一次市场目录拉取的签名验证结果
+#[tauri::command]
+fn get_catalog_trust(state: State<'_, AppState>) -> CatalogStatus {
+    state.catalog_status.lock().unwrap().clone()
+}
+
+/// 更新目录安全状态（内部用，由 list_catalog_plugins/scan_plugins 等触发）
+pub fn set_catalog_trust(state: &State<'_, AppState>, status: CatalogStatus) {
+    *state.catalog_status.lock().unwrap() = status;
+}
+
 /// 弹出系统目录选择框，返回所选路径（取消返回 None）
 #[tauri::command]
 async fn pick_directory(window: tauri::WebviewWindow) -> Result<Option<String>, String> {
@@ -1683,6 +1802,7 @@ fn main() {
             plugins: Mutex::new(Vec::new()),
             bundle_cancels: Mutex::new(std::collections::HashMap::new()),
             auto_update: Mutex::new(AutoUpdateState::default()),
+            catalog_status: Mutex::new(CatalogStatus::default()),
         })
         .setup(|app| {
             // dshupdater:// 协议注册（HKCU\Software\Classes，免管理员；便携 exe 无安装器，需运行时注册）
@@ -1763,6 +1883,11 @@ fn main() {
             bundle::install_bundle,
             bundle::is_cancelled,
             bundle::cancel_bundle_install,
+            dsh_server::server_status,
+            dsh_server::server_start,
+            dsh_server::server_stop,
+            dsh_server::server_restart,
+            get_catalog_trust,
         ])
         .build(tauri::generate_context!())
         .expect("error while building DSH Plugin Updater")
@@ -1792,8 +1917,17 @@ async fn check_auto_update_background(handle: tauri::AppHandle, proxy_url: Strin
         .build()
         .unwrap_or_default();
 
-    // 尝试代理，失败则直连
-    let version_url = format!("{}/api/updater/latest", proxy_url.trim_end_matches('/'));
+    // 尝试代理，失败则直连。proxy_url 为空时降级到官方直链（兜底）
+    let effective_proxy = if proxy_url.trim().is_empty() {
+        String::new()
+    } else {
+        proxy_url.trim_end_matches('/').to_string()
+    };
+    let version_url = if effective_proxy.is_empty() {
+        "https://dsh.huilinsh.cn/api/updater/latest".to_string()
+    } else {
+        format!("{}/api/updater/latest", effective_proxy)
+    };
     let resp = match client.get(&version_url).send().await {
         Ok(r) => r,
         Err(e) => {
@@ -1820,7 +1954,24 @@ async fn check_auto_update_background(handle: tauri::AppHandle, proxy_url: Strin
         sha256: Option<String>,
     }
 
-    let data: UR = match resp.json().await {
+    // V3 安全体系：若服务端带签名头，验签失败直接拒绝（防中间人篡改更新包）。签名头缺失则 fail-open。
+    let (headers, body_bytes) = {
+        let h = resp.headers().clone();
+        let b = match resp.bytes().await {
+            Ok(b) => b,
+            Err(e) => {
+                eprintln!("[auto-update] 读取 body 失败: {}", e);
+                return;
+            }
+        };
+        (h, b)
+    };
+    if let Some(false) = catalog::verify_response_signature(&headers, &body_bytes) {
+        eprintln!("[auto-update] ⚠️ 版本清单签名验证失败，跳过后台更新检查");
+        return;
+    }
+
+    let data: UR = match serde_json::from_slice(&body_bytes) {
         Ok(d) => d,
         Err(e) => {
             eprintln!("[auto-update] 解析失败: {}", e);

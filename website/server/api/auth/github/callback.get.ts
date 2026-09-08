@@ -112,6 +112,7 @@ export default defineEventHandler(async (event) => {
   setCookie(event, 'dsh_token', signToken(user), {
     httpOnly: true,
     sameSite: 'lax',
+    secure: process.env.NODE_ENV !== 'development',
     maxAge: 7 * 24 * 3600,
     path: '/',
   })

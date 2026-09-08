@@ -22,6 +22,14 @@ export interface MarketPlugin {
   url: string | null
 }
 
+/** 官方目录安全状态（V3：签名验证结果透传，失败时 UI 显著告警） */
+export interface CatalogStatus {
+  /** Some(false)=签名验证失败（已拒绝被篡改数据并降级缓存）；Some(true)=验证通过；null=该数据源无签名 */
+  sig_valid: boolean | null
+  /** 实际数据源描述（官网/npm/Pages/磁盘缓存/unavailable:原因） */
+  source: string
+}
+
 /** DSH 运行环境检查项 */
 export interface EnvCheckItem {
   id: string

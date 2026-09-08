@@ -9,11 +9,12 @@ const RATE_WINDOW_MS = 15 * 60 * 1000
 const RATE_MAX = 10
 
 function clientIp(event: any): string {
-  return (
-    getHeader(event, 'x-forwarded-for')?.split(',')[0].trim() ||
-    getHeader(event, 'x-real-ip') ||
-    'unknown'
-  )
+  // 优先读 Nginx 注入的 X-Real-IP（不可伪造，来源是 TCP peer），再 fallback 到 XFF 最左侧（信任反向代理）
+  const realIp = getHeader(event, 'x-real-ip')
+  if (realIp) return realIp.trim()
+  const xff = getHeader(event, 'x-forwarded-for')
+  if (xff) return xff.split(',')[0].trim()
+  return 'unknown'
 }
 
 export default defineEventHandler(async (event) => {
@@ -59,6 +60,7 @@ export default defineEventHandler(async (event) => {
   setCookie(event, 'dsh_token', signToken(user), {
     httpOnly: true,
     sameSite: 'lax',
+    secure: process.env.NODE_ENV !== 'development',
     maxAge: 7 * 24 * 3600,
     path: '/',
   })

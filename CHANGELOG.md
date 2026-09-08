@@ -1,8 +1,40 @@
 # 更新日志（Changelog）
 
-格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)，发布流程见 [docs/VERSIONING.md](docs/VERSIONING.md)。
+*格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)，发布流程见 [docs/VERSIONING.md](docs/VERSIONING.md)。*
 
 ## [Unreleased]
+
+## [1.14.0] - 2026-09-08
+
+### Security (V3 签名链全量修复)
+
+- **Ed25519 签名链贯通**：官网 `/api/plugins` 与 `/api/updater/latest` 对原始 body 字节签名（`node:crypto.sign(null, body, pem)`），桌面端编译时嵌入公钥验证（`verify_page_signature` / `verify_response_signature`）；签名缺失 → fail-open，签名失败 → fail-closed
+- **目录签名验证失败强制拦截**：`fetch_catalog_from_website` 返回 `sig_valid=false` 时拒绝消费目录数据，降级磁盘缓存；缓存不可用时返回错误而非空列表
+- **密钥第三次轮换**：新 Ed25519 密钥对已生成并部署到全部位置；`git filter-repo` 从全部引用（main + archived + 32 个 tag）清除旧私钥 blob、key-info.json、dsh-proxy 二进制与 vite 临时文件；`.git` 大小从 11.2MB 降至 3.6MB
+- **pre-commit / pre-push 钩子**：`scripts/git-hooks/` 版本化防泄漏钩子，阻止私钥文件被意外提交或推送
+- **官网 JWT fail-fast**：`NODE_ENV=production` 下缺失 `DSH_JWT_SECRET` 时服务启动即抛出异常，避免随机密钥导致的 session 劫持
+- **Cookie Secure flag**：登录/注册/GitHub 回调/登出全部 cookie 在生产环境启用 `Secure`
+- **clientIp 优先级修正**：优先读 Nginx `X-Real-IP`（不可伪造），再 fallback 到 `X-Forwarded-For` 首段
+- **X-DSH-SHA256 改名为 X-DSH-SH1**：消除 MD5 弱化暗示，与 SHA256 语义对齐
+
+### Features
+
+- **dsh_server 路径去硬编码**：`DSH_HARNESS_DIR` / `DSH_CLI_DIR` / `DSH_WEB_PROFILE_DIR` 改为自动探测（环境变量 `DSH_WEB_DIR` > `~/.dsh/web-dir` 缓存 > 候选路径），`find_node` 遍历 `.workbuddy/binaries/node/versions` 按版本号取最新 22.x
+- **version.json 恢复**：重新纳入版本清单（含 sha256、平台 URL、changelog）；fallback 改为 `0.0.0` 杜绝误降级
+- **自更新代理 URL 兜底**：`proxy_url` 为空时降级到官方直链，不再直接报错
+- **安装包归档整理**：旧版本移入 `安装包/旧版本/`，新增 1.14.0 安装程序
+
+### Fixes
+
+- **官网签名 API 兼容性**：`manifest/sign.post.ts` 与 `manifest/verify.get.ts` 改用 Ed25519 原生 API（移除不兼容的 `createSign('SHA256')` wrapper）
+- **根目录 package.json**：补充 `name` / `private` 字段，避免 npm 命名冲突
+
+### Docs & Hygiene
+
+- **LICENSE**：新增 MIT 许可证
+- **.github/**：新增 `SECURITY.md` + CI workflow（cargo check + npm build）
+- **gitignore 重构**：扩展忽略规则（icon-build/、DSH-Icons-v*/、dist-old/、vite timestamp 文件、proxy-server/dsh-proxy），移除 `src-tauri/keys/` 整目录忽略（改为仅忽略私钥文件）
+- **README 更新**：项目结构补充 dsh_server/catalog/bundle/snapshot/mcp 模块说明，新增安全设计章节与密钥配置说明
 
 ## [1.13.15] - 2026-09-04
 
