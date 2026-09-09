@@ -12,21 +12,13 @@
       <nav class="nav-links">
         <NuxtLink to="/" class="nav-link" active-class="active">首页</NuxtLink>
         <NuxtLink to="/plugins" class="nav-link" active-class="active">插件市场</NuxtLink>
+        <NuxtLink to="/bundles" class="nav-link" active-class="active">组合包</NuxtLink>
         <NuxtLink to="/download" class="nav-link" active-class="active">下载</NuxtLink>
         <NuxtLink to="/docs" class="nav-link" active-class="active">文档</NuxtLink>
-      <NuxtLink to="/offline" class="nav-link" active-class="active">离线部署</NuxtLink>
+        <NuxtLink to="/offline" class="nav-link" active-class="active">离线部署</NuxtLink>
       </nav>
 
       <div class="header-actions">
-        <a
-          :href="previewUrl"
-          target="_blank"
-          rel="noopener"
-          class="btn btn-outline btn-sm"
-        >
-          <span class="online-dot" aria-hidden="true"></span>
-          在线版
-        </a>
         <NuxtLink to="/download" class="btn btn-primary btn-sm download-btn">下载客户端</NuxtLink>
 
         <!-- 未登录 -->
@@ -79,7 +71,6 @@
 import { version as appVersion } from '~/package.json'
 
 const { user, logout, openAuthDialog } = useAuth()
-const previewUrl = useRuntimeConfig().public.previewUrl
 
 const menuOpen = ref(false)
 const userWrap = ref<HTMLElement | null>(null)

@@ -8,7 +8,12 @@
             <li><a href="#quick-start" class="active">快速开始</a></li>
             <li><a href="#installation">安装指南</a></li>
             <li><a href="#basic-usage">基本使用</a></li>
+            <li><a href="#bundles">行业组合包</a></li>
             <li><a href="#mcp-panel">MCP 服务管理</a></li>
+            <li><a href="#snapshots">快照与离线部署</a></li>
+            <li><a href="#server-panel">DSH Web 服务器面板</a></li>
+            <li><a href="#security">安全设计</a></li>
+            <li><a href="#self-update">自动更新</a></li>
             <li><a href="#plugin-manifest">插件清单规范</a></li>
             <li><a href="#proxy-setup">代理服务部署</a></li>
             <li><a href="#faq">常见问题</a></li>
@@ -18,13 +23,13 @@
         <div class="docs-content">
           <article id="quick-start">
             <h1>快速开始</h1>
-            <p>DSH 插件升级管理工具是一个独立运行的桌面程序，不依赖 DSH Agent 本体。它可以扫描您的插件目录，管理所有已安装插件的更新、启用、禁用和卸载。</p>
+            <p>DSH 插件升级管理工具是一个独立运行的桌面程序，不依赖 DSH Agent 本体。它可以扫描您的插件目录，管理所有已安装插件的更新、启用、禁用和卸载，并内置行业组合包、MCP 服务管理与离线部署能力。</p>
 
             <h2>系统要求</h2>
             <ul>
-              <li><strong>Windows:</strong> Windows 10 或更高版本（64位）</li>
+              <li><strong>Windows:</strong> Windows 10 1903+ / Windows 11（64位）</li>
               <li><strong>Linux:</strong> Ubuntu 20.04+ / Debian 11+（x86_64）</li>
-              <li><strong>网络:</strong> 可访问代理服务器</li>
+              <li><strong>网络:</strong> 可访问 GitHub 与 npm 官方源（内置直连加速）</li>
             </ul>
           </article>
 
@@ -33,7 +38,7 @@
 
             <h2>Windows 安装</h2>
             <ol>
-              <li>从<a href="/download">下载页面</a>获取最新的 .exe 安装包</li>
+              <li>从<a href="/download">下载页面</a>获取最新的 .exe 安装包（下载页展示 SHA256，可先校验再安装）</li>
               <li>双击运行安装程序</li>
               <li>按照安装向导完成安装</li>
               <li>从桌面快捷方式或开始菜单启动程序</li>
@@ -63,7 +68,7 @@
             <p>点击「扫描」按钮，工具将遍历目录下的所有子文件夹，读取每个插件的 <code>plugin.manifest.json</code> 文件，列出所有已安装插件。</p>
 
             <h2>3. 检查更新</h2>
-            <p>点击「检查更新」按钮，工具将通过网络代理访问 GitHub，检测每个插件的最新版本。有可用更新的插件将高亮显示。</p>
+            <p>点击「检查更新」按钮，工具将通过 npm / GitHub 双源检测每个插件的最新版本。有可用更新的插件将高亮显示。</p>
 
             <h2>4. 更新插件</h2>
             <p>对于有可用更新的插件，点击「更新」按钮即可开始更新。更新前会自动备份旧版本，更新过程中显示进度条。</p>
@@ -79,6 +84,26 @@
 
             <h2>7. 打开插件目录</h2>
             <p>点击「目录」按钮可以直接在文件管理器中打开插件所在文件夹，方便手动查看或修改插件文件。</p>
+          </article>
+
+          <article id="bundles">
+            <h1>行业组合包</h1>
+            <p>组合包按行业场景把「插件 + MCP 服务模板 + Skill」打包成一套，一键安装即得到完整能力栈，无需逐个挑选。入口：客户端「组合包」标签页，或官网 <a href="/bundles">组合包页</a> 浏览（安装动作在客户端内完成）。</p>
+
+            <h2>安装流程</h2>
+            <ol>
+              <li>在组合包列表按行业标签筛选，查看每个包的插件清单与 MCP 服务清单</li>
+              <li>点击「安装」后自动执行冲突预检（依赖冲突 / MCP 端口占用等）</li>
+              <li>预检通过后逐项安装，任一项失败自动回滚已装部分</li>
+              <li>安装完成后 MCP 模板进入「MCP 服务管理」面板，密钥留待填写</li>
+            </ol>
+
+            <h2>常见组合包内容</h2>
+            <ul>
+              <li><strong>插件清单：</strong>必装项与可选项分级，可按需跳过可选项</li>
+              <li><strong>MCP 服务模板：</strong>预置服务名、命令、参数与环境变量键名（不含密值）</li>
+              <li><strong>Skill 集：</strong>行业相关的技能描述文件</li>
+            </ul>
           </article>
 
           <article id="mcp-panel">
@@ -99,6 +124,79 @@
 
             <h2>5. 启用/禁用服务</h2>
             <p>「禁用」会把该服务条目安全移出运行配置并暂存（其余条目与你手工添加的内容零改动），需要时一键恢复。</p>
+          </article>
+
+          <article id="snapshots">
+            <h1>快照与离线部署</h1>
+            <p>「快照与离线打包」面向两类场景：环境迁移（快照导出/比对）与无外网环境（离线包）。入口：客户端「快照与离线打包」标签页。</p>
+
+            <h2>快照导出与比对</h2>
+            <ol>
+              <li>「导出快照」记录当前插件目录的完整状态（插件清单、版本、启用状态、MCP 配置结构）</li>
+              <li>把快照文件带到另一台机器，或留作基线</li>
+              <li>「导入快照」时与目标机当前状态逐项比对，列出差异后按需补齐</li>
+            </ol>
+
+            <h2>离线部署（两步完成）</h2>
+            <ol>
+              <li><strong>联网机生成离线包：</strong>选择要带走的插件，生成自包含 <code>.zip</code>（含全部插件文件与依赖清单、校验信息）</li>
+              <li><strong>离线机导入：</strong>目标机安装客户端后「导入离线包」，逐项校验完整性并还原</li>
+            </ol>
+            <p>详见官网<a href="/offline">离线部署指引</a>。</p>
+          </article>
+
+          <article id="server-panel">
+            <h1>DSH Web 服务器面板</h1>
+            <p>客户端内置本地 DSH Web 服务器的启停面板。入口：顶栏服务器图标（闪电按钮）。</p>
+
+            <h2>功能</h2>
+            <ul>
+              <li><strong>状态查看：</strong>运行状态、监听地址与端口（带 token 的访问地址一键复制/直达）</li>
+              <li><strong>启停控制：</strong>启动 / 停止 / 重启本地 DSH Web 服务器</li>
+              <li><strong>路径自动探测：</strong>自动定位本机 DSH 安装目录（apps/cli）与 Node 运行时；也可用环境变量 <code>DSH_WEB_DIR</code>、<code>DSH_NODE_PATH</code> 显式指定</li>
+            </ul>
+            <div class="warning-box">
+              <strong>注意：</strong>面板只做进程级启停，不修改 DSH 自身配置；服务器崩溃后可从面板一键重启。
+            </div>
+          </article>
+
+          <article id="security">
+            <h1>安全设计</h1>
+            <p>v1.14.0 起全链路启用 Ed25519 签名验证，防止目录数据与更新包在传输途中被篡改。</p>
+
+            <h2>验证范围</h2>
+            <table class="field-table">
+              <thead>
+                <tr><th>数据流</th><th>机制</th><th>失败行为</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>插件目录（<code>/api/plugins</code>）</td><td>响应体 Ed25519 验签（X-DSH-SIGNATURE 头）</td><td>拒绝消费 + 降级本地缓存（标注 sig-fallback）</td></tr>
+                <tr><td>自更新清单（<code>/api/updater/latest</code>）</td><td>同上</td><td>fail-closed，不提示更新</td></tr>
+                <tr><td>更新包下载</td><td>SHA256 完整性校验</td><td>终止安装</td></tr>
+                <tr><td>MCP 密钥</td><td>加密存系统凭据库</td><td>—（本地存储，不经网络）</td></tr>
+              </tbody>
+            </table>
+
+            <h2>密钥管理</h2>
+            <ul>
+              <li>签名私钥仅存在于官网服务器（环境变量注入路径），从不入库、不打安装包</li>
+              <li>客户端只内置公钥（32 字节），密钥已历经三次轮换，历史泄漏密钥均已作废</li>
+              <li>签名失败时界面顶部出现红色告警条，可手动重试验证</li>
+            </ul>
+
+            <h2>过渡语义（v1.14.0 之前的老客户端）</h2>
+            <p>老版本客户端内置旧公钥，看到新签名会得到「验证失败」结果，自动降级本地缓存目录数据，仍可正常自更新到 1.14.0；官网过渡期对未签名响应 fail-open，不拦截老版本。升级到 1.14.0 后即恢复完整验签。</p>
+          </article>
+
+          <article id="self-update">
+            <h1>自动更新</h1>
+            <p>客户端启动时后台检查新版本（可关闭）。发现新版本后：</p>
+            <ol>
+              <li>从官网拉取清单并验证 Ed25519 签名（失败则放弃本次更新）</li>
+              <li>下载对应平台安装包并校验 SHA256</li>
+              <li>提示用户确认后执行安装</li>
+            </ol>
+            <p>清单中的 <code>changelog</code> 会在更新提示里逐条展示；「跳过此版本」的记录保存在本地。</p>
           </article>
 
           <article id="plugin-manifest">
@@ -188,8 +286,8 @@
           </article>
 
           <article id="proxy-setup">
-            <h1>代理服务部署</h1>
-            <p>代理服务是工具能够正常访问 GitHub 的关键。以下是部署指南。</p>
+            <h1>代理服务部署（自建可选）</h1>
+            <p>客户端默认直连 GitHub 与 npm 官方源。如果你的网络环境无法直连，可自建代理服务。以下是部署指南。</p>
 
             <h2>使用 Docker 部署（推荐）</h2>
             <ol>
@@ -240,7 +338,10 @@ cd DSH-PluginUpdater/proxy-server</code></pre>
             <h1>常见问题</h1>
 
             <h3>Q: 工具提示"检查更新失败"怎么办？</h3>
-            <p>A: 请检查网络连接是否正常，代理服务是否可访问。可以在设置中确认代理地址配置正确。</p>
+            <p>A: 请检查网络连接是否正常。可在设置中确认网络配置；自建代理用户请确认代理服务可访问。</p>
+
+            <h3>Q: 顶部出现红色"目录签名验证失败"告警？</h3>
+            <p>A: 说明官网返回的插件目录数据未通过 Ed25519 验签。工具已自动降级到本地缓存数据（功能不受影响）。点击告警条上的重试可重新验证；若持续出现请通过问题反馈渠道上报。</p>
 
             <h3>Q: 更新插件时提示"文件被占用"？</h3>
             <p>A: 这是因为 DSH Agent 正在运行并加载了该插件。请先关闭 DSH Agent 本体，再执行更新操作。</p>
@@ -255,7 +356,10 @@ cd DSH-PluginUpdater/proxy-server</code></pre>
             <p>A: 工具使用语义化版本（Semantic Versioning）规范，格式为 MAJOR.MINOR.PATCH，例如 1.2.3。也支持 v 前缀，如 v1.2.3。</p>
 
             <h3>Q: 工具会收集我的数据吗？</h3>
-            <p>A: 不会。所有插件扫描和管理操作都在本地完成，仅在检查更新和下载时通过网络代理访问 GitHub，不收集任何用户数据。</p>
+            <p>A: 不会。所有插件扫描和管理操作都在本地完成，仅在检查更新和下载时访问 GitHub/npm 与官网清单，不收集任何用户数据。MCP 密钥加密保存在本机系统凭据库，不上传。</p>
+
+            <h3>Q: 之前的"在线版"去哪了？</h3>
+            <p>A: 在线版已于 v1.13.15 下线，插件管理能力统一收敛到桌面客户端（功能更全：组合包、MCP 面板、快照与离线部署均为客户端独占）。插件市场浏览仍可在官网完成。</p>
           </article>
         </div>
       </div>
@@ -299,155 +403,150 @@ useHead({
 
 .docs-sidebar ul {
   list-style: none;
-  padding: 0;
-}
-
-.docs-sidebar li {
-  margin-bottom: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .docs-sidebar a {
   display: block;
-  padding: 8px 12px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 13.5px;
   color: var(--text-secondary);
-  font-size: 14px;
-  border-radius: 6px;
-  transition: all var(--dur) var(--ease);
+  transition: all 0.18s ease;
 }
 
 .docs-sidebar a:hover,
 .docs-sidebar a.active {
-  background: rgba(99, 102, 241, 0.14);
   color: var(--primary-light);
+  background: rgba(99, 102, 241, 0.1);
 }
 
 .docs-content {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 56px;
 }
 
 .docs-content article {
-  margin-bottom: 60px;
+  scroll-margin-top: 90px;
 }
 
 .docs-content h1 {
   font-size: 28px;
   font-weight: 700;
   color: var(--text-primary);
-  margin-bottom: 20px;
+  margin-bottom: 18px;
   padding-bottom: 12px;
-  border-bottom: 1px solid var(--glass-border);
+  border-bottom: 1px solid var(--border);
 }
 
 .docs-content h2 {
-  font-size: 20px;
+  font-size: 19px;
   font-weight: 600;
   color: var(--text-primary);
-  margin: 28px 0 16px;
+  margin: 28px 0 12px;
 }
 
 .docs-content h3 {
-  font-size: 16px;
+  font-size: 15.5px;
   font-weight: 600;
-  color: var(--primary-light);
-  margin: 24px 0 12px;
+  color: var(--text-primary);
+  margin: 20px 0 8px;
 }
 
 .docs-content p {
-  font-size: 15px;
-  line-height: 1.8;
+  font-size: 14.5px;
   color: var(--text-secondary);
-  margin-bottom: 16px;
+  line-height: 1.85;
+  margin-bottom: 12px;
 }
 
 .docs-content ul,
 .docs-content ol {
   padding-left: 24px;
-  margin-bottom: 16px;
+  color: var(--text-secondary);
+  line-height: 1.9;
+  font-size: 14.5px;
+  margin-bottom: 14px;
 }
 
-.docs-content li {
-  font-size: 15px;
-  line-height: 1.8;
-  color: var(--text-secondary);
-  margin-bottom: 8px;
+.docs-content a {
+  color: var(--primary-light);
 }
 
 .docs-content code {
-  background: rgba(0, 0, 0, 0.3);
-  padding: 2px 6px;
-  border-radius: 4px;
   font-size: 13px;
-  color: var(--warning);
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  color: var(--primary-light);
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 7px;
+  border-radius: 5px;
 }
 
 .docs-content pre {
   background: rgba(0, 0, 0, 0.35);
-  border: 1px solid var(--glass-border);
-  padding: 16px 20px;
+  border: 1px solid var(--border);
   border-radius: 10px;
+  padding: 16px 18px;
   overflow-x: auto;
-  margin: 16px 0;
+  margin: 10px 0 16px;
 }
 
 .docs-content pre code {
   background: none;
-  color: var(--info);
   padding: 0;
   font-size: 13px;
-  line-height: 1.6;
-}
-
-.warning-box {
-  background: rgba(245, 158, 11, 0.1);
-  border-left: 4px solid var(--warning);
-  padding: 16px 20px;
-  border-radius: 0 10px 10px 0;
-  margin: 16px 0;
-}
-
-.warning-box strong {
-  color: var(--warning);
-}
-
-.warning-box p {
-  margin: 8px 0 0;
-  color: var(--text-secondary);
+  line-height: 1.7;
 }
 
 .field-table {
   width: 100%;
   border-collapse: collapse;
-  margin: 16px 0;
+  font-size: 13.5px;
+  margin: 12px 0 18px;
 }
 
 .field-table th,
 .field-table td {
-  padding: 10px 14px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
   text-align: left;
-  border: 1px solid var(--glass-border);
-  font-size: 14px;
+  color: var(--text-secondary);
+  vertical-align: top;
 }
 
 .field-table th {
-  background: rgba(255, 255, 255, 0.05);
-  font-weight: 600;
   color: var(--text-primary);
+  background: rgba(99, 102, 241, 0.08);
+  font-weight: 600;
 }
 
-.field-table td {
+.warning-box {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 10px;
+  padding: 12px 16px;
+  font-size: 13.5px;
   color: var(--text-secondary);
+  line-height: 1.7;
+  margin: 12px 0 16px;
 }
 
 @media (max-width: 900px) {
   .docs-container {
     flex-direction: column;
   }
-
   .docs-sidebar {
     width: 100%;
     position: static;
+  }
+  .docs-sidebar ul {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 4px;
   }
 }
 </style>

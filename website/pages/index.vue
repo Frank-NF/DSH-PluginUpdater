@@ -8,29 +8,23 @@
       <div class="container hero-content">
         <div class="hero-badge">
           <span class="dot"></span>
-          v1.0.0 正式版已发布
+          v1.14.0 · 安全加固版已发布
         </div>
         <h1>
           DSH 插件升级管理
           <span class="gradient-text">一站式插件生态</span>
         </h1>
         <p class="hero-desc">
-          浏览插件市场、查看实时排行，或直接使用在线版管理插件。
-          桌面客户端支持一键扫描、更新、启用、禁用、卸载，官方加速访问 GitHub。
+          浏览 2189+ 插件市场、一键安装行业组合包，或在桌面客户端完成扫描、
+          更新、启停、卸载与 MCP 服务管理——全链路 Ed25519 签名验证，防篡改。
         </p>
         <div class="hero-buttons">
           <NuxtLink to="/plugins" class="btn btn-primary">
             浏览插件市场
           </NuxtLink>
-          <a
-            :href="previewUrl"
-            target="_blank"
-            rel="noopener"
-            class="btn btn-outline"
-          >
-            <span class="online-dot" aria-hidden="true"></span>
-            打开在线版
-          </a>
+          <NuxtLink to="/bundles" class="btn btn-primary">
+            行业组合包
+          </NuxtLink>
           <NuxtLink to="/download" class="btn btn-outline">
             下载桌面客户端
           </NuxtLink>
@@ -49,8 +43,13 @@
           </div>
           <div class="stat-divider"></div>
           <div class="stat">
-            <span class="stat-value" :class="{ live: true }">在线</span>
-            <span class="stat-label">官方加速</span>
+            <span class="stat-value">99+</span>
+            <span class="stat-label">行业组合包</span>
+          </div>
+          <div class="stat-divider"></div>
+          <div class="stat">
+            <span class="stat-value" :class="{ live: true }">已验证</span>
+            <span class="stat-label">签名保护</span>
           </div>
         </div>
       </div>
@@ -108,42 +107,39 @@
     <section class="section">
       <div class="container">
         <div class="section-title">
-          <h2>两种使用方式</h2>
-          <p>在线版即开即用，桌面客户端功能完整</p>
+          <h2>桌面客户端 · 功能完整</h2>
+          <p>Windows / Linux 单文件运行，无需安装</p>
         </div>
         <div class="modes-grid">
-          <div class="mode-card card">
-            <div class="mode-icon web">🌐</div>
-            <h3>在线版</h3>
-            <p class="mode-tagline">无需安装，打开浏览器就能用</p>
-            <ul class="mode-features">
-              <li>插件市场浏览与检索</li>
-              <li>插件管理完整功能</li>
-              <li>无需下载，随开随用</li>
-            </ul>
-            <a
-              :href="previewUrl"
-              target="_blank"
-              rel="noopener"
-              class="btn btn-primary mode-btn"
-            >
-              立即打开
-            </a>
-          </div>
-
           <div class="mode-card card featured">
             <div class="mode-badge">推荐</div>
             <div class="mode-icon desktop">🖥️</div>
             <h3>桌面客户端</h3>
-            <p class="mode-tagline">Windows / Linux 单文件运行</p>
+            <p class="mode-tagline">插件 · 组合包 · MCP · 快照 · 离线部署</p>
             <ul class="mode-features">
-              <li>本地插件目录智能扫描</li>
-              <li>一键更新 + 自动备份回滚</li>
-              <li>代理，GitHub 访问无障碍</li>
-              <li>Agent 本体保护，安全卸载</li>
+              <li>本地插件目录智能扫描，一键更新自动备份</li>
+              <li>行业组合包安装（插件 + MCP 模板 + Skill）</li>
+              <li>MCP 服务集中管理，密钥加密存系统凭据库</li>
+              <li>快照导出 / 离线打包，隔离环境批量部署</li>
+              <li>本地 DSH Web 服务器启停面板</li>
             </ul>
             <NuxtLink to="/download" class="btn btn-primary mode-btn">
               下载客户端
+            </NuxtLink>
+          </div>
+
+          <div class="mode-card card">
+            <div class="mode-icon web">🛡️</div>
+            <h3>V3 安全体系</h3>
+            <p class="mode-tagline">全链路 Ed25519 签名验证</p>
+            <ul class="mode-features">
+              <li>目录与自更新清单响应体逐字节验签</li>
+              <li>签名失败自动拒绝 + 降级本地缓存</li>
+              <li>更新包 SHA256 完整性校验</li>
+              <li>密钥从未入库，轮换流程版本化</li>
+            </ul>
+            <NuxtLink to="/docs#security" class="btn btn-outline mode-btn">
+              了解安全设计 →
             </NuxtLink>
           </div>
         </div>
@@ -171,10 +167,8 @@
 
 <script setup lang="ts">
 useHead({
-  title: 'DSH 插件升级管理 - 官方网站 | 插件市场 · 在线版 · 桌面客户端',
+  title: 'DSH 插件升级管理 - 官方网站 | 插件市场 · 组合包 · 桌面客户端',
 })
-const previewUrl = useRuntimeConfig().public.previewUrl
-
 interface PluginData {
   id: string
   name: string
@@ -211,11 +205,13 @@ function formatStars(n: number): string {
 
 const features = [
   { icon: '🔍', color: 'blue', title: '智能扫描', desc: '自动扫描插件目录，识别所有已装插件与 Agent 本体，信息一目了然。' },
-  { icon: '⬆️', color: 'green', title: '一键更新', desc: '网络代理快速检测 GitHub 最新版本，自动备份旧版本，支持回滚。' },
-  { icon: '🎛️', color: 'orange', title: '启停管理', desc: '启用或禁用插件无需删除文件，重启 Agent 即刻生效。' },
+  { icon: '📦', color: 'green', title: '组合包安装', desc: '99+ 行业组合包（插件 + MCP 模板 + Skill），安装前冲突预检、失败自动回滚。' },
+  { icon: '⬆️', color: 'green', title: '一键更新', desc: 'npm/GitHub 双源检测最新版本，更新前自动备份，支持随时回滚。' },
+  { icon: '🛡️', color: 'red', title: '签名验证', desc: '目录与自更新清单 Ed25519 全链路验签，签名失败拒绝消费并降级缓存。' },
+  { icon: '🎛️', color: 'orange', title: 'MCP 服务管理', desc: 'MCP 集中配置，密钥加密存系统凭据库，探活检测连通性，一键写入运行配置。' },
+  { icon: '📸', color: 'purple', title: '快照与离线', desc: '导出插件环境快照比对差异；离线打包自带全部文件，隔离环境两步部署。' },
+  { icon: '🖥️', color: 'cyan', title: '服务器面板', desc: '本地 DSH Web 服务器启动/停止/重启，自动探测路径，带 token 地址一键直达。' },
   { icon: '🗑️', color: 'red', title: '安全卸载', desc: '卸载前自动备份可随时恢复，Agent 本体受保护防误删。' },
-  { icon: '📂', color: 'purple', title: '目录直达', desc: '一键打开插件所在文件夹，快速查看或手动修改配置。' },
-  { icon: '🚀', color: 'cyan', title: '官方加速', desc: '所有 GitHub 请求直连，检测与下载速度大幅提升。' },
 ]
 </script>
 

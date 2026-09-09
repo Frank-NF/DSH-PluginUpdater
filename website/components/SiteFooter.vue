@@ -8,8 +8,8 @@
             <h3>DSH 插件升级管理</h3>
           </div>
           <p>
-            独立运行的插件升级管理工具，支持扫描、更新、启用、禁用、卸载插件。
-            提供在线版与桌面客户端两种使用方式，通过网络代理访问 GitHub。
+            独立运行的插件升级管理工具：插件市场、行业组合包、MCP 服务管理、
+            快照与离线部署，全链路 Ed25519 签名验证。
           </p>
         </div>
         <div class="footer-column">
@@ -17,16 +17,15 @@
           <ul>
             <li><NuxtLink to="/">首页</NuxtLink></li>
             <li><NuxtLink to="/plugins">插件市场</NuxtLink></li>
+            <li><NuxtLink to="/bundles">行业组合包</NuxtLink></li>
             <li><NuxtLink to="/download">下载客户端</NuxtLink></li>
-            <li>
-              <a :href="previewUrl" target="_blank" rel="noopener">在线版</a>
-            </li>
           </ul>
         </div>
         <div class="footer-column">
           <h4>资源</h4>
           <ul>
             <li><NuxtLink to="/docs">使用文档</NuxtLink></li>
+            <li><NuxtLink to="/offline">离线部署指引</NuxtLink></li>
             <li><a href="https://github.com/Frank-NF" target="_blank" rel="noopener">GitHub</a></li>
             <li>
               <a href="https://github.com/Frank-NF/DSH-PluginUpdater/issues" target="_blank" rel="noopener">问题反馈</a>
@@ -43,14 +42,13 @@
         </div>
       </div>
       <div class="footer-bottom">
-        <p>&copy; 2026 DSH Plugin Updater. All rights reserved. | 官方加速</p>
+        <p>&copy; 2026 DSH Plugin Updater. MIT License · 全链路 Ed25519 签名验证</p>
       </div>
     </div>
   </footer>
 </template>
 
 <script setup lang="ts">
-const previewUrl = useRuntimeConfig().public.previewUrl
 </script>
 
 <style scoped>

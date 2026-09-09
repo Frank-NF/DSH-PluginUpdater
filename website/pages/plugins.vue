@@ -110,7 +110,7 @@
                 class="btn btn-sm install-btn"
                 :class="plugin.type === 'agent-core' ? 'btn-outline' : 'btn-primary'"
                 :disabled="plugin.type === 'agent-core'"
-                :title="plugin.type === 'agent-core' ? 'Agent 本体随客户端分发' : '在客户端或在线版中一键安装'"
+                :title="plugin.type === 'agent-core' ? 'Agent 本体随客户端分发' : '在桌面客户端中一键安装'"
                 @click="openInstall(plugin)"
               >
                 {{ plugin.type === 'agent-core' ? '随客户端分发' : '安装' }}
@@ -207,25 +207,20 @@
           <p class="dialog-desc">选择一种方式完成安装：</p>
 
           <div class="install-options">
-            <a
-              :href="previewUrl"
-              target="_blank"
-              rel="noopener"
-              class="install-option"
-            >
-              <div class="option-icon web">🌐</div>
-              <div class="option-info">
-                <strong>在线版安装</strong>
-                <span>打开在线版，自动调起安装流程，无需下载</span>
-              </div>
-              <span class="option-arrow">→</span>
-            </a>
-
             <NuxtLink to="/download" class="install-option" @click="installPlugin = null">
               <div class="option-icon desktop">🖥️</div>
               <div class="option-info">
                 <strong>客户端安装</strong>
                 <span>下载桌面客户端，扫描目录后一键安装</span>
+              </div>
+              <span class="option-arrow">→</span>
+            </NuxtLink>
+
+            <NuxtLink to="/bundles" class="install-option" @click="installPlugin = null">
+              <div class="option-icon web">📦</div>
+              <div class="option-info">
+                <strong>按行业整套安装</strong>
+                <span>浏览行业组合包，插件 + MCP + Skill 一键装齐</span>
               </div>
               <span class="option-arrow">→</span>
             </NuxtLink>
@@ -267,7 +262,6 @@
 useHead({
   title: '插件市场 - DSH 插件升级管理',
 })
-const previewUrl = useRuntimeConfig().public.previewUrl
 
 interface PluginData {
   id: string

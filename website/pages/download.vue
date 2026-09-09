@@ -5,33 +5,14 @@
     <section class="page-head">
       <div class="container">
         <h1>下载中心</h1>
-        <p>在线版即开即用，桌面客户端单文件运行无需安装</p>
+        <p>桌面客户端单文件运行 · 全链路 Ed25519 签名验证 · v{{ winVersion }} 安全加固版</p>
       </div>
     </section>
 
     <section class="download-body">
       <div class="container">
-        <!-- 在线版优先推荐 -->
-        <div class="online-banner card">
-          <div class="online-info">
-            <div class="online-icon">🌐</div>
-            <div>
-              <h3>在线版 · 无需下载</h3>
-              <p>打开浏览器即可管理插件，功能与客户端一致，自动保持最新版本</p>
-            </div>
-          </div>
-          <a
-            :href="previewUrl"
-            target="_blank"
-            rel="noopener"
-            class="btn btn-primary"
-          >
-            立即打开在线版
-          </a>
-        </div>
-
         <!-- 桌面客户端 -->
-        <div class="section-title" style="margin-top: 56px">
+        <div class="section-title">
           <h2>桌面客户端</h2>
           <p>选择适合您平台的版本</p>
         </div>
@@ -72,7 +53,7 @@
                 <li>AppImage 格式，开箱即用</li>
               </ul>
               <a class="btn btn-primary download-btn is-disabled" aria-disabled="true">暂未提供</a>
-              <p class="download-hash mono">可先使用 Windows 版或在线版</p>
+              <p class="download-hash mono">可先使用 Windows 版</p>
             </template>
           </div>
         </div>
@@ -125,9 +106,9 @@
               <h4>首次使用</h4>
               <ol>
                 <li>启动后点击「自动扫描」定位插件目录</li>
-                <li>或手动输入插件目录路径后扫描</li>
-                <li>检查更新并按需升级插件</li>
-                <li>所有更新前自动备份，可回滚</li>
+                <li>到「组合包」标签页按行业一键安装套件</li>
+                <li>检查更新并按需升级插件（更新前自动备份）</li>
+                <li>「设置 → MCP 服务管理」集中配置 MCP 密钥</li>
               </ol>
             </div>
           </div>
@@ -149,6 +130,10 @@
               <span class="req-label">网络</span>
               <span>访问 GitHub 与 npm 官方源，内置直连加速</span>
             </div>
+            <div class="req-item">
+              <span class="req-label">安全</span>
+              <span>目录 / 自更新清单 Ed25519 验签，更新包 SHA256 校验</span>
+            </div>
           </div>
         </div>
       </div>
@@ -157,7 +142,6 @@
 </template>
 
 <script setup lang="ts">
-const previewUrl = useRuntimeConfig().public.previewUrl
 interface PlatformAsset {
   version?: string
   url?: string
@@ -241,7 +225,7 @@ useHead({
   padding-bottom: 40px;
 }
 
-/* ---------- 在线版横幅 ---------- */
+/* ---------- 唤起横幅（复用卡片样式） ---------- */
 .online-banner {
   display: flex;
   align-items: center;
