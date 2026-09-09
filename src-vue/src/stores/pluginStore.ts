@@ -282,6 +282,22 @@ async function launchAutoUpdate(tempPath: string): Promise<void> {
     })
     // 启动即拉一次状态：后端可能在 WebView 监听建立前就已发出事件
     void getAutoUpdateState()
+
+    // V3 安全：目录签名验证失败 → 全局告警（catalog_status 事件 + 启动时主动查询）
+    eventApi.onCatalogStatus((status) => {
+      catalogStatus.value = status
+      if (status.sig_valid === false) {
+        console.warn('[catalog] ⚠️ 目录签名验证失败，已拒绝被篡改数据并降级本地缓存')
+      }
+    })
+    void pluginApi
+      .getCatalogTrust()
+      .then((s) => {
+        catalogStatus.value = s
+      })
+      .catch(() => {
+        /* 非致命：后端可能尚无目录拉取记录 */
+      })
   }
 
   function getUpdateProgress(pluginId: string): UpdateProgress | undefined {
@@ -322,6 +338,7 @@ return {
     disabledPlugins,
     agentCore,
     regularPlugins,
+    catalogStatus,
     loadConfig,
     saveConfig,
     scanPlugins,
