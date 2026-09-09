@@ -16,6 +16,7 @@
       @open-repair="showRepair = true"
       @open-mcp="showMcp = true"
       @open-snapshot="showSnapshot = true"
+      @open-server="showServerPanel = true"
       @open-website="openWebsite"
       @toggle-locale="toggleLocale"
       @toggle-theme="toggleTheme"
@@ -23,6 +24,12 @@
 
     <div ref="bodyEl" class="w-body">
       <div class="w-page">
+        <!-- V3 安全告警：目录签名验证失败（数据可能被篡改，已拒绝并降级缓存） -->
+        <div v-if="catalogSigInvalid" class="w-alert" style="border-color: var(--w-error, #fa5151)">
+          <WIcon name="alert" :size="16" />
+          <span class="w-flex-1">{{ t('security.catalogSigFailed') }}</span>
+        </div>
+
         <!-- 启动错误提示（屏幕可见） -->
         <div v-if="pluginStore.errorMessage && booting" class="w-start-error">
           <WIcon name="alert" :size="24" />
@@ -115,6 +122,7 @@
 
     <McpDialog v-model="showMcp" />
     <SnapshotDialog v-model="showSnapshot" />
+    <ServerPanel v-model="showServerPanel" />
 
     <!-- 后台自动更新悬浮窗 -->
     <AutoUpdateFloat />
@@ -139,6 +147,7 @@ import ReleaseNotesDialog from './components/ReleaseNotesDialog.vue'
 import RepairDialog from './components/RepairDialog.vue'
 import McpDialog from './components/McpDialog.vue'
 import SnapshotDialog from './components/SnapshotDialog.vue'
+import ServerPanel from './components/ServerPanel.vue'
 import AutoUpdateFloat from './components/AutoUpdateFloat.vue'
 import WToast from './components/WToast.vue'
 import WConfirmHost from './components/WConfirmHost.vue'
@@ -157,6 +166,7 @@ const showSettings = ref(false)
 const showRepair = ref(false)
 const showMcp = ref(false)
 const showSnapshot = ref(false)
+const showServerPanel = ref(false)
 const isAutoScanning = ref(false)
 const showReleaseNotes = ref(false)
 const currentReleaseNotesPlugin = ref<PluginInfo | null>(null)
@@ -166,6 +176,9 @@ const bodyEl = ref<HTMLElement | null>(null)
 const hasContent = computed(
   () => pluginStore.plugins.length > 0 || pluginStore.marketPlugins.length > 0
 )
+
+/** V3 安全：目录签名验证失败 → 顶部显著告警 */
+const catalogSigInvalid = computed(() => pluginStore.catalogStatus?.sig_valid === false)
 
 onMounted(async () => {
   console.log('[DSH] onMounted start')

@@ -8,8 +8,29 @@ import type {
   MarketPlugin,
   SelfUpdateInfo,
   AutoUpdateState,
+  CatalogStatus,
 } from '../types'
 import { listen } from '@tauri-apps/api/event'
+
+/** 本地 DSH Web 服务器状态（dsh_server.rs ServerStatus） */
+export interface ServerStatus {
+  running: boolean
+  port_open: boolean
+  port: number
+  pid: number
+  process_name: string
+  url: string
+  auth_url: string
+  message: string
+}
+
+/** 本地 DSH Web 服务器管理（启动/停止/重启/状态） */
+export const serverApi = {
+  status: (): Promise<ServerStatus> => invoke('server_status'),
+  start: (port?: number): Promise<string> => invoke('server_start', { port }),
+  stop: (): Promise<string> => invoke('server_stop'),
+  restart: (port?: number): Promise<string> => invoke('server_restart', { port }),
+}
 
 /**
  * 运行环境检测：
@@ -95,6 +116,8 @@ export const pluginApi = {
 
       getAutoUpdateState: (): Promise<AutoUpdateState> => invoke('get_auto_update_state'),
 
+      getCatalogTrust: (): Promise<CatalogStatus> => invoke('get_catalog_trust'),
+
       launchAutoUpdate: (tempPath: string): Promise<void> =>
         invoke('launch_auto_update', { tempPath }),
 
@@ -142,6 +165,16 @@ export const eventApi = {
       return Promise.resolve(() => {})
     }
     return listen<any>('auto_update_done', (event) => {
+      callback(event.payload)
+    })
+  },
+
+  /** V3 安全：目录签名验证失败时，后端通过 catalog_status 事件推送告警 */
+  onCatalogStatus: (callback: (status: CatalogStatus) => void) => {
+    if (!isTauri) {
+      return Promise.resolve(() => {})
+    }
+    return listen<CatalogStatus>('catalog_status', (event) => {
       callback(event.payload)
     })
   },

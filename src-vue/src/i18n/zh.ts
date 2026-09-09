@@ -224,6 +224,32 @@ export const zh: Record<string, string> = {
   'app.loadingDesc': '正在从官方目录获取插件信息，请稍候…',
   'empty.tips': '也可以在上方输入插件目录后点击「扫描」',
 
+  // V3 安全告警
+  'security.catalogSigFailed':
+    '⚠️ 官方插件目录签名验证失败，数据可能被篡改。已拒绝该数据并降级到本地缓存，市场信息可能不是最新。请检查网络环境（如代理/劫持）后重试。',
+
+  // 本地 DSH Web 服务器面板
+  'serverPanel.title': 'DSH Web 服务器',
+  'serverPanel.statusUnknown': '状态未知',
+  'serverPanel.running': '运行中',
+  'serverPanel.starting': '正在启动…',
+  'serverPanel.stopped': '已停止',
+  'serverPanel.processing': '处理中…',
+  'serverPanel.start': '启动',
+  'serverPanel.stop': '停止',
+  'serverPanel.restart': '重启',
+  'serverPanel.startOk': '服务器已启动',
+  'serverPanel.stopOk': '服务器已停止',
+  'serverPanel.restartOk': '服务器已重启',
+  'serverPanel.startFail': '启动失败',
+  'serverPanel.stopFail': '停止失败',
+  'serverPanel.restartFail': '重启失败',
+  'serverPanel.copyUrl': '复制地址',
+  'serverPanel.copied': '已复制到剪贴板',
+  'serverPanel.copyFail': '复制失败',
+  'serverPanel.authHint': '该地址含访问令牌，仅限本机浏览器打开，请勿外传',
+  'serverPanel.tips': '默认端口 {port}（DSH 官方默认 3080；如端口被占用将自动顺延）。服务器在后台独立运行，关闭本面板不影响。',
+
   // Tab 短标签（移动端底部导航）
   'tab.marketShort': '市场',
   'tab.installedShort': '已装',

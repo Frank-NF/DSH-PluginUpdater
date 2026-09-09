@@ -58,6 +58,13 @@
         <div class="w-header__icon-group w-hide-mobile">
           <WButton
             size="mini"
+            icon="zap"
+            :title="t('serverPanel.title')"
+            :aria-label="t('serverPanel.title')"
+            @click="$emit('open-server')"
+          />
+          <WButton
+            size="mini"
             icon="server"
             :title="t('mcp.title')"
             :aria-label="t('mcp.title')"
@@ -166,6 +173,7 @@ const emit = defineEmits<{
   'open-repair': []
   'open-mcp': []
   'open-snapshot': []
+  'open-server': []
   'toggle-locale': []
   'toggle-theme': []
 }>()
@@ -179,6 +187,7 @@ const themeIcon = computed(() => (props.theme === 'dark' ? 'sun' : 'moon'))
 
 const sheetItems = computed(() => [
   { label: t('header.autoScan'), value: 'auto', desc: '' },
+  { label: t('serverPanel.title'), value: 'server' },
   { label: t('mcp.title'), value: 'mcp' },
   { label: t('snapshot.title'), value: 'snapshot' },
   { label: t('header.theme'), value: 'theme' },
@@ -195,6 +204,9 @@ function onSheetSelect(value: string) {
       break
     case 'theme':
       emit('toggle-theme')
+      break
+    case 'server':
+      emit('open-server')
       break
     case 'mcp':
       emit('open-mcp')

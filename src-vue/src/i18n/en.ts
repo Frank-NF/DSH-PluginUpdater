@@ -224,6 +224,32 @@ export const en: Record<string, string> = {
   'app.loadingDesc': 'Fetching plugin data from the official catalog…',
   'empty.tips': 'Or enter a plugin directory above and tap Scan',
 
+  // V3 security alerts
+  'security.catalogSigFailed':
+    '⚠️ Official plugin catalog signature verification FAILED — data may have been tampered with. The untrusted data was rejected and a local cached copy is being used; market info may be stale. Check your network (proxy/hijacking) and retry.',
+
+  // Local DSH Web server panel
+  'serverPanel.title': 'DSH Web Server',
+  'serverPanel.statusUnknown': 'Status unknown',
+  'serverPanel.running': 'Running',
+  'serverPanel.starting': 'Starting…',
+  'serverPanel.stopped': 'Stopped',
+  'serverPanel.processing': 'Working…',
+  'serverPanel.start': 'Start',
+  'serverPanel.stop': 'Stop',
+  'serverPanel.restart': 'Restart',
+  'serverPanel.startOk': 'Server started',
+  'serverPanel.stopOk': 'Server stopped',
+  'serverPanel.restartOk': 'Server restarted',
+  'serverPanel.startFail': 'Failed to start',
+  'serverPanel.stopFail': 'Failed to stop',
+  'serverPanel.restartFail': 'Failed to restart',
+  'serverPanel.copyUrl': 'Copy URL',
+  'serverPanel.copied': 'Copied to clipboard',
+  'serverPanel.copyFail': 'Copy failed',
+  'serverPanel.authHint': 'This URL contains an access token — for local browser use only, do not share',
+  'serverPanel.tips': 'Default port {port} (DSH official default 3080; auto-increments if occupied). The server runs detached in the background; closing this panel does not stop it.',
+
   // Tab short labels (mobile tabbar)
   'tab.marketShort': 'Market',
   'tab.installedShort': 'Installed',
