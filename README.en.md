@@ -4,6 +4,12 @@
 
 **[简体中文](README.md) · English**
 
+## Download
+
+- Official site (recommended): **https://dsh.huilinsh.cn/download** — latest `v1.15.0`, SHA256 checksum provided
+- In-app self-update: the tool checks for new versions automatically on startup
+- Full feature guide: [User Manual](https://dsh.huilinsh.cn/docs)
+
 ## Features
 
 - **Standalone** — pure desktop tool, does not depend on the DSH Agent process

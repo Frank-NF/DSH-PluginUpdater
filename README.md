@@ -4,6 +4,12 @@
 
 **简体中文 · [English](README.en.md)**
 
+## 下载安装
+
+- 官网下载（推荐）：**https://dsh.huilinsh.cn/download** —— 最新版 `v1.15.0`，提供 SHA256 校验值
+- 应用内自更新：工具启动后自动检测新版本，一键升级
+- 当前版本功能总览见 [用户手册](https://dsh.huilinsh.cn/docs)
+
 ## 项目特性
 
 - **独立运行**：不依赖 DSH Agent 本体进程，纯桌面工具
