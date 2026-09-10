@@ -17,8 +17,7 @@ use file_ops::{open_in_file_manager, PluginFileManager};
 use github_proxy::GitHubProxyClient;
 use plugin_scan::scan_plugin_directory;
 use std::fs;
-use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 use tauri::{Emitter, Manager, State};
 
 pub struct AppState {
@@ -666,7 +665,7 @@ async fn check_updates(state: State<'_, AppState>) -> AppResult<Vec<PluginInfo>>
                 if let Some(latest) = r.latest {
                     if let Some((idx, _)) = npm_jobs
                         .iter()
-                        .find(|(i, _)| plugins[*i as usize].manifest.id == r.id)
+                        .find(|(i, _)| plugins[*i].manifest.id == r.id)
                     {
                         resolved.insert(*idx, (latest, r.tarball, r.sha, r.update_available));
                     }
@@ -1484,6 +1483,50 @@ fn update_config(new_config: AppConfig, state: State<'_, AppState>) -> AppResult
     Ok(())
 }
 
+/// 匿名安装 id：两次 RandomState（OS 熵播种）拼 128 位 hex，无新增依赖
+fn new_install_id() -> String {
+    use std::hash::{BuildHasher, Hasher};
+    let a = std::collections::hash_map::RandomState::new().build_hasher().finish();
+    let b = std::collections::hash_map::RandomState::new().build_hasher().finish();
+    format!("{:032x}", ((a as u128) << 64) | b as u128)
+}
+
+/// 匿名使用统计：启动时上报一次（随机安装 id + 版本号，无任何个人数据）。
+/// 用户可在设置中关闭（telemetry_enabled=false）；网络失败静默忽略。
+#[tauri::command]
+async fn report_app_ping(state: State<'_, AppState>) -> AppResult<bool> {
+    let mut cfg = state.config.lock().unwrap().clone();
+    if !cfg.telemetry_enabled {
+        return Ok(false);
+    }
+    if cfg.install_id.trim().is_empty() {
+        cfg.install_id = new_install_id();
+        save_config_to_disk(&cfg)?;
+        *state.config.lock().unwrap() = cfg.clone();
+    }
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(4))
+        .build()
+        .unwrap_or_default();
+    let body = serde_json::json!({
+        "kind": "app",
+        "install_id": cfg.install_id,
+        "version": env!("CARGO_PKG_VERSION")
+    });
+    match client
+        .post("https://dsh.huilinsh.cn/api/track")
+        .json(&body)
+        .send()
+        .await
+    {
+        Ok(_) => Ok(true),
+        Err(e) => {
+            eprintln!("[ping] 匿名统计上报失败(忽略): {}", e);
+            Ok(false)
+        }
+    }
+}
+
 #[tauri::command]
 fn list_backups(state: State<'_, AppState>) -> AppResult<Vec<file_ops::BackupInfo>> {
     let config = state.config.lock().unwrap().clone();
@@ -1892,6 +1935,9 @@ fn main() {
             dsh_server::server_stop,
             dsh_server::server_restart,
             get_catalog_trust,
+            test_server_connection,
+            sync_to_server,
+            report_app_ping,
         ])
         .build(tauri::generate_context!())
         .expect("error while building DSH Plugin Updater")

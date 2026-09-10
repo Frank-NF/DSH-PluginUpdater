@@ -137,6 +137,8 @@ export const en: Record<string, string> = {
   'settings.autoCheckDesc': 'Automatically check all plugin updates when a scan completes',
   'settings.autoBackup': 'Backup before update',
   'settings.autoBackupDesc': 'Back up the old version before updating; restore anytime',
+  'settings.telemetry': 'Anonymous usage stats',
+  'settings.telemetryDesc': 'Reports only a random install ID and app version (no personal data) to count active installs',
   'settings.about': 'About',
   'settings.version': 'Version',
   'settings.currentVersion': 'Running version',

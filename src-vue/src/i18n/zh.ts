@@ -137,6 +137,8 @@ export const zh: Record<string, string> = {
   'settings.autoCheckDesc': '扫描完成后自动检查所有插件的更新',
   'settings.autoBackup': '更新前自动备份',
   'settings.autoBackupDesc': '更新插件前自动备份旧版本，可随时回滚',
+  'settings.telemetry': '匿名使用统计',
+  'settings.telemetryDesc': '仅上报随机安装标识与软件版本（不含任何个人数据），用于统计活跃安装量',
   'settings.about': '关于',
   'settings.version': '工具版本',
   'settings.currentVersion': '当前运行版本',

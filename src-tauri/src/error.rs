@@ -19,12 +19,8 @@ pub enum AppError {
     ManifestNotFound(String),
     #[error("插件manifest格式错误: {0}")]
     ManifestInvalid(String),
-    #[error("操作被取消")]
-    Cancelled,
     #[error("兼容性预检失败: {0}")]
     CompatCheck(String),
-    #[error("存在阻塞级冲突: {0}")]
-    BlockingConflict(String),
     #[error("自我更新失败: {0}")]
     SelfUpdate(String),
     #[error("其他错误: {0}")]
@@ -179,10 +175,20 @@ pub struct AppConfig {
     pub server_dsh_dir: String,
     #[serde(default)]
     pub server_update_cmd: String,
+    /// 匿名安装标识：本地随机生成，仅用于统计活跃安装量（可在设置中关闭上报）
+    #[serde(default)]
+    pub install_id: String,
+    /// 是否允许匿名使用统计上报（默认开，设置页可关）
+    #[serde(default = "default_telemetry")]
+    pub telemetry_enabled: bool,
 }
 
 fn default_server_port() -> u16 {
     22
+}
+
+fn default_telemetry() -> bool {
+    true
 }
 
 impl Default for AppConfig {
@@ -200,6 +206,8 @@ impl Default for AppConfig {
             server_remote_dir: String::new(),
             server_dsh_dir: String::new(),
             server_update_cmd: String::new(),
+            install_id: String::new(),
+            telemetry_enabled: true,
         }
     }
 }

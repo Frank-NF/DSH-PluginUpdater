@@ -118,6 +118,16 @@
               <input v-model="formData.backup_before_update" class="weui-switch" type="checkbox" />
             </div>
           </div>
+
+          <div class="weui-cell weui-cell_active weui-cell_switch">
+            <div class="weui-cell__bd">
+              <p class="w-switch-title">{{ t('settings.telemetry') }}</p>
+              <p class="w-switch-desc">{{ t('settings.telemetryDesc') }}</p>
+            </div>
+            <div class="weui-cell__ft">
+              <input v-model="formData.telemetry_enabled" class="weui-switch" type="checkbox" />
+            </div>
+          </div>
         </div>
       </div>
 
@@ -339,6 +349,7 @@ const formData = reactive<AppConfig>({
   plugin_directory: '',
   auto_check_updates: true,
   backup_before_update: true,
+  telemetry_enabled: true,
   install_registry: '',
 })
 

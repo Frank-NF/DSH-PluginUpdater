@@ -77,6 +77,10 @@ export interface AppConfig {
   auto_check_updates: boolean
   backup_before_update: boolean
   install_registry: string
+  /** 匿名安装标识（本地生成，统计活跃安装量用） */
+  install_id?: string
+  /** 匿名使用统计上报开关 */
+  telemetry_enabled?: boolean
 }
 
 export interface BackupInfo {

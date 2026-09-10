@@ -99,10 +99,9 @@
       </div>
     </div>
 
-    <!-- 全局宿主：轻提示 / 确认框 / 动作面板 -->
+    <!-- 全局宿主：轻提示 / 确认框 -->
     <WToast />
     <WConfirmHost />
-    <WActionHost />
 
     <SettingsDialog
       v-model="showSettings"
@@ -151,7 +150,6 @@ import ServerPanel from './components/ServerPanel.vue'
 import AutoUpdateFloat from './components/AutoUpdateFloat.vue'
 import WToast from './components/WToast.vue'
 import WConfirmHost from './components/WConfirmHost.vue'
-import WActionHost from './components/WActionHost.vue'
 import WEmpty from './components/WEmpty.vue'
 import WButton from './components/WButton.vue'
 import WIcon from './components/WIcon.vue'
@@ -182,6 +180,8 @@ const catalogSigInvalid = computed(() => pluginStore.catalogStatus?.sig_valid ==
 
 onMounted(async () => {
   console.log('[DSH] onMounted start')
+  // 匿名使用统计（随机安装 id + 版本号，设置中可关）：失败静默
+  pluginApi.appPing().catch(() => {})
   try {
     await boot()
     console.log('[DSH] boot completed, plugins:', pluginStore.plugins.length, 'market:', pluginStore.marketPlugins.length)

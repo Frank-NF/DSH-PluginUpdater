@@ -80,6 +80,8 @@ export const pluginApi = {
     checkEnvironment: (): Promise<EnvCheckItem[]> =>
       invoke('check_environment'),
 
+    appPing: (): Promise<boolean> => invoke('report_app_ping'),
+
     listCatalogPlugins: (): Promise<MarketPlugin[]> =>
       invoke('list_catalog_plugins'),
 
