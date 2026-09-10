@@ -61,5 +61,9 @@ export default defineNuxtConfig({
 
   nitro: {
     preset: 'node-server',
+    // 原生/CJS 包强制外部化：内联进 ESM chunk 会让 require 崩溃（服务器实测）
+    externals: {
+      external: ['better-sqlite3', 'bcryptjs', 'jsonwebtoken'],
+    },
   },
 })
