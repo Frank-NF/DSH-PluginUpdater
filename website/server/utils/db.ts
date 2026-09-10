@@ -151,5 +151,27 @@ function migrate(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_feedback_user ON feedback(user_id);
     CREATE INDEX IF NOT EXISTS idx_compat_plugin ON plugin_compat(plugin_id);
     CREATE INDEX IF NOT EXISTS idx_conflicts_plugin ON plugin_conflicts(plugin_id);
+
+    -- 站点统计（自建轻量：日聚合计数，无个人数据。app ping 仅匿名随机安装 id + 版本号）
+    CREATE TABLE IF NOT EXISTS stats_page_views (
+      day TEXT NOT NULL,
+      path TEXT NOT NULL,
+      views INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY(day, path)
+    );
+
+    CREATE TABLE IF NOT EXISTS stats_downloads (
+      day TEXT NOT NULL,
+      file TEXT NOT NULL,
+      count INTEGER NOT NULL DEFAULT 0,
+      PRIMARY KEY(day, file)
+    );
+
+    CREATE TABLE IF NOT EXISTS stats_app_pings (
+      day TEXT NOT NULL,
+      install_id TEXT NOT NULL,
+      version TEXT NOT NULL DEFAULT '',
+      PRIMARY KEY(day, install_id)
+    );
   `)
 }
