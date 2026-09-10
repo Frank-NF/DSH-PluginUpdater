@@ -468,8 +468,10 @@
 </template>
 
 <script setup lang="ts">
-useHead({
-  title: '用户手册 - DSH插件管家',
+useSiteSeo({
+  title: '用户手册',
+  description: 'DSH插件管家用户手册：插件市场、组合包、已安装管理、MCP 服务、快照与离线打包、DSH 服务器管理全功能图文说明，含常见问题与快捷键。',
+  path: '/docs',
 })
 </script>
 

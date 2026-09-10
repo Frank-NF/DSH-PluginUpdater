@@ -26,6 +26,10 @@ export default defineNuxtConfig({
           content: '2189+ 插件市场 · 行业组合包 · MCP 管理 · 离线部署 · 全链路签名验证',
         },
         { property: 'og:type', content: 'website' },
+        { property: 'og:image', content: 'https://dsh.huilinsh.cn/og.png' },
+        { property: 'og:site_name', content: 'DSH插件管家' },
+        { name: 'twitter:card', content: 'summary_large_image' },
+        { name: 'twitter:image', content: 'https://dsh.huilinsh.cn/og.png' },
       ],
       link: [
         { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
@@ -35,7 +39,6 @@ export default defineNuxtConfig({
 
   css: [
     '~/assets/css/main.css',
-    'element-plus/dist/index.css',
   ],
 
   // 旧路由整理：/updater 为 1.0 时代遗留营销页（假统计），重定向到首页
@@ -49,7 +52,7 @@ export default defineNuxtConfig({
     superAdminEmails: process.env.SUPER_ADMIN_EMAILS || '',
     public: {
       proxyBaseUrl: process.env.PROXY_BASE_URL || '',
-      appVersion: '1.14.0',
+      appVersion: '1.15.0',
       githubClientId: process.env.GITHUB_CLIENT_ID || '',
       // 在线版已于 v1.13.15 下线；保留空值占位避免旧引用报错（页面上已全部移除入口）
       previewUrl: '',

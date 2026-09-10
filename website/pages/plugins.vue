@@ -259,8 +259,10 @@
 </template>
 
 <script setup lang="ts">
-useHead({
-  title: '插件市场 - DSH 插件升级管理',
+useSiteSeo({
+  title: '插件市场',
+  description: '浏览 2189+ DSH 社区插件：按行业分类筛选、关键词搜索，支持 Star 与下载数排序。插件以 npm 包分发，在 DSH插件管家客户端一键安装与更新。',
+  path: '/plugins',
 })
 
 interface PluginData {

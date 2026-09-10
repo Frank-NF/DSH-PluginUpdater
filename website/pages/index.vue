@@ -166,8 +166,10 @@
 </template>
 
 <script setup lang="ts">
-useHead({
-  title: 'DSH 插件升级管理 - 官方网站 | 插件市场 · 组合包 · 桌面客户端',
+useSiteSeo({
+  title: '插件市场 · 组合包 · 桌面客户端',
+  description: 'DSH插件管家官网：2189+ 插件市场、94 个行业组合包一键安装、MCP 服务管理、快照与离线部署。Windows/Linux 桌面客户端免费下载，全链路 Ed25519 签名验证。',
+  path: '/',
 })
 interface PluginData {
   id: string

@@ -63,7 +63,11 @@
 </template>
 
 <script setup lang="ts">
-useHead({ title: '离线部署 - DSH 插件升级管理工具' })
+useSiteSeo({
+  title: '离线部署',
+  description: '无网络环境还原插件方案：导出插件快照清单、打包离线安装包，跨机器迁移与版本回退一步完成。',
+  path: '/offline',
+})
 </script>
 
 <style scoped>

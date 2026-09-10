@@ -178,8 +178,28 @@ const linuxSizeMB = computed(() =>
   linux.value?.size_bytes ? Math.round((linux.value.size_bytes / 1024 / 1024) * 10) / 10 : '—'
 )
 
+useSiteSeo({
+  title: '下载中心',
+  description: '下载 DSH插件管家 Windows 安装包：独立运行、2189+ 插件市场、行业组合包一键安装。提供官方 SHA256 校验值，下载前可验证文件完整性。',
+  path: '/download',
+})
+
+// SoftwareApplication 结构化数据：搜索引擎富摘要（版本/价格/评分）
 useHead({
-  title: '下载中心 - DSH 插件升级管理',
+  script: [
+    {
+      type: 'application/ld+json',
+      innerHTML: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        name: 'DSH插件管家',
+        operatingSystem: 'Windows 10/11, Linux',
+        applicationCategory: 'DeveloperApplication',
+        offers: { '@type': 'Offer', price: '0', priceCurrency: 'CNY' },
+        description: 'DeepSeek Harness 生态插件管理桌面工具：2189+ 插件市场、行业组合包、MCP 服务管理、快照与离线部署。',
+      }),
+    },
+  ],
 })
 </script>
 

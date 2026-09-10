@@ -108,15 +108,10 @@
 </template>
 
 <script setup lang="ts">
-useHead({
-  title: '行业组合包 - DSH 插件升级管理',
-  meta: [
-    {
-      name: 'description',
-      content:
-        '99+ 行业组合包：插件 + MCP 服务模板 + Skill 一键装齐，安装前冲突预检、失败自动回滚。在桌面客户端组合包标签页安装。',
-    },
-  ],
+useSiteSeo({
+  title: '行业组合包',
+  description: '99+ 行业组合包：插件 + MCP 服务模板 + Skill 一键装齐，安装前冲突预检、失败自动回滚。医疗/法律/金融/教育/电商等 15 大行业，在桌面客户端组合包标签页安装。',
+  path: '/bundles',
 })
 const route = useRoute()
 const search = ref('')

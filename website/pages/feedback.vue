@@ -81,7 +81,11 @@
 </template>
 
 <script setup lang="ts">
-useHead({ title: '反馈管理 - DSH 插件升级管理' })
+useSiteSeo({
+  title: '反馈管理',
+  description: '提交使用反馈与功能建议：bug 报告、体验反馈、使用问题，帮助 DSH插件管家持续改进。',
+  path: '/feedback',
+})
 
 interface FeedbackRow {
   id: number
