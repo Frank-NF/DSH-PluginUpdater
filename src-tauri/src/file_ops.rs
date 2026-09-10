@@ -227,19 +227,6 @@ impl PluginFileManager {
         backups.sort_by(|a, b| b.name.cmp(&a.name));
         Ok(backups)
     }
-
-    pub fn cleanup_old_backups(&self, keep_count: usize) -> AppResult<usize> {
-        let backups = self.list_backups()?;
-        let mut removed = 0;
-        for (i, backup) in backups.iter().enumerate() {
-            if i >= keep_count {
-                if fs::remove_dir_all(&backup.path).is_ok() {
-                    removed += 1;
-                }
-            }
-        }
-        Ok(removed)
-    }
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -299,6 +286,8 @@ fn clear_readonly_recursive(path: &Path) -> std::io::Result<()> {
             let readonly = meta.permissions().readonly();
             if readonly {
                 let mut perm = meta.permissions();
+                // 清只读位是本函数的唯一职责（npm 装包产物只读导致删除失败）——该 lint 误报，显式豁免
+                #[allow(clippy::permissions_set_readonly_false)]
                 perm.set_readonly(false);
                 let _ = fs::set_permissions(&p, perm);
             }

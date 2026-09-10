@@ -80,11 +80,6 @@ fn current_entries(root_dir: &str) -> AppResult<Vec<SnapshotEntry>> {
     Ok(plugins.iter().map(to_entry).collect())
 }
 
-/// 供命令层复用的扫描摘要（不含快照文件 IO）
-pub(crate) fn snapshot_entries(root_dir: &str) -> AppResult<Vec<SnapshotEntry>> {
-    current_entries(root_dir)
-}
-
 /// 导出快照 JSON（UTF-8 无 BOM，.tmp 原子改名）
 pub fn snapshot_export(root_dir: &str, path: &str) -> AppResult<SnapshotSummary> {
     let entries = current_entries(root_dir)?;
@@ -223,7 +218,6 @@ pub fn offline_pack(root_dir: &str, out_path: &str) -> AppResult<OfflinePackSumm
     let mut zip = zip::ZipWriter::new(file);
     let opts =
         zip::write::SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
-    let mut files = 0usize;
     for (rel, dir) in &dirs {
         for entry in walkdir(dir)? {
             if entry.is_dir() {
@@ -237,7 +231,6 @@ pub fn offline_pack(root_dir: &str, out_path: &str) -> AppResult<OfflinePackSumm
                 .map_err(|e| AppError::Other(format!("zip 写入失败: {}", e)))?;
             let data = std::fs::read(&entry)?;
             std::io::Write::write_all(&mut zip, &data)?;
-            files += 1;
         }
     }
     zip.finish().map_err(|e| AppError::Other(format!("zip 收尾失败: {}", e)))?;

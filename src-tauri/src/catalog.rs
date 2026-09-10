@@ -96,20 +96,6 @@ pub struct Catalog {
     pub sig_valid: Option<bool>,
 }
 
-impl Catalog {
-    /// 按插件名（npm 名或 repo 名）查找目录条目
-    pub fn find(&self, plugin_name: &str) -> Option<&CatalogEntry> {
-        let lower = plugin_name.to_lowercase();
-        self.entries.iter().find(|e| {
-            e.name.to_lowercase() == lower
-                || e.npm
-                    .as_ref()
-                    .map(|n| n.to_lowercase() == lower)
-                    .unwrap_or(false)
-        })
-    }
-}
-
 /// 从 npm 包 tarball 解出 plugins.json
 fn plugins_json_from_tarball(gz_bytes: &[u8]) -> AppResult<Vec<u8>> {
     let gz = flate2::read::GzDecoder::new(gz_bytes);
@@ -366,11 +352,8 @@ async fn enrich_npm_downloads(client: &reqwest::Client, entries: &mut [CatalogEn
             continue;
         }
         let remaining = deadline - tokio::time::Instant::now();
-        match tokio::time::timeout(remaining, handle).await {
-            Ok(Ok(Some((idx, downloads)))) => {
-                entries[idx].downloads = Some(downloads);
-            }
-            _ => {}
+        if let Ok(Ok(Some((idx, downloads)))) = tokio::time::timeout(remaining, handle).await {
+            entries[idx].downloads = Some(downloads);
         }
     }
 }
@@ -401,9 +384,8 @@ pub async fn fetch_catalog(client: &reqwest::Client) -> AppResult<Catalog> {
         Err(e) => eprintln!("[catalog] 官网源失败，降级 npm/Pages: {}", e),
     }
 
-    let mut last_err: Option<String> = None;
-
     // 路线 1：npm 包（镜像 rewritten dist.tarball，国内走镜像）
+    // 循环内的失败仅写日志（路线 2 的错误必然覆盖 last_err，静态证明死存储）
     for mirror in NPM_MIRRORS {
         let meta_url = format!("{}/{}/latest", mirror, CATALOG_PACKAGE);
         match client.get(&meta_url).timeout(TIMEOUT).send().await {
@@ -413,7 +395,7 @@ pub async fn fetch_catalog(client: &reqwest::Client) -> AppResult<Catalog> {
                         let tarball = meta["dist"]["tarball"].as_str().unwrap_or("").to_string();
                         let version = meta["version"].as_str().unwrap_or("?").to_string();
                         if tarball.is_empty() {
-                            last_err = Some(format!("{} 元数据无 tarball", mirror));
+                            eprintln!("[catalog] {} 元数据无 tarball", mirror);
                             continue;
                         }
                         match client.get(&tarball).timeout(TIMEOUT).send().await {
@@ -424,7 +406,7 @@ pub async fn fetch_catalog(client: &reqwest::Client) -> AppResult<Catalog> {
                                             let parsed: CatalogFile = serde_json::from_slice(&json)
                                                 .map_err(|e| AppError::Other(format!("目录解析失败: {}", e)))?;
                                             if parsed.plugins.is_empty() {
-                                                last_err = Some(format!("{} 目录为空", mirror));
+                                                eprintln!("[catalog] {} 目录为空", mirror);
                                                 continue;
                                             }
                                             return Ok(Catalog {
@@ -434,24 +416,25 @@ pub async fn fetch_catalog(client: &reqwest::Client) -> AppResult<Catalog> {
                                                 sig_valid: None,
                                             });
                                         }
-                                        Err(e) => last_err = Some(e.to_string()),
+                                        Err(e) => eprintln!("[catalog] {} 解包失败: {}", mirror, e),
                                     },
-                                    Err(e) => last_err = Some(format!("tarball 下载失败: {}", e)),
+                                    Err(e) => eprintln!("[catalog] {} tarball 下载失败: {}", mirror, e),
                                 }
                             }
-                            Ok(tg) => last_err = Some(format!("tarball HTTP {}", tg.status())),
-                            Err(e) => last_err = Some(format!("tarball 请求失败: {}", e)),
+                            Ok(tg) => eprintln!("[catalog] {} tarball HTTP {}", mirror, tg.status()),
+                            Err(e) => eprintln!("[catalog] {} tarball 请求失败: {}", mirror, e),
                         }
                     }
-                    Err(e) => last_err = Some(format!("{} 元数据解析失败: {}", mirror, e)),
+                    Err(e) => eprintln!("[catalog] {} 元数据解析失败: {}", mirror, e),
                 }
             }
-            Ok(resp) => last_err = Some(format!("{} HTTP {}", mirror, resp.status())),
-            Err(e) => last_err = Some(format!("{} 请求失败: {}", mirror, e)),
+            Ok(resp) => eprintln!("[catalog] {} HTTP {}", mirror, resp.status()),
+            Err(e) => eprintln!("[catalog] {} 请求失败: {}", mirror, e),
         }
     }
 
     // 路线 2：官方 Pages 直连
+    let last_err: Option<String>;
     match client.get(CATALOG_OFFICIAL_URL).timeout(TIMEOUT).send().await {
         Ok(resp) if resp.status().is_success() => match resp.bytes().await {
             Ok(bytes) => {
@@ -489,8 +472,6 @@ pub async fn fetch_catalog(client: &reqwest::Client) -> AppResult<Catalog> {
         last_err.unwrap_or_default()
     )))
 }
-
-/// npm registry 查询包的最新版本（无 API 配额限制）
 
 /// 查询 npm 包最新版本及其 tarball 下载地址（腾讯镜像优先）
 /// 批量检查结果（官网 batch-check 端点，一次请求替代逐插件串行查询）
@@ -635,20 +616,10 @@ pub(crate) struct CompatCheckResponse {
     pub note: Option<String>,
     #[serde(default)]
     pub conflicts: Vec<CompatConflict>,
-    #[serde(default = "default_true")]
-    pub has_blocking_conflict: bool,
 }
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct CompatConflict {
-    pub conflict_with: String,
-    #[serde(default)]
-    pub reason: Option<String>,
-    #[serde(default)]
-    pub severity: Option<String>,
-}
-
-fn default_true() -> bool { true }
+pub(crate) struct CompatConflict {}
 
 /// 调用官网 /api/compat/check 做安装前兼容预检。
 /// 官网不可达时 fail-open（返回 Ok(true)），不阻塞安装。
@@ -708,7 +679,7 @@ pub fn verify_catalog_signature(signature: &str, data: &str, pub_key_bytes: &[u8
         Err(_) => return false,
     };
     
-    pub_key.verify_strict(&data.as_bytes(), &sig).is_ok()
+    pub_key.verify_strict(data.as_bytes(), &sig).is_ok()
 }
 
 /// 验证单个目录页的签名（从 HTTP 响应头 X-DSH-SIGNATURE 提取并验证）

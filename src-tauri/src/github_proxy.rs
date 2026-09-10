@@ -54,10 +54,6 @@ impl GitHubProxyClient {
         Ok((release, false))
     }
 
-    pub async fn fetch_latest_release(&self, repo: &str) -> AppResult<GitHubRelease> {
-        self.fetch_latest_release_ex(repo).await.map(|(r, _)| r)
-    }
-
     async fn fetch_latest_release_via_proxy(&self, repo: &str) -> AppResult<GitHubRelease> {
         let url = format!(
             "{}/api/github/latest?repo={}",
@@ -112,40 +108,6 @@ impl GitHubProxyClient {
 
         let release: GitHubRelease = response.json().await?;
         Ok(release)
-    }
-
-    pub async fn fetch_releases(&self, repo: &str, per_page: u8) -> AppResult<Vec<GitHubRelease>> {
-        let url = if self.base_url.is_empty() {
-            // 本地直连：GitHub API
-            format!(
-                "https://api.github.com/repos/{}/releases?per_page={}",
-                repo,
-                per_page
-            )
-        } else {
-            format!(
-                "{}/api/github/releases?repo={}&per_page={}",
-                self.base_url,
-                urlencoding::encode(repo),
-                per_page
-            )
-        };
-
-        let mut request = self.client.get(&url);
-        if let Some(token) = &self.api_token {
-            request = request.header("X-Proxy-Token", token);
-        }
-
-        let response = request.send().await?;
-        if !response.status().is_success() {
-            return Err(AppError::Other(format!(
-                "Proxy request failed: {}",
-                response.status()
-            )));
-        }
-
-        let releases: Vec<GitHubRelease> = response.json().await?;
-        Ok(releases)
     }
 
     pub fn get_download_url(&self, repo: &str, tag: &str, asset_name: &str) -> String {
@@ -215,19 +177,6 @@ impl GitHubProxyClient {
         }
     }
 
-    pub async fn check_all_updates(
-        &self,
-        plugins: &mut [PluginInfo],
-    ) -> Vec<(String, Result<bool, String>)> {
-        let mut results = Vec::new();
-        for plugin in plugins.iter_mut() {
-            let id = plugin.manifest.id.clone();
-            let result = self.check_plugin_update(plugin).await;
-            results.push((id, result.map(|_| plugin.update_available)));
-        }
-        results
-    }
-
     pub async fn download_file_with_progress<F>(
         &self,
         url: &str,
@@ -283,15 +232,6 @@ pub fn compare_versions(current: &str, latest: &str) -> bool {
     match (parse_version(current), parse_version(latest)) {
         (Some(current_ver), Some(latest_ver)) => latest_ver > current_ver,
         // If either version is invalid, fall back to string comparison
-        _ => latest.trim_start_matches('v').to_string() > current.trim_start_matches('v').to_string(),
-    }
-}
-
-pub fn normalize_version(version: &str) -> String {
-    let v = version.trim_start_matches('v').trim();
-    if v.is_empty() {
-        "0.0.0".to_string()
-    } else {
-        v.to_string()
+        _ => latest.trim_start_matches('v') > current.trim_start_matches('v'),
     }
 }

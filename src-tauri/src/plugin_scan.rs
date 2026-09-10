@@ -2,7 +2,6 @@ use crate::error::{AppError, AppResult, PluginInfo, PluginManifest};
 use crate::manifest::{create_agent_core_manifest, manifest_exists, read_manifest};
 use std::fs;
 use std::path::Path;
-use walkdir::WalkDir;
 
 pub fn scan_plugin_directory(root_dir: &str) -> AppResult<Vec<PluginInfo>> {
     let root = Path::new(root_dir);
@@ -90,7 +89,7 @@ pub fn scan_plugin_directory(root_dir: &str) -> AppResult<Vec<PluginInfo>> {
     Ok(plugins)
 }
 
-fn sort_plugins(plugins: &mut Vec<PluginInfo>) {
+fn sort_plugins(plugins: &mut [PluginInfo]) {
     // 按类型排序：agent-core 在前，然后按名称
     plugins.sort_by(|a, b| {
         let type_order = |t: &str| if t == "agent-core" { 0 } else { 1 };
@@ -105,7 +104,7 @@ fn sort_plugins(plugins: &mut Vec<PluginInfo>) {
 pub fn is_dsh_profile(dir: &Path) -> bool {
     // 容器目录兜底：若当前目录是 profiles 容器（含标准子 profile 目录），不视为 profile
     if let Some(parent) = dir.parent() {
-        if parent.file_name().map_or(false, |n| n == "profiles") {
+        if parent.file_name().is_some_and(|n| n == "profiles") {
             let standard = ["desktop", "web", "cli", "mobile"];
             if standard.iter().any(|c| dir.join(c).is_dir()) {
                 return false;
@@ -303,8 +302,8 @@ fn scan_cordis_plugin(dir: &Path) -> Option<PluginInfo> {
     let is_dsh_plugin = declared
         || name.starts_with("dsh-")
         || name.contains("/dsh-")
-        || keywords.map_or(false, |ks| ks.iter().any(|k| {
-            k.as_str().map_or(false, |s| {
+        || keywords.is_some_and(|ks| ks.iter().any(|k| {
+            k.as_str().is_some_and(|s| {
                 s == "dsh-plugin" || s == "deepseek-harness-plugin"
             })
         }));
@@ -452,10 +451,6 @@ fn is_agent_core_directory(dir: &Path) -> bool {
         || dir.join("dsh-agent").exists()
 }
 
-pub fn find_plugin_by_id<'a>(plugins: &'a [PluginInfo], id: &str) -> Option<&'a PluginInfo> {
-    plugins.iter().find(|p| p.manifest.id == id)
-}
-
 pub fn validate_plugin_directory(path: &str) -> Result<(), String> {
     let p = Path::new(path);
     if !p.exists() {
@@ -465,14 +460,4 @@ pub fn validate_plugin_directory(path: &str) -> Result<(), String> {
         return Err("路径不是目录".to_string());
     }
     Ok(())
-}
-
-pub fn get_directory_size(path: &Path) -> u64 {
-    WalkDir::new(path)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .filter(|e| e.file_type().is_file())
-        .filter_map(|e| e.metadata().ok())
-        .map(|m| m.len())
-        .sum()
 }

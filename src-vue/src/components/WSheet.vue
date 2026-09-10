@@ -44,7 +44,16 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { sheetIn, sheetOut, maskIn, maskOut } from '../composables/useMotion'
-import type { SheetItem } from '../composables/useActionSheet'
+
+/** 动作项（与 WeUI Actionsheet 对应） */
+export interface SheetItem {
+  label: string
+  value: string
+  /** warn = 危险操作（标红） */
+  type?: 'default' | 'warn'
+  /** 次要说明 */
+  desc?: string
+}
 
 const props = withDefaults(
   defineProps<{

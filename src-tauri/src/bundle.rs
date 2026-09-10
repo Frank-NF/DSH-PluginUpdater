@@ -366,11 +366,10 @@ pub(crate) async fn npm_install_into(
             let version_missing = ["404", "ETARGET", "No matching version", "Not Found", "not found"]
                 .iter()
                 .any(|k| e.contains(k));
-            if version_missing && !registry.trim().is_empty() && registry.trim() != OFFICIAL {
-                if npm_install_once(&pinned, target_dir, OFFICIAL).await.is_ok() {
+            if version_missing && !registry.trim().is_empty() && registry.trim() != OFFICIAL
+                && npm_install_once(&pinned, target_dir, OFFICIAL).await.is_ok() {
                     return Ok(());
                 }
-            }
             Err(e)
         }
     }
@@ -433,8 +432,8 @@ async fn npm_install_once(npm_name: &str, target_dir: &str, registry: &str) -> R
                 c.arg("/c").arg("npm");
                 c
             } else {
-                let mut c = tokio::process::Command::new("npm");
-                c
+                
+                tokio::process::Command::new("npm")
             }
         }
     };
@@ -725,8 +724,6 @@ pub async fn preview_bundle(id: String, state: State<'_, AppState>) -> AppResult
                 #[derive(serde::Deserialize)]
                 struct BundleCompatItem {
                     plugin_ref: String,
-                    #[serde(default)]
-                    compatible: Option<bool>,
                     #[serde(default)]
                     conflicts: Vec<BundleConflictInfo>,
                 }
