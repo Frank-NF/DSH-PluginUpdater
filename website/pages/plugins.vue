@@ -1,7 +1,5 @@
 <template>
   <div class="plugins-page">
-    <div class="bg-glow" aria-hidden="true"></div>
-
     <section class="page-head">
       <div class="container">
         <h1>插件市场</h1>
@@ -11,10 +9,10 @@
 
     <section class="market">
       <div class="container">
-        <!-- 工具栏：搜索 + 分类 -->
+        <!-- 工具栏：搜索 + 分类 + 排序 -->
         <div class="market-toolbar">
           <div class="search-box">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
               <circle cx="11" cy="11" r="8" />
               <path d="m21 21-4.35-4.35" />
             </svg>
@@ -26,18 +24,44 @@
             />
           </div>
 
-          <div class="category-tabs" role="tablist" aria-label="分类筛选">
-            <button
-              v-for="cat in categories"
-              :key="cat"
-              class="cat-tab"
-              :class="{ active: activeCategory === cat }"
-              role="tab"
-              :aria-selected="activeCategory === cat"
-              @click="activeCategory = cat"
-            >
-              {{ cat }}
-            </button>
+          <div class="toolbar-right">
+            <div class="category-tabs" role="tablist" aria-label="分类筛选">
+              <button
+                v-for="cat in categories"
+                :key="cat"
+                class="cat-tab"
+                :class="{ active: activeCategory === cat }"
+                role="tab"
+                :aria-selected="activeCategory === cat"
+                @click="activeCategory = cat"
+              >
+                {{ cat }}
+              </button>
+            </div>
+
+            <div class="sort-group" role="group" aria-label="排序方式">
+              <button
+                class="sort-btn"
+                :class="{ active: sort === 'stars' }"
+                @click="sort = 'stars'"
+              >
+                Star
+              </button>
+              <button
+                class="sort-btn"
+                :class="{ active: sort === 'hot' }"
+                @click="sort = 'hot'"
+              >
+                热度
+              </button>
+              <button
+                class="sort-btn"
+                :class="{ active: sort === 'name' }"
+                @click="sort = 'name'"
+              >
+                名称
+              </button>
+            </div>
           </div>
         </div>
 
@@ -65,8 +89,8 @@
             class="plugin-card card"
           >
             <div class="card-head">
-              <div class="rank-num" :class="{ 'top3': index + (page - 1) * PAGE_SIZE < 3 && activeCategory === '全部' && sort === 'stars' }">
-                {{ index + 1 }}
+              <div class="rank-num num" :class="{ 'top3': globalIndex(index) < 3 && sort === 'stars' }">
+                {{ globalIndex(index) + 1 }}
               </div>
               <div class="card-title">
                 <h3>{{ plugin.name }}</h3>
@@ -164,36 +188,12 @@
 
         <!-- 空状态 -->
         <div v-else class="empty">
-          <div class="empty-icon">🔍</div>
+          <div class="empty-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.8-3.8"/></svg>
+          </div>
           <h3>没有找到匹配的插件</h3>
           <p>换个关键词试试，或清除筛选条件</p>
           <button class="btn btn-outline btn-sm" @click="clearFilters">清除筛选</button>
-        </div>
-
-        <!-- 排序切换 -->
-        <div class="sort-row">
-          <span class="sort-label">排序：</span>
-          <button
-            class="sort-btn"
-            :class="{ active: sort === 'stars' }"
-            @click="sort = 'stars'"
-          >
-            按 Star 排行
-          </button>
-          <button
-            class="sort-btn"
-            :class="{ active: sort === 'hot' }"
-            @click="sort = 'hot'"
-          >
-            按热度（收藏+评论+分享）
-          </button>
-          <button
-            class="sort-btn"
-            :class="{ active: sort === 'name' }"
-            @click="sort = 'name'"
-          >
-            按名称
-          </button>
         </div>
       </div>
     </section>
@@ -208,7 +208,9 @@
 
           <div class="install-options">
             <NuxtLink to="/download" class="install-option" @click="installPlugin = null">
-              <div class="option-icon desktop">🖥️</div>
+              <div class="option-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+              </div>
               <div class="option-info">
                 <strong>客户端安装</strong>
                 <span>下载桌面客户端，扫描目录后一键安装</span>
@@ -217,7 +219,9 @@
             </NuxtLink>
 
             <NuxtLink to="/bundles" class="install-option" @click="installPlugin = null">
-              <div class="option-icon web">📦</div>
+              <div class="option-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M21 8v8l-9 5-9-5V8l9-5 9 5z"/><path d="m3.3 7.3 8.7 5 8.7-5M12 22V12"/></svg>
+              </div>
               <div class="option-info">
                 <strong>按行业整套安装</strong>
                 <span>浏览行业组合包，插件 + MCP + Skill 一键装齐</span>
@@ -453,6 +457,10 @@ const filtered = computed(() => {
 // ===== 分页（2189+ 条全量渲染会卡，每页 48 条）=====
 const PAGE_SIZE = 48
 const page = ref(1)
+// 全局序号：跨分页连续（第 2 页从 49 开始，而不是重复 1-48）
+function globalIndex(i: number): number {
+  return i + (page.value - 1) * PAGE_SIZE
+}
 const paged = computed(() => {
   const start = (page.value - 1) * PAGE_SIZE
   return filtered.value.slice(start, start + PAGE_SIZE)
@@ -516,30 +524,15 @@ function langColor(lang: string): string {
   overflow-x: hidden;
 }
 
-.bg-glow {
-  position: absolute;
-  top: -200px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 800px;
-  height: 600px;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, transparent 70%);
-  pointer-events: none;
-}
-
-.plugins-page > section {
-  position: relative;
-}
-
 /* ---------- 页头 ---------- */
 .page-head {
-  padding: 64px 0 28px;
-  text-align: center;
+  padding: 72px 0 40px;
 }
 
 .page-head h1 {
-  font-size: 36px;
-  font-weight: 800;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--text-primary);
   margin-bottom: 10px;
 }
@@ -570,17 +563,16 @@ function langColor(lang: string): string {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 16px;
-  border-radius: var(--radius-md);
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid var(--glass-border);
+  padding: 9px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-secondary);
+  border: 1px solid var(--line-strong);
   color: var(--text-muted);
   transition: border-color var(--dur) var(--ease);
 }
 
 .search-box:focus-within {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+  border-color: var(--brand);
 }
 
 .search-box input {
@@ -603,33 +595,69 @@ function langColor(lang: string): string {
 }
 
 .cat-tab {
-  padding: 7px 16px;
-  border-radius: 20px;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--glass-border);
+  background: transparent;
+  border: 1px solid var(--line-strong);
   color: var(--text-secondary);
-  transition: all var(--dur) var(--ease);
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease), background-color var(--dur) var(--ease);
 }
 
 .cat-tab:hover {
-  background: rgba(255, 255, 255, 0.08);
   color: var(--text-primary);
+  border-color: #454b55;
 }
 
 .cat-tab.active {
-  background: var(--primary);
-  border-color: var(--primary);
+  background: var(--brand);
+  border-color: var(--brand);
   color: #fff;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+/* 排序组：紧贴分类右侧，一体分段控件 */
+.sort-group {
+  display: inline-flex;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.sort-btn {
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
+}
+
+.sort-btn:hover {
+  color: var(--text-primary);
+}
+
+.sort-btn.active {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 /* ---------- 插件网格 ---------- */
 .plugins-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: 18px;
+  gap: 14px;
 }
 
 .plugin-card {
@@ -649,21 +677,21 @@ function langColor(lang: string): string {
   flex-shrink: 0;
   width: 28px;
   height: 28px;
-  border-radius: 8px;
+  border-radius: 7px;
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 12px;
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--glass-border);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--line);
 }
 
 .rank-num.top3 {
-  color: #fbbf24;
-  background: rgba(245, 158, 11, 0.15);
-  border-color: rgba(245, 158, 11, 0.35);
+  color: var(--warning);
+  background: rgba(217, 160, 60, 0.08);
+  border-color: rgba(217, 160, 60, 0.35);
 }
 
 .card-title {
@@ -776,52 +804,22 @@ function langColor(lang: string): string {
 }
 
 .empty-icon {
-  font-size: 48px;
+  color: var(--text-muted);
+  opacity: 0.5;
   margin-bottom: 16px;
-  opacity: 0.6;
 }
 
 .empty h3 {
-  font-size: 17px;
+  font-size: 16px;
+  font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .empty p {
   font-size: 13px;
   color: var(--text-muted);
-  margin-bottom: 20px;
-}
-
-/* ---------- 排序行 ---------- */
-.sort-row {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  margin-top: 36px;
-}
-
-.sort-label {
-  font-size: 13px;
-  color: var(--text-muted);
-}
-
-.sort-btn {
-  padding: 7px 16px;
-  border-radius: 20px;
-  font-size: 13px;
-  cursor: pointer;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--glass-border);
-  color: var(--text-secondary);
-  transition: all var(--dur) var(--ease);
-}
-
-.sort-btn.active {
-  background: rgba(99, 102, 241, 0.2);
-  border-color: rgba(99, 102, 241, 0.5);
-  color: var(--primary-light);
+  margin-bottom: 18px;
 }
 
 /* ---------- 安装弹窗 ---------- */
@@ -892,35 +890,27 @@ function langColor(lang: string): string {
   gap: 14px;
   padding: 14px 16px;
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--glass-border);
+  background: transparent;
+  border: 1px solid var(--line-strong);
   color: inherit;
-  transition: all var(--dur) var(--ease);
+  transition: border-color var(--dur) var(--ease);
 }
 
 .install-option:hover {
-  border-color: rgba(99, 102, 241, 0.5);
-  background: rgba(99, 102, 241, 0.08);
-  transform: translateY(-2px);
+  border-color: #454b55;
 }
 
 .option-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 11px;
+  width: 40px;
+  height: 40px;
+  border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
   flex-shrink: 0;
-}
-
-.option-icon.web {
-  background: rgba(16, 185, 129, 0.14);
-}
-
-.option-icon.desktop {
-  background: rgba(99, 102, 241, 0.14);
+  color: var(--brand-light);
+  background: var(--brand-dim);
+  border: 1px solid rgba(99, 102, 241, 0.28);
 }
 
 .option-info {
@@ -948,8 +938,8 @@ function langColor(lang: string): string {
 .install-cmd {
   padding: 12px 14px;
   border-radius: var(--radius-sm);
-  background: rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--glass-border);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--line);
 }
 
 .cmd-label {
@@ -961,7 +951,7 @@ function langColor(lang: string): string {
 
 .install-cmd code {
   font-size: 13px;
-  color: var(--primary-light);
+  color: var(--brand-light);
 }
 
 /* ---------- 收藏筛选条 ---------- */
@@ -973,8 +963,8 @@ function langColor(lang: string): string {
   padding: 10px 16px;
   margin-bottom: 20px;
   border-radius: var(--radius-md);
-  background: rgba(245, 158, 11, 0.1);
-  border: 1px solid rgba(245, 158, 11, 0.35);
+  background: rgba(217, 160, 60, 0.08);
+  border: 1px solid rgba(217, 160, 60, 0.3);
   font-size: 13px;
   color: var(--warning);
 }
@@ -998,40 +988,38 @@ function langColor(lang: string): string {
   gap: 6px;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--glass-border);
+  border-top: 1px solid var(--line);
 }
 
 .social-btn {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 5px 12px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.04);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  background: transparent;
   border: 1px solid transparent;
   color: var(--text-muted);
   font-size: 12px;
   font-family: 'JetBrains Mono', 'Consolas', monospace;
   cursor: pointer;
-  transition: all var(--dur) var(--ease);
+  transition: color var(--dur) var(--ease), background-color var(--dur) var(--ease);
 }
 
 .social-btn:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
-  transform: translateY(-1px);
 }
 
 .social-btn.active {
   color: var(--warning);
-  background: rgba(245, 158, 11, 0.12);
-  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(217, 160, 60, 0.1);
+  border-color: rgba(217, 160, 60, 0.35);
 }
 
 .fb-btn:hover {
-  color: var(--primary-light);
-  border-color: rgba(99, 102, 241, 0.4);
-  background: rgba(99, 102, 241, 0.1);
+  color: var(--brand-light);
+  background: var(--brand-dim);
 }
 
 /* ---------- Toast ---------- */
@@ -1042,9 +1030,9 @@ function langColor(lang: string): string {
   transform: translateX(-50%);
   z-index: 400;
   padding: 10px 22px;
-  border-radius: 24px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--line-strong);
   font-size: 13px;
   color: var(--text-primary);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.45);
@@ -1073,6 +1061,10 @@ function langColor(lang: string): string {
   .search-box {
     max-width: none;
   }
+  .toolbar-right {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 </style>
 
@@ -1085,16 +1077,16 @@ function langColor(lang: string): string {
   margin-top: 34px;
 }
 .page-btn {
-  padding: 9px 20px;
-  border-radius: 10px;
-  border: 1px solid var(--glass-border);
-  background: var(--glass-bg, rgba(255,255,255,.04));
+  padding: 8px 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-strong);
+  background: transparent;
   color: var(--text-primary);
   cursor: pointer;
-  font-size: 14px;
-  transition: opacity .15s, transform .15s;
+  font-size: 13px;
+  transition: border-color var(--dur) var(--ease);
 }
-.page-btn:hover:not(:disabled) { transform: translateY(-1px); }
+.page-btn:hover:not(:disabled) { border-color: #454b55; }
 .page-btn:disabled { opacity: .35; cursor: not-allowed; }
 .page-info { color: var(--text-muted); font-size: 13px; }
 </style>

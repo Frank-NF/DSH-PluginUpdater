@@ -211,15 +211,14 @@ onUnmounted(() => window.removeEventListener('keydown', onKey))
   width: 46px;
   height: 46px;
   margin: 0 auto 12px;
-  border-radius: 13px;
-  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  border-radius: 11px;
+  background: var(--brand);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
   font-size: 13px;
   color: #fff;
-  box-shadow: 0 6px 18px rgba(99, 102, 241, 0.45);
 }
 
 .auth-head h3 {

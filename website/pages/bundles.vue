@@ -1,10 +1,9 @@
 <template>
   <div class="bundles-page">
-    <div class="bg-glow" aria-hidden="true"></div>
     <section class="page-head">
       <div class="container">
         <h1>行业组合包</h1>
-        <p>{{ bundleTotal }} 个精选组合包 · 覆盖 30+ 行业 · 一键安装插件 + MCP + Skill</p>
+        <p>{{ bundleTotal }} 个组合包 · 覆盖 {{ tagCount }} 个行业方向 · 插件 + MCP + Skill 一键装齐</p>
       </div>
     </section>
     <section class="market">
@@ -30,7 +29,9 @@
         <div v-else-if="filtered.length" class="bundle-grid">
           <div v-for="bundle in paged" :key="bundle.id" class="bundle-card card" @click="selectedBundle = bundle">
             <div class="card-head">
-              <div class="bundle-icon">📦</div>
+              <div class="bundle-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M21 8v8l-9 5-9-5V8l9-5 9 5z"/><path d="m3.3 7.3 8.7 5 8.7-5M12 22V12"/></svg>
+              </div>
               <div class="bundle-info">
                 <h3>{{ bundle.name }}</h3>
                 <p class="bundle-desc">{{ bundle.description }}</p>
@@ -43,7 +44,9 @@
           </div>
         </div>
         <div v-else class="empty">
-          <div class="empty-icon">🔍</div>
+          <div class="empty-icon">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.8-3.8"/></svg>
+          </div>
           <h3>没有找到匹配的组合包</h3>
           <p>换个关键词试试</p>
           <button class="btn btn-outline btn-sm" @click="clearFilters">清除筛选</button>
@@ -61,7 +64,9 @@
         <div class="bundle-detail glass" role="dialog" aria-modal="true">
           <button class="dialog-close" @click="selectedBundle = null">×</button>
           <div class="detail-header">
-            <div class="bundle-icon-lg">📦</div>
+            <div class="bundle-icon-lg">
+              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M21 8v8l-9 5-9-5V8l9-5 9 5z"/><path d="m3.3 7.3 8.7 5 8.7-5M12 22V12"/></svg>
+            </div>
             <div>
               <h2>{{ selectedBundle.name }}</h2>
               <p class="detail-desc">{{ selectedBundle.description }}</p>
@@ -71,7 +76,7 @@
             </div>
           </div>
           <div class="detail-section" v-if="selectedBundle.plugins.length">
-            <h4>🔌 插件清单（{{ selectedBundle.plugins.length }} 项）</h4>
+            <h4>插件清单（{{ selectedBundle.plugins.length }} 项）</h4>
             <ul class="detail-list">
               <li v-for="p in selectedBundle.plugins" :key="p.pluginRef">
                 <span class="req-badge" :class="p.required ? 'required' : 'optional'">{{ p.required ? '必装' : '可选' }}</span>
@@ -80,7 +85,7 @@
             </ul>
           </div>
           <div class="detail-section" v-if="selectedBundle.mcpServers.length">
-            <h4>🧠 MCP 服务（{{ selectedBundle.mcpServers.length }} 项）</h4>
+            <h4>MCP 服务（{{ selectedBundle.mcpServers.length }} 项）</h4>
             <ul class="detail-list">
               <li v-for="m in selectedBundle.mcpServers" :key="m.serverId">
                 <span class="req-badge" :class="m.optional ? 'optional' : 'required'">{{ m.optional ? '可选' : '必装' }}</span>
@@ -90,7 +95,7 @@
             </ul>
           </div>
           <div class="detail-section" v-if="selectedBundle.skills.length">
-            <h4>⚡ Skills（{{ selectedBundle.skills.length }} 项）</h4>
+            <h4>Skills（{{ selectedBundle.skills.length }} 项）</h4>
             <ul class="detail-list">
               <li v-for="s in selectedBundle.skills" :key="s.skillId">
                 <code>{{ s.name }}</code>
@@ -110,7 +115,7 @@
 <script setup lang="ts">
 useSiteSeo({
   title: '行业组合包',
-  description: '99+ 行业组合包：插件 + MCP 服务模板 + Skill 一键装齐，安装前冲突预检、失败自动回滚。医疗/法律/金融/教育/电商等 15 大行业，在桌面客户端组合包标签页安装。',
+  description: '行业组合包：插件 + MCP 服务模板 + Skill 一键装齐，安装前冲突预检、失败自动回滚。医疗/法律/金融/教育/电商等行业方向，在桌面客户端组合包标签页安装。',
   path: '/bundles',
 })
 const route = useRoute()
@@ -133,6 +138,7 @@ const { data: bundlesData, pending: bundlePending } = await useFetch<{ bundles: 
 ).catch(() => ({ data: ref({ bundles: [], total: 0 }), pending: ref(false) }))
 
 const bundleTotal = computed(() => bundlesData.value?.total ?? 0)
+const tagCount = computed(() => allTags.value.length)
 
 const allTags = computed(() => {
   const tags = new Set<string>()
@@ -177,14 +183,8 @@ watch(() => route.hash, (hash) => {
 
 <style scoped>
 .bundles-page { position: relative; overflow-x: hidden; }
-.bg-glow {
-  position: absolute; top: -200px; left: 50%; transform: translateX(-50%);
-  width: 800px; height: 600px;
-  background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%);
-  pointer-events: none;
-}
-.page-head { padding: 64px 0 36px; text-align: center; }
-.page-head h1 { font-size: 36px; font-weight: 800; color: var(--text-primary); margin-bottom: 10px; }
+.page-head { padding: 72px 0 40px; }
+.page-head h1 { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; color: var(--text-primary); margin-bottom: 10px; }
 .page-head p { font-size: 14px; color: var(--text-muted); }
 .market { padding-bottom: 40px; }
 .market-toolbar {
@@ -194,31 +194,30 @@ watch(() => route.hash, (hash) => {
 .search-box {
   flex: 1; min-width: 240px; max-width: 380px;
   display: flex; align-items: center; gap: 10px;
-  padding: 10px 16px; border-radius: var(--radius-md);
-  background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border);
+  padding: 9px 14px; border-radius: var(--radius-sm);
+  background: var(--bg-secondary); border: 1px solid var(--line-strong);
   color: var(--text-muted);
 }
-.search-box:focus-within { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+.search-box:focus-within { border-color: var(--brand); }
 .search-box input { flex: 1; background: none; border: none; outline: none; color: var(--text-primary); font-size: 14px; }
 .category-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
 .cat-tab {
-  padding: 7px 16px; border-radius: 20px; font-size: 13px; font-weight: 500; cursor: pointer;
-  background: rgba(255,255,255,0.04); border: 1px solid var(--glass-border);
-  color: var(--text-secondary); transition: all var(--dur) var(--ease);
+  padding: 7px 14px; border-radius: var(--radius-sm); font-size: 13px; font-weight: 500; cursor: pointer;
+  background: transparent; border: 1px solid var(--line-strong);
+  color: var(--text-secondary); transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease), background-color var(--dur) var(--ease);
 }
-.cat-tab:hover { background: rgba(255,255,255,0.08); color: var(--text-primary); }
-.cat-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
-.bundle-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 18px; }
+.cat-tab:hover { color: var(--text-primary); border-color: #454b55; }
+.cat-tab.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+.bundle-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
 .bundle-card {
   display: flex; flex-direction: column; padding: 22px; cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
 }
-.bundle-card:hover { transform: translateY(-3px); box-shadow: 0 8px 30px rgba(99,102,241,0.15); }
 .card-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
 .bundle-icon, .bundle-icon-lg {
-  width: 48px; height: 48px; border-radius: 12px;
-  background: rgba(99,102,241,0.14); border: 1px solid rgba(99,102,241,0.3);
-  display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;
+  width: 42px; height: 42px; border-radius: 9px;
+  background: var(--brand-dim); border: 1px solid rgba(99,102,241,0.28);
+  color: var(--brand-light);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 .bundle-info h3 { font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
 .bundle-desc {
@@ -229,17 +228,22 @@ watch(() => route.hash, (hash) => {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: auto; padding-top: 12px;
 }
 .bundle-tag {
-  padding: 3px 10px; border-radius: 12px; font-size: 11px;
-  background: rgba(99,102,241,0.12); color: var(--primary-light);
+  padding: 2px 8px; border-radius: 4px; font-size: 11px;
+  background: rgba(99,102,241,0.1); color: var(--brand-light);
+  border: 1px solid rgba(99,102,241,0.2);
 }
 .bundle-meta { font-size: 12px; color: var(--text-muted); margin-left: auto; }
 .empty { text-align: center; padding: 80px 20px; }
-.empty-icon { font-size: 48px; margin-bottom: 16px; opacity: 0.6; }
+.empty-icon { color: var(--text-muted); opacity: 0.5; margin-bottom: 16px; }
+.empty h3 { font-size: 16px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; }
+.empty p { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
 .pager { display: flex; align-items: center; justify-content: center; gap: 18px; margin-top: 34px; }
 .page-btn {
-  padding: 9px 20px; border-radius: 10px; border: 1px solid var(--glass-border);
-  background: var(--card); color: var(--text-primary); cursor: pointer; font-size: 14px;
+  padding: 8px 18px; border-radius: var(--radius-sm); border: 1px solid var(--line-strong);
+  background: transparent; color: var(--text-primary); cursor: pointer; font-size: 13px;
+  transition: border-color var(--dur) var(--ease);
 }
+.page-btn:hover:not(:disabled) { border-color: #454b55; }
 .page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 .page-info { color: var(--text-muted); font-size: 13px; }
 .skeleton {
@@ -264,8 +268,8 @@ watch(() => route.hash, (hash) => {
   color: var(--text-muted); font-size: 17px; cursor: pointer;
 }
 .detail-header { display: flex; gap: 16px; margin-bottom: 24px; }
-.bundle-icon-lg { width: 64px; height: 64px; font-size: 30px; }
-.detail-header h2 { font-size: 20px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
+.bundle-icon-lg { width: 56px; height: 56px; }
+.detail-header h2 { font-size: 19px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
 .detail-desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 10px; }
 .detail-tags { display: flex; gap: 6px; flex-wrap: wrap; }
 .detail-tag {
@@ -282,10 +286,10 @@ watch(() => route.hash, (hash) => {
 .detail-list li code { font-family: monospace; font-size: 12px; color: var(--primary-light); }
 .detail-list li strong { color: var(--text-primary); font-weight: 600; }
 .req-badge {
-  padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600; flex-shrink: 0;
+  padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; flex-shrink: 0;
 }
-.req-badge.required { background: rgba(16,185,129,0.15); color: #10b981; }
-.req-badge.optional { background: rgba(245,158,11,0.15); color: #f59e0b; }
+.req-badge.required { background: rgba(63,178,127,0.12); color: #5cc394; border: 1px solid rgba(63,178,127,0.25); }
+.req-badge.optional { background: rgba(217,160,60,0.12); color: var(--warning); border: 1px solid rgba(217,160,60,0.25); }
 .detail-footer {
   display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;
   padding-top: 20px; border-top: 1px solid var(--glass-border);

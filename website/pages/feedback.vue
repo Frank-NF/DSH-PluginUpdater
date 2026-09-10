@@ -1,7 +1,5 @@
 <template>
   <div class="fb-admin-page">
-    <div class="bg-glow" aria-hidden="true"></div>
-
     <section class="page-head">
       <div class="container">
         <h1>反馈管理</h1>
@@ -30,7 +28,6 @@
 
         <!-- 空状态 -->
         <div v-else-if="!items.length" class="empty">
-          <div class="empty-icon">📮</div>
           <h3>暂无反馈</h3>
           <p>当前筛选条件下没有反馈记录</p>
         </div>
@@ -64,7 +61,7 @@
                 {{ f.display_name }}
               </span>
               <span v-else class="fb-author">匿名用户</span>
-              <span v-if="f.contact" class="fb-contact">📮 {{ f.contact }}</span>
+              <span v-if="f.contact" class="fb-contact">{{ f.contact }}</span>
             </div>
           </article>
         </div>
@@ -193,11 +190,11 @@ function gotoPage(n: number) {
 
 function typeLabel(t: string): string {
   const map: Record<string, string> = {
-    bug: '🐞 问题反馈',
-    suggestion: '💡 功能建议',
-    experience: '✨ 体验优化',
-    question: '❓ 使用疑问',
-    other: '📝 其他',
+    bug: '问题反馈',
+    suggestion: '功能建议',
+    experience: '体验优化',
+    question: '使用疑问',
+    other: '其他',
   }
   return map[t] || t
 }
@@ -210,25 +207,14 @@ function typeLabel(t: string): string {
   min-height: 70vh;
 }
 
-.bg-glow {
-  position: absolute;
-  top: -200px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 800px;
-  height: 600px;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, transparent 70%);
-  pointer-events: none;
-}
-
 .page-head {
-  padding: 64px 0 28px;
-  text-align: center;
+  padding: 72px 0 40px;
 }
 
 .page-head h1 {
-  font-size: 36px;
-  font-weight: 800;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--text-primary);
   margin-bottom: 10px;
 }
@@ -255,32 +241,37 @@ function typeLabel(t: string): string {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 16px;
-  border-radius: 20px;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
   font-size: 13px;
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--glass-border);
+  background: transparent;
+  border: 1px solid var(--line-strong);
   color: var(--text-secondary);
-  transition: all var(--dur) var(--ease);
+  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
 }
 
 .filter-tab:hover {
-  background: rgba(255, 255, 255, 0.08);
   color: var(--text-primary);
+  border-color: #454b55;
 }
 
 .filter-tab.active {
-  background: var(--primary);
-  border-color: var(--primary);
+  background: var(--brand);
+  border-color: var(--brand);
   color: #fff;
 }
 
 .filter-count {
   font-size: 11px;
-  padding: 0 7px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.14);
+  padding: 0 6px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.filter-tab.active .filter-count {
+  background: rgba(0, 0, 0, 0.25);
 }
 
 /* ---------- 列表 ---------- */
@@ -311,31 +302,31 @@ function typeLabel(t: string): string {
 
 .fb-type-tag {
   font-size: 11px;
-  padding: 2px 9px;
-  border-radius: 10px;
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 
-.fb-type-bug { background: rgba(239, 68, 68, 0.14); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); }
-.fb-type-suggestion { background: rgba(245, 158, 11, 0.14); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
-.fb-type-experience { background: rgba(16, 185, 129, 0.14); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); }
-.fb-type-question { background: rgba(59, 130, 246, 0.14); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
-.fb-type-other { background: rgba(148, 163, 184, 0.14); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.3); }
+.fb-type-bug { background: rgba(214, 95, 95, 0.12); color: #e08585; border: 1px solid rgba(214, 95, 95, 0.28); }
+.fb-type-suggestion { background: rgba(217, 160, 60, 0.12); color: var(--warning); border: 1px solid rgba(217, 160, 60, 0.28); }
+.fb-type-experience { background: rgba(63, 178, 127, 0.12); color: #5cc394; border: 1px solid rgba(63, 178, 127, 0.28); }
+.fb-type-question { background: rgba(88, 166, 201, 0.12); color: #7db9d6; border: 1px solid rgba(88, 166, 201, 0.28); }
+.fb-type-other { background: rgba(113, 119, 127, 0.12); color: var(--text-muted); border: 1px solid var(--line-strong); }
 
 .fb-status-select {
   padding: 4px 10px;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--glass-border);
+  background: var(--bg-tertiary);
+  border: 1px solid var(--line-strong);
   color: var(--text-primary);
   cursor: pointer;
   outline: none;
 }
 
-.fb-status-open { color: #f87171; border-color: rgba(239, 68, 68, 0.4); }
-.fb-status-processing { color: #fbbf24; border-color: rgba(245, 158, 11, 0.4); }
-.fb-status-resolved { color: #34d399; border-color: rgba(16, 185, 129, 0.4); }
-.fb-status-closed { color: #94a3b8; border-color: rgba(148, 163, 184, 0.4); }
+.fb-status-open { color: #e08585; border-color: rgba(214, 95, 95, 0.4); }
+.fb-status-processing { color: var(--warning); border-color: rgba(217, 160, 60, 0.4); }
+.fb-status-resolved { color: #5cc394; border-color: rgba(63, 178, 127, 0.4); }
+.fb-status-closed { color: var(--text-muted); border-color: var(--line-strong); }
 
 .fb-time {
   margin-left: auto;
@@ -356,7 +347,7 @@ function typeLabel(t: string): string {
   align-items: center;
   gap: 16px;
   padding-top: 12px;
-  border-top: 1px solid var(--glass-border);
+  border-top: 1px solid var(--line);
 }
 
 .fb-author {
@@ -378,8 +369,8 @@ function typeLabel(t: string): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--primary), var(--primary-light));
-  color: #fff;
+  background: var(--brand-dim);
+  color: var(--brand-light);
   font-size: 11px;
   font-weight: 700;
 }
@@ -425,17 +416,17 @@ function typeLabel(t: string): string {
 }
 
 .page-btn {
-  padding: 9px 20px;
-  border-radius: 10px;
-  border: 1px solid var(--glass-border);
-  background: rgba(255, 255, 255, 0.04);
+  padding: 8px 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line-strong);
+  background: transparent;
   color: var(--text-primary);
   cursor: pointer;
-  font-size: 14px;
-  transition: opacity 0.15s, transform 0.15s;
+  font-size: 13px;
+  transition: border-color var(--dur) var(--ease);
 }
 
-.page-btn:hover:not(:disabled) { transform: translateY(-1px); }
+.page-btn:hover:not(:disabled) { border-color: #454b55; }
 .page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 .page-info { color: var(--text-muted); font-size: 13px; }

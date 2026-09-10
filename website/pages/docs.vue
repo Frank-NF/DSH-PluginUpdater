@@ -31,7 +31,7 @@
               <li><strong>独立运行</strong>：不依赖 DSH Agent 本体进程，纯桌面工具</li>
               <li><strong>智能扫描</strong>：自动识别插件目录下所有已安装插件</li>
               <li><strong>插件市场</strong>：内置官方插件目录（2189+ 款插件），支持分类筛选、关键词搜索、排序、一键安装</li>
-              <li><strong>组合包</strong>：94 个行业预制组合包（医疗/法律/金融/教育/电商等），一键部署整套解决方案</li>
+              <li><strong>组合包</strong>：99 个行业预制组合包（医疗/法律/金融/教育/电商等），一键部署整套解决方案</li>
               <li><strong>一键更新</strong>：通过 npm registry 检测最新版本，快速下载更新</li>
               <li><strong>启停管理</strong>：轻松启用/禁用插件，无需删除文件</li>
               <li><strong>安全卸载</strong>：卸载前自动备份，支持随时回滚</li>
@@ -46,7 +46,7 @@
               <li><strong>后端</strong>：Rust（Tauri 2.0）</li>
               <li><strong>UI 库</strong>：WeUI 2.6 + 自定义 W* 组件</li>
               <li><strong>动效引擎</strong>：GSAP 3.15</li>
-              <li><strong>主题</strong>：深色/浅色双主题，玻璃拟态设计风格</li>
+              <li><strong>主题</strong>：深色/浅色双主题</li>
             </ul>
 
             <h2>系统要求</h2>
@@ -459,7 +459,7 @@
                 <tr><td>1-3</td><td>切换标签页（市场/组合包/已安装）</td></tr>
               </tbody>
             </table>
-            <p style="margin-top:24px; opacity:.65; font-size:13px;">本文档对应客户端版本 1.14.0 · 最后更新 2026-09-07</p>
+            <p style="margin-top:24px; opacity:.65; font-size:13px;">本文档随客户端持续更新 · 以实际界面为准</p>
           </article>
         </div>
       </div>

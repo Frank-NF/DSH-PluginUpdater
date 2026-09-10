@@ -1,80 +1,70 @@
 <template>
   <div class="download-page">
-    <div class="bg-glow" aria-hidden="true"></div>
-
     <section class="page-head">
       <div class="container">
-        <h1>下载中心</h1>
-        <p>桌面客户端单文件运行 · 全链路 Ed25519 签名验证 · v{{ winVersion }} 安全加固版</p>
+        <h1>下载</h1>
+        <p>桌面客户端 · Windows 10/11 x64 · v{{ winVersion }}</p>
       </div>
     </section>
 
     <section class="download-body">
       <div class="container">
-        <!-- 桌面客户端 -->
-        <div class="section-title">
-          <h2>桌面客户端</h2>
-          <p>选择适合您平台的版本</p>
-        </div>
-
         <div class="download-grid">
           <div class="download-card card">
-            <div class="download-icon win">🪟</div>
-            <h3>Windows 版</h3>
-            <p class="version">v{{ winVersion }} · 64位 · EXE 安装包</p>
+            <div class="platform-head">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 5.5 10.5 4v7.3L3 11.8zM12 3.8 21 2.5v9.3l-9 .1zM3 13l7.5.1v7L3 18.8zM12 13.2l9-.1v9l-9-1.3z"/></svg>
+              <h3>Windows</h3>
+              <span class="badge badge-primary mono">v{{ winVersion }}</span>
+            </div>
             <ul class="download-info">
-              <li>支持 Windows 10/11</li>
-              <li>单文件安装，自动创建快捷方式</li>
-              <li>大小约 {{ winSizeMB }}MB</li>
+              <li>Windows 10 1903+ / Windows 11，x64</li>
+              <li>NSIS 安装包，安装后自动创建快捷方式</li>
+              <li>约 {{ winSizeMB }} MB</li>
             </ul>
             <a :href="winUrl" download class="btn btn-primary download-btn">
-              下载 .exe
+              下载安装包
             </a>
-            <p class="download-hash mono" :title="winSha256">SHA256: {{ winSha256Short }}</p>
+            <p class="download-hash mono" :title="winSha256">SHA256 {{ winSha256Short }}</p>
           </div>
 
           <div class="download-card card">
-            <div class="download-icon linux">🐧</div>
-            <h3>Linux 版</h3>
+            <div class="platform-head">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m4 15 7-11 1 6h7l-7 11-1-6z"/></svg>
+              <h3>Linux</h3>
+              <span class="badge badge-muted mono">AppImage</span>
+            </div>
             <template v-if="linuxReady">
-              <p class="version">v{{ linuxVersion }} · AppImage · x86_64</p>
               <ul class="download-info">
-                <li>支持 Ubuntu 20.04+ / Debian 11+</li>
-                <li>AppImage 格式，开箱即用</li>
-                <li>大小约 {{ linuxSizeMB }}MB</li>
+                <li>Ubuntu 20.04+ / Debian 11+，x86_64</li>
+                <li>AppImage 格式，chmod +x 后直接运行</li>
+                <li>约 {{ linuxSizeMB }} MB</li>
               </ul>
-              <a :href="linuxUrl" download class="btn btn-primary download-btn">下载 .AppImage</a>
-              <p class="download-hash mono" :title="linuxSha256">SHA256: {{ linuxSha256Short }}</p>
+              <a :href="linuxUrl" download class="btn btn-outline download-btn">下载 .AppImage</a>
+              <p class="download-hash mono" :title="linuxSha256">SHA256 {{ linuxSha256Short }}</p>
             </template>
             <template v-else>
-              <p class="version">AppImage · x86_64</p>
               <ul class="download-info">
-                <li>支持 Ubuntu 20.04+ / Debian 11+</li>
-                <li>AppImage 格式，开箱即用</li>
+                <li>Ubuntu 20.04+ / Debian 11+，x86_64</li>
+                <li>AppImage 格式，chmod +x 后直接运行</li>
               </ul>
-              <a class="btn btn-primary download-btn is-disabled" aria-disabled="true">暂未提供</a>
+              <a class="btn btn-outline download-btn is-disabled" aria-disabled="true">暂未提供</a>
               <p class="download-hash mono">可先使用 Windows 版</p>
             </template>
           </div>
         </div>
 
         <!-- 一键唤起（dshupdater:// 协议） -->
-        <div class="section-title" style="margin-top: 56px">
-          <h2>已在用桌面客户端？</h2>
-          <p>安装最新版工具后，可直接从浏览器唤起</p>
-        </div>
         <div class="online-banner card">
           <div class="online-info">
-            <div class="online-icon">🚀</div>
             <div>
-              <h3>一键唤起工具</h3>
-              <p>点击下方按钮直接打开桌面客户端（首次使用请先升级到 v1.10.0 及以上，工具会自动注册唤起协议）</p>
+              <h3>已装过客户端？</h3>
+              <p>从这里直接唤起（需已安装最新版，协议随客户端自动注册）</p>
             </div>
           </div>
-          <div style="display: flex; gap: 12px; flex-wrap: wrap">
-            <a href="dshupdater://open" class="btn btn-primary">打开工具</a>
-            <a href="dshupdater://check-updates" class="btn" style="background: var(--card); color: var(--text); border: 1px solid var(--border)">检查插件更新</a>
-            <NuxtLink to="/offline" class="btn" style="background: var(--card); color: var(--text); border: 1px solid var(--border)">离线部署指引 →</NuxtLink>
+          <div class="online-actions">
+            <a href="dshupdater://open" class="btn btn-outline btn-sm">打开工具</a>
+            <a href="dshupdater://check-updates" class="btn btn-outline btn-sm">检查插件更新</a>
+            <NuxtLink to="/offline" class="btn btn-outline btn-sm">离线部署 →</NuxtLink>
           </div>
         </div>
 
@@ -87,8 +77,8 @@
               <ol>
                 <li>下载 .exe 安装包</li>
                 <li>双击运行安装程序</li>
-                <li>按照向导完成安装</li>
-                <li>从桌面或开始菜单启动</li>
+                <li>按向导完成安装</li>
+                <li>从开始菜单启动</li>
               </ol>
             </div>
             <div class="guide-item card">
@@ -96,25 +86,24 @@
               <ol>
                 <li>下载 .AppImage 文件</li>
                 <li>
-                  添加执行权限: <code>chmod +x DSH-*.AppImage</code>
+                  添加执行权限：<code>chmod +x DSH-*.AppImage</code>
                 </li>
-                <li>双击运行或命令行执行</li>
-                <li>可选：移动到应用目录</li>
+                <li>命令行或双击运行</li>
               </ol>
             </div>
             <div class="guide-item card">
               <h4>首次使用</h4>
               <ol>
-                <li>启动后点击「自动扫描」定位插件目录</li>
-                <li>到「组合包」标签页按行业一键安装套件</li>
-                <li>检查更新并按需升级插件（更新前自动备份）</li>
-                <li>「设置 → MCP 服务管理」集中配置 MCP 密钥</li>
+                <li>「自动扫描」定位插件目录</li>
+                <li>「组合包」标签页按行业安装套件</li>
+                <li>检查并更新插件（更新前自动备份）</li>
+                <li>「设置」里集中配置 MCP 服务</li>
               </ol>
             </div>
           </div>
         </div>
 
-        <!-- 系统要求（id=security：首页「V3 安全体系」卡片深链至此） -->
+        <!-- 系统要求（id=security：首页深链至此） -->
         <div id="security" class="sys-req card">
           <h3>系统要求</h3>
           <div class="req-grid">
@@ -127,8 +116,16 @@
               <span>Ubuntu 20.04+ / Debian 11+，x86_64</span>
             </div>
             <div class="req-item">
+              <span class="req-label">内存</span>
+              <span>≥ 4GB RAM</span>
+            </div>
+            <div class="req-item">
+              <span class="req-label">磁盘</span>
+              <span>≥ 500MB 可用空间</span>
+            </div>
+            <div class="req-item">
               <span class="req-label">网络</span>
-              <span>访问 GitHub 与 npm 官方源，内置直连加速</span>
+              <span>需访问 GitHub 与 npm 源（客户端支持代理与国内镜像）</span>
             </div>
             <div class="req-item">
               <span class="req-label">安全</span>
@@ -161,7 +158,7 @@ const { data: latest } = await useFetch<LatestInfo>('/api/updater/latest')
 const win = computed(() => latest.value?.platforms?.windows || null)
 const linux = computed(() => latest.value?.platforms?.linux || null)
 
-const winVersion = computed(() => win.value?.version || latest.value?.version || '1.0.0')
+const winVersion = computed(() => win.value?.version || latest.value?.version || '')
 const winUrl = computed(() => win.value?.url || '/dsh-plugin-updater.exe')
 const winSha256 = computed(() => win.value?.sha256 || '')
 const winSha256Short = computed(() => (win.value?.sha256 || '').slice(0, 16) + '…')
@@ -179,7 +176,7 @@ const linuxSizeMB = computed(() =>
 )
 
 useSiteSeo({
-  title: '下载中心',
+  title: '下载',
   description: '下载 DSH插件管家 Windows 安装包：独立运行、2189+ 插件市场、行业组合包一键安装。提供官方 SHA256 校验值，下载前可验证文件完整性。',
   path: '/download',
 })
@@ -204,82 +201,28 @@ useHead({
 </script>
 
 <style scoped>
-.download-page {
-  position: relative;
-  overflow-x: hidden;
-}
-
-.bg-glow {
-  position: absolute;
-  top: -200px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 800px;
-  height: 600px;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, transparent 70%);
-  pointer-events: none;
-}
-
-.download-page > section {
-  position: relative;
-}
-
 .page-head {
-  padding: 64px 0 36px;
-  text-align: center;
-}
-
-.page-head h1 {
-  font-size: 36px;
-  font-weight: 800;
-  color: var(--text-primary);
-  margin-bottom: 10px;
-}
-
-.page-head p {
-  font-size: 14px;
-  color: var(--text-muted);
+  padding: 72px 0 40px;
 }
 
 .download-body {
   padding-bottom: 40px;
 }
 
-/* ---------- 唤起横幅（复用卡片样式） ---------- */
+/* ---------- 唤起横幅 ---------- */
 .online-banner {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding: 28px 32px;
-  border-color: rgba(16, 185, 129, 0.35);
-  background: rgba(16, 185, 129, 0.06);
+  padding: 24px 28px;
+  margin-top: 56px;
   flex-wrap: wrap;
 }
 
-.online-info {
-  display: flex;
-  align-items: center;
-  gap: 18px;
-  min-width: 0;
-}
-
-.online-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
-  background: rgba(16, 185, 129, 0.15);
-  border: 1px solid rgba(16, 185, 129, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 26px;
-  flex-shrink: 0;
-}
-
 .online-info h3 {
-  font-size: 17px;
-  font-weight: 700;
+  font-size: 16px;
+  font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 4px;
 }
@@ -289,61 +232,43 @@ useHead({
   color: var(--text-secondary);
 }
 
+.online-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 /* ---------- 下载卡片 ---------- */
 .download-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 24px;
-  max-width: 820px;
-  margin: 0 auto;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 16px;
+  max-width: 760px;
 }
 
 .download-card {
-  padding: 36px 30px;
-  text-align: center;
+  padding: 28px;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
 }
 
-.download-icon {
-  width: 68px;
-  height: 68px;
-  border-radius: 17px;
+.platform-head {
   display: flex;
   align-items: center;
-  justify-content: center;
-  font-size: 32px;
-  margin-bottom: 18px;
-}
-
-.download-icon.win {
-  background: rgba(99, 102, 241, 0.14);
-  border: 1px solid rgba(99, 102, 241, 0.3);
-}
-
-.download-icon.linux {
-  background: rgba(245, 158, 11, 0.12);
-  border: 1px solid rgba(245, 158, 11, 0.3);
-}
-
-.download-card h3 {
-  font-size: 19px;
-  font-weight: 700;
+  gap: 10px;
   color: var(--text-primary);
-  margin-bottom: 5px;
+  margin-bottom: 18px;
 }
 
-.version {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin-bottom: 18px;
+.platform-head h3 {
+  font-size: 17px;
+  font-weight: 600;
 }
 
 .download-info {
   list-style: none;
-  text-align: left;
-  margin-bottom: 24px;
+  margin-bottom: 22px;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -352,20 +277,23 @@ useHead({
 .download-info li {
   font-size: 13px;
   color: var(--text-secondary);
-  padding-left: 22px;
+  padding-left: 18px;
   position: relative;
 }
 
 .download-info li::before {
-  content: '✓';
+  content: '';
   position: absolute;
-  left: 0;
-  color: var(--accent);
-  font-weight: 700;
+  left: 2px;
+  top: 8px;
+  width: 5px;
+  height: 5px;
+  border-radius: 1.5px;
+  background: var(--brand);
+  opacity: 0.85;
 }
 
 .download-btn {
-  width: 100%;
   margin-top: auto;
 }
 
@@ -382,39 +310,38 @@ useHead({
 
 /* ---------- 安装说明 ---------- */
 .install-guide {
-  margin-top: 64px;
+  margin-top: 56px;
 }
 
 .install-guide h3 {
-  font-size: 20px;
-  font-weight: 700;
+  font-size: 17px;
+  font-weight: 600;
   color: var(--text-primary);
-  text-align: center;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
 
 .guide-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 20px;
+  gap: 14px;
 }
 
 .guide-item {
-  padding: 24px;
+  padding: 22px;
 }
 
 .guide-item h4 {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
-  color: var(--primary-light);
-  margin-bottom: 14px;
+  color: var(--text-primary);
+  margin-bottom: 12px;
 }
 
 .guide-item ol {
-  padding-left: 20px;
+  padding-left: 18px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 7px;
 }
 
 .guide-item li {
@@ -425,41 +352,43 @@ useHead({
 
 .guide-item code {
   font-size: 12px;
-  color: var(--primary-light);
-  background: rgba(0, 0, 0, 0.3);
-  padding: 2px 7px;
-  border-radius: 5px;
+  color: var(--brand-light);
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 4px;
 }
 
 /* ---------- 系统要求 ---------- */
 .sys-req {
   margin-top: 40px;
-  padding: 28px 32px;
+  padding: 26px 28px;
 }
 
 .sys-req h3 {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .req-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 18px;
+  gap: 16px;
 }
 
 .req-item {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
 }
 
 .req-label {
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  color: var(--primary-light);
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  text-transform: uppercase;
 }
 
 .req-item span:last-child {

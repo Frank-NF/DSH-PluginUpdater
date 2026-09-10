@@ -299,8 +299,8 @@ function formatTime(s: string): string {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--primary), var(--primary-light));
-  color: #fff;
+  background: var(--brand-dim);
+  color: var(--brand-light);
   font-size: 13px;
   font-weight: 700;
 }

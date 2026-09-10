@@ -133,14 +133,14 @@ onMounted(async () => {
 .stats-loading { color: var(--text-secondary); padding: 48px 0; }
 .stat-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
 .stat-card { padding: 22px; display: flex; flex-direction: column; gap: 6px; }
-.stat-num { font-size: 30px; font-weight: 700; color: var(--text-primary); }
+.stat-num { font-size: 30px; font-weight: 700; color: var(--text-primary); font-family: 'JetBrains Mono', 'Consolas', monospace; font-variant-numeric: tabular-nums; }
 .stat-label { font-size: 13px; color: var(--text-secondary); }
 .trend-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px; }
 .trend { padding: 18px; }
 .trend h3 { font-size: 14px; font-weight: 600; color: var(--text-primary); margin-bottom: 12px; }
 .bars { display: flex; align-items: flex-end; gap: 3px; height: 110px; }
 .bar-item { flex: 1; display: flex; align-items: flex-end; height: 100%; }
-.bar { width: 100%; background: linear-gradient(180deg, var(--primary) 0%, rgba(99,102,241,.35) 100%); border-radius: 3px 3px 0 0; min-height: 2px; }
+.bar { width: 100%; background: var(--brand); border-radius: 2px 2px 0 0; min-height: 2px; opacity: .85; }
 .bars-empty { color: var(--text-secondary); opacity: .6; font-size: 12px; }
 .trend-range { font-size: 11.5px; color: var(--text-secondary); opacity: .7; margin-top: 10px; }
 .top-pages { padding: 18px; }

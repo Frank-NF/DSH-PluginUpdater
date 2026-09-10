@@ -1,48 +1,54 @@
 /* ============================================================
-   DSH 官网 — UI 设计系统 v2
-   现代极简 + 玻璃拟态 + 深色主题优先
-   （与桌面客户端 / 在线版同一套设计 token）
+   DSH 官网 — 设计系统 v3「工程克制」
+   石墨底 + 单一品牌靛蓝（纯色不渐变）+ hairline 边框
+   去玻璃拟态 / 去渐变 / 去 emoji 图标 / 数字一律等宽
    ============================================================ */
 
 :root {
-  /* 主色板（靛蓝） */
-  --primary: #6366f1;
-  --primary-light: #818cf8;
-  --primary-dark: #4f46e5;
+  /* 品牌色（与桌面客户端 --brand 同源，纯色使用） */
+  --brand: #6366f1;
+  --brand-light: #8b8cf5;
+  --brand-dim: rgba(99, 102, 241, 0.14);
 
-  /* 语义色 */
-  --accent: #10b981;
-  --warning: #f59e0b;
-  --danger: #ef4444;
-  --info: #38bdf8;
+  /* 石墨底（暖灰一族，不再用蓝调 slate） */
+  --bg-primary: #0e1013;
+  --bg-secondary: #15181d;
+  --bg-tertiary: #1b1f26;
 
-  /* 背景层级 */
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
-  --bg-tertiary: #334155;
+  /* 文字 */
+  --text-primary: #e8eaed;
+  --text-secondary: #a8adb5;
+  --text-muted: #71777f;
 
-  /* 文字层级 */
-  --text-primary: #f8fafc;
-  --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
+  /* hairline（替代玻璃边框） */
+  --line: #262b33;
+  --line-strong: #31363f;
 
-  /* 玻璃拟态 */
-  --glass-bg: rgba(30, 41, 59, 0.7);
-  --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  /* 旧 token 兼容映射（页面存量引用，逐步收敛） */
+  --primary: var(--brand);
+  --primary-light: var(--brand-light);
+  --primary-dark: var(--brand);
+  --accent: #3fb27f;
+  --warning: #d9a03c;
+  --danger: #d65f5f;
+  --info: #58a6c9;
+  --glass-bg: var(--bg-secondary);
+  --glass-border: var(--line);
+  --glass-shadow: none;
+  --border: var(--line);
 
-  /* 圆角 */
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 20px;
+  /* 圆角（收紧：外柔内锐） */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
 
   /* 动效 */
-  --ease: cubic-bezier(0.4, 0, 0.2, 1);
-  --dur: 0.24s;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur: 0.18s;
 
   /* 布局 */
-  --container: 1200px;
+  --container: 1140px;
 }
 
 /* ---------- 基础 ---------- */
@@ -58,38 +64,46 @@ html {
 
 html,
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    'Helvetica Neue', 'Microsoft YaHei', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
   color: var(--text-primary);
   background: var(--bg-primary);
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 a {
-  color: var(--primary-light);
+  color: var(--brand-light);
   text-decoration: none;
   transition: color var(--dur) var(--ease);
 }
 
 a:hover {
-  color: var(--primary);
+  color: #a3a4f8;
 }
 
 code,
 pre,
 .mono {
-  font-family: 'JetBrains Mono', 'Consolas', 'Courier New', monospace;
+  font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 数字对齐（统计/版本/计数场景） */
+.num {
+  font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
+  font-variant-numeric: tabular-nums;
 }
 
 /* 焦点可见性（无障碍） */
 :focus-visible {
-  outline: 2px solid var(--primary-light);
+  outline: 2px solid var(--brand-light);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
-/* ---------- 滚动条（深色） ---------- */
+/* ---------- 滚动条 ---------- */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -100,15 +114,19 @@ pre,
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(148, 163, 184, 0.28);
+  background: #2c313a;
   border-radius: 6px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.5);
+  background: #3a404b;
   background-clip: content-box;
+}
+
+::selection {
+  background: rgba(99, 102, 241, 0.35);
 }
 
 /* ---------- 布局容器 ---------- */
@@ -118,13 +136,10 @@ pre,
   padding: 0 24px;
 }
 
-/* ---------- 玻璃拟态 ---------- */
+/* ---------- 玻璃（v3：实心面板，无模糊） ---------- */
 .glass {
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
+  background: var(--bg-secondary);
+  border: 1px solid var(--line);
 }
 
 /* ---------- 按钮 ---------- */
@@ -133,119 +148,111 @@ pre,
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 12px 26px;
+  padding: 11px 22px;
   border-radius: var(--radius-md);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  border: none;
-  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
-    background-color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  border: 1px solid transparent;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease),
+    color var(--dur) var(--ease);
 }
 
 .btn:active {
-  transform: scale(0.96);
+  transform: translateY(1px);
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--primary), var(--primary-light));
+  background: var(--brand);
   color: #fff;
 }
 
 .btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.45);
+  background: #7474f4;
   color: #fff;
 }
 
 .btn-outline {
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--glass-border);
+  background: transparent;
+  border: 1px solid var(--line-strong);
   color: var(--text-secondary);
 }
 
 .btn-outline:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.25);
+  border-color: #454b55;
   color: var(--text-primary);
 }
 
 .btn-sm {
-  padding: 8px 16px;
+  padding: 7px 14px;
   font-size: 13px;
   border-radius: var(--radius-sm);
 }
 
-/* ---------- 区块标题 ---------- */
+/* ---------- 区块标题（左对齐，不再居中） ---------- */
 .section-title {
-  text-align: center;
-  margin-bottom: 48px;
+  margin-bottom: 40px;
 }
 
 .section-title h2 {
-  font-size: 34px;
+  font-size: 26px;
   font-weight: 700;
-  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
   color: var(--text-primary);
 }
 
 .section-title p {
-  font-size: 16px;
+  font-size: 14px;
   color: var(--text-muted);
 }
 
-/* ---------- 通用卡片 ---------- */
+/* ---------- 卡片：实面 + hairline，hover 只亮边框 ---------- */
 .card {
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
+  background: var(--bg-secondary);
+  border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  box-shadow: var(--glass-shadow);
-  transition: transform var(--dur) var(--ease), box-shadow var(--dur) var(--ease),
-    border-color var(--dur) var(--ease);
+  transition: border-color var(--dur) var(--ease);
 }
 
 .card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
-  border-color: rgba(99, 102, 241, 0.4);
+  border-color: var(--line-strong);
 }
 
-/* ---------- 状态徽章 ---------- */
+/* ---------- 状态徽章（方角，去 pill） ---------- */
 .badge {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 12px;
-  border-radius: 20px;
+  padding: 2px 8px;
+  border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
 }
 
 .badge-success {
-  color: var(--accent);
-  background: rgba(16, 185, 129, 0.16);
-  border: 1px solid rgba(16, 185, 129, 0.32);
+  color: #5cc394;
+  background: rgba(63, 178, 127, 0.12);
+  border: 1px solid rgba(63, 178, 127, 0.25);
 }
 
 .badge-warning {
   color: var(--warning);
-  background: rgba(245, 158, 11, 0.16);
-  border: 1px solid rgba(245, 158, 11, 0.32);
+  background: rgba(217, 160, 60, 0.12);
+  border: 1px solid rgba(217, 160, 60, 0.25);
 }
 
 .badge-primary {
-  color: var(--primary-light);
-  background: rgba(99, 102, 241, 0.16);
-  border: 1px solid rgba(99, 102, 241, 0.32);
+  color: var(--brand-light);
+  background: var(--brand-dim);
+  border: 1px solid rgba(99, 102, 241, 0.28);
 }
 
 .badge-muted {
   color: var(--text-muted);
-  background: rgba(148, 163, 184, 0.16);
-  border: 1px solid rgba(148, 163, 184, 0.28);
+  background: rgba(113, 119, 127, 0.12);
+  border: 1px solid var(--line-strong);
 }
 
 /* ---------- 工具类 ---------- */
@@ -256,13 +263,13 @@ pre,
   color: var(--text-secondary);
 }
 .text-accent {
-  color: var(--primary-light);
+  color: var(--brand-light);
 }
 .text-warning {
   color: var(--warning);
 }
 .mono {
-  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
 }
 
 /* ---------- 骨架屏 ---------- */
@@ -278,11 +285,29 @@ pre,
 .skeleton {
   background: linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0.05) 25%,
-    rgba(255, 255, 255, 0.1) 50%,
-    rgba(255, 255, 255, 0.05) 75%
+    #1a1e24 25%,
+    #22262e 50%,
+    #1a1e24 75%
   );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: var(--radius-sm);
+}
+
+/* ---------- 页面标题（各子页 page-head 统一：左对齐） ---------- */
+.page-head {
+  padding: 72px 0 40px;
+}
+
+.page-head h1 {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+  margin-bottom: 10px;
+}
+
+.page-head p {
+  font-size: 14px;
+  color: var(--text-muted);
 }
