@@ -138,7 +138,7 @@
               <li>更新包 SHA256 完整性校验</li>
               <li>密钥从未入库，轮换流程版本化</li>
             </ul>
-            <NuxtLink to="/docs#security" class="btn btn-outline mode-btn">
+            <NuxtLink to="/download#security" class="btn btn-outline mode-btn">
               了解安全设计 →
             </NuxtLink>
           </div>

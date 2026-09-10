@@ -78,6 +78,7 @@ export const en: Record<string, string> = {
   'market.installSuccess': '"{name}" installed to {dir}. List refreshed.',
   'market.installFailed': 'Install failed',
   'market.noNpm': 'No npm package available for this plugin; one-click install unavailable',
+  'market.gitRefUnsupported': '"{name}" is a GitHub repo sub-directory reference (monorepo plugin), not an npm package name; one-click install is unavailable. Check its GitHub repo for the real npm package, or use dsh plugin add in DSH.',
   'market.noTargets': 'No DSH profile directory found. Scan a profile directory first.',
   'market.links': 'Links',
   'market.linkGithub': 'GitHub repository (official)',

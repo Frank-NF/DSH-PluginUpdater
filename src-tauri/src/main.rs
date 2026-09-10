@@ -635,7 +635,11 @@ async fn check_updates(state: State<'_, AppState>) -> AppResult<Vec<PluginInfo>>
             .and_then(|e| e.npm.clone())
             .or_else(|| {
                 let id = plugin.manifest.id.trim();
-                (!id.is_empty() && (id.starts_with("dsh-") || id.contains("/dsh-")))
+                // 防御：monorepo 子目录引用（如 "dsh-web-ui#packages/dsh-skill-explorer"）
+                // 不是合法 npm 包名，直接当 npm 名用会被 npm 解析为 git 依赖导致安装失败
+                (!id.is_empty()
+                    && (id.starts_with("dsh-") || id.contains("/dsh-"))
+                    && catalog::is_valid_npm_package_name(id))
                     .then(|| id.to_string())
             });
         if let Some(npm_name) = npm_name.filter(|n| !n.is_empty()) {

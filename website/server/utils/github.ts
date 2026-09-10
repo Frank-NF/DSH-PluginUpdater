@@ -27,6 +27,7 @@ export interface PluginData extends RegistryEntry {
   topics: string[]
   fetched: boolean // GitHub 数据是否获取成功
   downloads: number | null // npm 月下载量（目录源提供；注册表源为 null）
+  npm: string | null // 真实 npm 包名（目录源；monorepo 子目录插件为 null，绝不能当包名用）
 }
 
 /** catalog 分类 key → 中文显示名（与桌面端 21 种分类一致） */
@@ -47,10 +48,31 @@ interface CatalogEntry {
   url: string
   category: string
   description: { en: string; zh: string }
-  npm: string
+  npm: string | null
   stars: number
-  downloads: number
+  downloads: number | null
   added: string
+}
+
+/**
+ * 判断目录条目的 npm 字段是否为合法 npm 包名。
+ * 目录源存在两类伪包名：
+ * 1. monorepo 子目录引用："dsh-web-ui#packages/dsh-skill-explorer"（含 #）
+ * 2. 仓库路径引用："OpenViking#examples/dsh-memory-plugin"
+ * 这些都不是 npm 包名。桌面端把它们当包名传给 npm install 时，npm 会解析成
+ * git 依赖（ssh://git@github.com/null/<repo>.git）→ git ls-remote → 网络不可达
+ * 时以 code 128 失败，用户只能看到晦涩的 unknown git error。
+ * 只有合法包名才透传到 npm 字段，其余置 null。
+ */
+function isValidNpmName(name: string | null | undefined): name is string {
+  if (!name) return false
+  const t = name.trim()
+  if (!t || t.includes('#') || t.includes('\\') || t.includes(' ')) return false
+  if (t.startsWith('@')) {
+    // scoped 包：恰好一个 '/'
+    if (t.split('/').length !== 2) return false
+  } else if (t.includes('/')) return false
+  return /^[a-z0-9\-_.@/]+$/.test(t)
 }
 
 /** 官方插件注册表：新插件在这里添加一行即可上架 */
@@ -169,23 +191,29 @@ export async function getPlugins(): Promise<PluginData[]> {
     const raw = JSON.parse(await fs.readFile(CATALOG_PATH, 'utf8'))
     const list: CatalogEntry[] = Array.isArray(raw) ? raw : (raw.plugins ?? [])
     if (list.length) {
-      results = list.map((e): PluginData => ({
-        id: e.npm || e.name,
-        repo: `${e.owner}/${e.name}`,
-        name: e.name,
-        description: e.description?.zh || e.description?.en || '',
-        category: CATEGORY_ZH[e.category] || e.category || '工具',
-        type: 'plugin',
-        stars: e.stars ?? 0,
-        forks: 0,
-        github_description: e.description?.en ?? null,
-        language: null,
-        pushed_at: e.added ?? null,
-        github_url: e.url || `https://github.com/${e.owner}/${e.name}`,
-        topics: e.npm ? [e.npm] : [],
-        fetched: true,
-        downloads: typeof e.downloads === 'number' ? e.downloads : null,
-      }))
+      results = list.map((e): PluginData => {
+        const realNpm = isValidNpmName(e.npm) ? (e.npm as string) : null
+        return {
+          id: realNpm || e.name,
+          repo: `${e.owner}/${e.name}`,
+          name: e.name,
+          description: e.description?.zh || e.description?.en || '',
+          category: CATEGORY_ZH[e.category] || e.category || '工具',
+          type: 'plugin',
+          stars: e.stars ?? 0,
+          forks: 0,
+          github_description: e.description?.en ?? null,
+          language: null,
+          pushed_at: e.added ?? null,
+          github_url: e.url || `https://github.com/${e.owner}/${e.name}`,
+          // 兼容旧桌面端：真 npm 名放 topics（旧端从 topics 兜底解析）；
+          // 新桌面端优先读 npm 字段。伪包名（monorepo 子目录引用）不进 topics。
+          topics: realNpm ? [realNpm] : [],
+          fetched: true,
+          downloads: typeof e.downloads === 'number' ? e.downloads : null,
+          npm: realNpm,
+        }
+      })
     }
   } catch {
     // 目录不可用时落回注册表
@@ -207,6 +235,7 @@ export async function getPlugins(): Promise<PluginData[]> {
           topics: r?.topics ?? [],
           fetched: r?.fetched ?? false,
           downloads: null,
+          npm: null, // REGISTRY 兜底源无 npm 包名信息
         }
       })
     )

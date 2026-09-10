@@ -1,24 +1,22 @@
 {
-  "version": "1.14.0",
-  "release_url": "https://dsh.huilinsh.cn/dsh-plugin-updater-1.14.0.exe",
+  "version": "1.14.1",
+  "release_url": "https://dsh.huilinsh.cn/dsh-plugin-updater-1.14.1.exe",
   "is_mandatory": false,
+  "sha256": "713b75097d96b24daa8ea5b2e5852b6d03e19a7bdc8cd32d50c5b264d1de49ea",
   "changelog": [
-    "安全：Ed25519 签名链全量修复（目录 + 自更新 + 官网 API）",
-    "安全：密钥第三次轮换，旧私钥 blob 从 git 历史清除",
-    "安全：目录签名验证失败时强制拦截并降级磁盘缓存",
-    "安全：官网 cookie secure flag、JWT fail-fast、clientIp 优先 X-Real-IP",
-    "功能：dsh_server 路径去硬编码，自动探测 DSH Web 源码位置",
-    "功能：官网插件列表 /updater/latest 启用 Ed25519 原生签名",
-    "修复：version.json 恢复到仓库，fallback 改为 0.0.0 防误降级",
-    "修复：修复代理 URL 为空时自更新链路直接报错的 bug",
-    "仓库：安装程序归档、图标资源入库、文档补全"
+    "1.14.1 修复：市场目录 monorepo 伪 npm 包名（如 dsh-web-ui#packages/...）被当作包名安装，导致 git code 128 报错的根因修复",
+    "1.14.1 修复：目录四个数据源（官网/镜像/Pages/缓存）统一净化 npm 字段，伪包名不再进入安装链路",
+    "1.14.1 修复：安装入口对非法包名直接拦截，并给出可解释的中文报错与替代安装方式提示",
+    "1.14.1 修复：设置页「立即更新」此前会错误覆盖应用本体（下载地址指向网页），现指向正确的更新包",
+    "1.14.1 官网：插件目录接口透传真实 npm 包名，版本批量检查接口跳过伪包名"
   ],
-  "published_at": "2026-09-08T17:00:00Z",
+  "published_at": "2026-09-10T12:40:00+08:00",
   "platforms": {
     "windows": {
-      "url": "https://dsh.huilinsh.cn/dsh-plugin-updater-1.14.0.exe",
-      "sha256": "ecc55d4bfa2bfedcc4eb24cbf008e3873030fe6d4ccdb6150483876cd3dafd98",
-      "size_bytes": 0
+      "version": "1.14.1",
+      "url": "https://dsh.huilinsh.cn/dsh-plugin-updater-1.14.1.exe",
+      "sha256": "713b75097d96b24daa8ea5b2e5852b6d03e19a7bdc8cd32d50c5b264d1de49ea",
+      "size_bytes": 18925568
     }
   }
 }

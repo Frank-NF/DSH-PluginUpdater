@@ -78,6 +78,7 @@ export const zh: Record<string, string> = {
   'market.installSuccess': '「{name}」已安装到 {dir}，列表已刷新',
   'market.installFailed': '安装失败',
   'market.noNpm': '该插件未提供 npm 包，暂不支持一键安装',
+  'market.gitRefUnsupported': '「{name}」是 GitHub 仓库子目录引用（monorepo 插件），不是 npm 包名，暂不支持一键安装。请到其 GitHub 仓库查看真实 npm 包名，或在 DSH 中执行 dsh plugin add',
   'market.noTargets': '未找到可用的 DSH profile 目录，请先扫描一个 profile 目录',
   'market.links': '链接',
   'market.linkGithub': 'GitHub 仓库（官方）',

@@ -62,7 +62,9 @@ export default defineEventHandler(async (event) => {
     const npm = String(item.npm || '').trim()
     const id = String(item.id || '')
     const version = String(item.version || '')
-    if (!npm || !id) {
+    // 防御：伪包名（monorepo 子目录引用，含 '#' 或路径分隔符）绝不能进 registry 查询
+    const invalid = !npm || npm.includes('#') || npm.includes('\\') || npm.includes(' ')
+    if (invalid || !id) {
       return { id, latest: null as string | null, tarball: null as string | null, sha: null as string | null, update_available: false }
     }
     const meta = await fetchLatest(npm)

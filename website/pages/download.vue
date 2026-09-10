@@ -114,8 +114,8 @@
           </div>
         </div>
 
-        <!-- 系统要求 -->
-        <div class="sys-req card">
+        <!-- 系统要求（id=security：首页「V3 安全体系」卡片深链至此） -->
+        <div id="security" class="sys-req card">
           <h3>系统要求</h3>
           <div class="req-grid">
             <div class="req-item">

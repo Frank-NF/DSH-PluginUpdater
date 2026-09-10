@@ -42,6 +42,37 @@ pub struct CatalogEntry {
     pub downloads: Option<u64>,
 }
 
+/// 判断一个字符串是否为合法 npm 包名（而非 GitHub 仓库子目录引用/monorepo 路径）。
+/// 上游目录中存在形如 "dsh-web-ui#packages/dsh-skill-explorer" 的 monorepo 条目，
+/// 其 name/npm 字段实为「仓库名#子路径」引用而非 npm 包名。若把这类伪包名传给
+/// `npm install`，npm 会解析为 git 依赖（ssh://git@github.com/null/<repo>.git），
+/// 触发 git ls-remote → 代理连接失败 → code 128。此函数用于在安装链路上游拦截。
+pub fn is_valid_npm_package_name(s: &str) -> bool {
+    let t = s.trim();
+    if t.is_empty() || t.contains('#') || t.contains('\\') || t.contains(' ') {
+        return false;
+    }
+    if t.starts_with('@') {
+        // scoped 包必须形如 @scope/name：恰好一个 '/'，且 '/' 两侧都非空
+        if t.matches('/').count() != 1 {
+            return false;
+        }
+        let (scope, name) = t.split_once('/').expect("已校验恰好一个 '/'");
+        if scope.len() < 2 || name.is_empty() {
+            return false;
+        }
+    } else if t.contains('/') {
+        // 非法：非 scoped 包名不允许斜杠（如 "packages/dsh-foo"）
+        return false;
+    }
+    // 合法字符集：小写字母、数字、- _ . 以及 scoped 前缀 @ /
+    t.chars().all(|c| {
+        c.is_ascii_lowercase()
+            || c.is_ascii_digit()
+            || matches!(c, '-' | '_' | '.' | '@' | '/')
+    })
+}
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct CatalogDescription {
     #[serde(default)]
@@ -101,6 +132,23 @@ fn plugins_json_from_tarball(gz_bytes: &[u8]) -> AppResult<Vec<u8>> {
     Err(AppError::Other("npm 包内未找到 package/plugins.json".to_string()))
 }
 
+/// 对目录条目做统一净化：npm 字段非法（伪包名，如 "repo#packages/xxx"、
+/// "OpenViking#examples/xxx"）时置为 None。四个数据源（官网/npm 包/Pages/磁盘缓存）
+/// 消费前都走这一步，保证伪 npm 名不会进入安装链路。
+fn sanitize_entries(entries: Vec<CatalogEntry>) -> Vec<CatalogEntry> {
+    entries
+        .into_iter()
+        .map(|mut e| {
+            if let Some(n) = &e.npm {
+                if !is_valid_npm_package_name(n) {
+                    e.npm = None;
+                }
+            }
+            e
+        })
+        .collect()
+}
+
 /// 官网 API 响应结构（fields=basic 精简模式）
 #[derive(Debug, Deserialize)]
 pub struct WebsiteCatalogResponse {
@@ -113,6 +161,9 @@ pub struct WebsiteCatalogResponse {
 #[derive(Debug, Deserialize)]
 struct WebsitePluginItem {
     id: String,
+    /// 官网展示名（如 "OpenViking#examples/dsh-memory-plugin"）；
+    /// 目录条目主键仍用 id，此字段保留以兼容 API 响应形状
+    #[allow(dead_code)]
     #[serde(default)]
     name: String,
     #[serde(default)]
@@ -130,6 +181,12 @@ struct WebsitePluginItem {
     /// npm 月下载量（官网 full 模式透传）
     #[serde(default)]
     downloads: Option<u64>,
+    /// 真实 npm 包名（后端修复后透传；旧后端无此字段）
+    #[serde(default, rename = "npm")]
+    npm_name: Option<String>,
+    /// GitHub topics（后端在修复前把真 npm 名放这里；修复后仍保留兼容读取）
+    #[serde(default)]
+    topics: Vec<String>,
 }
 
 /// 本地磁盘缓存路径：%APPDATA%/dsh-plugin-updater/catalog.json
@@ -201,10 +258,32 @@ pub async fn fetch_catalog_from_website(client: &reqwest::Client) -> AppResult<C
                 (None, Some(e)) => (None, Some(e)),
                 (None, None) => (None, None),
             };
+            // npm 名解析优先级：
+            // 1. 后端修复后新增的 npm 字段（真实 npm 包名）
+            // 2. topics 中的合法包名（后端修复前把真 npm 名放 topics；monorepo 无 topics）
+            // 3. id 本身（仅当它是合法 npm 包名；形如 "repo#packages/xxx" 的
+            //    monorepo 子目录引用会被判为非法 → npm=None，禁止一键安装，
+            //    否则 npm install 会把 "dsh-web-ui#packages/dsh-skill-explorer"
+            //    解析成 git 依赖并触发 git ls-remote 失败（exit 128））
+            let npm = p
+                .npm_name
+                .as_deref()
+                .filter(|n| is_valid_npm_package_name(n))
+                .map(|n| n.to_string())
+                .or_else(|| {
+                    p.topics
+                        .iter()
+                        .find(|t| is_valid_npm_package_name(t))
+                        .cloned()
+                })
+                .or_else(|| {
+                    is_valid_npm_package_name(&p.id)
+                        .then(|| p.id.clone())
+                });
             CatalogEntry {
                 name: p.id.clone(),
                 url: p.github_url,
-                npm: Some(p.id),
+                npm,
                 description: if zh.is_some() || en.is_some() {
                     Some(CatalogDescription { en, zh })
                 } else {
@@ -308,7 +387,7 @@ pub async fn fetch_catalog(client: &reqwest::Client) -> AppResult<Catalog> {
             if let Some(cached) = read_cache() {
                 eprintln!("[catalog] 已降级磁盘缓存（{} 条，上次验证通过时写入）", cached.len());
                 return Ok(Catalog {
-                    entries: cached,
+                    entries: sanitize_entries(cached),
                     fetched_at: Instant::now(),
                     source: "disk-cache(sig-fallback)".to_string(),
                     sig_valid: Some(false),
@@ -349,7 +428,7 @@ pub async fn fetch_catalog(client: &reqwest::Client) -> AppResult<Catalog> {
                                                 continue;
                                             }
                                             return Ok(Catalog {
-                                                entries: parsed.plugins,
+                                                entries: sanitize_entries(parsed.plugins),
                                                 fetched_at: Instant::now(),
                                                 source: format!("{}@{}", CATALOG_PACKAGE, version),
                                                 sig_valid: None,
@@ -380,7 +459,7 @@ pub async fn fetch_catalog(client: &reqwest::Client) -> AppResult<Catalog> {
                     .map_err(|e| AppError::Other(format!("官方目录解析失败: {}", e)))?;
                 if !parsed.plugins.is_empty() {
                     return Ok(Catalog {
-                        entries: parsed.plugins,
+                        entries: sanitize_entries(parsed.plugins),
                         fetched_at: Instant::now(),
                         source: "awesome-dsh-plugin.com".to_string(),
                         sig_valid: None,
@@ -398,7 +477,7 @@ pub async fn fetch_catalog(client: &reqwest::Client) -> AppResult<Catalog> {
     if let Some(cached) = read_cache() {
         eprintln!("[catalog] 所有网络源不可达，使用本地缓存 ({} 条)", cached.len());
         return Ok(Catalog {
-            entries: cached,
+            entries: sanitize_entries(cached),
             fetched_at: Instant::now(),
             source: "disk-cache".to_string(),
             sig_valid: None,
@@ -670,4 +749,124 @@ pub fn verify_response_signature(
     let sig = sig_header.to_str().ok()?;
     let body_str = String::from_utf8_lossy(body_bytes);
     Some(verify_catalog_signature(sig, &body_str, SIGNING_PUB_KEY))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 伪 npm 名（monorepo 子目录引用 / 仓库路径引用）必须被识别为非法，
+    /// 否则会被 npm 解析为 git 依赖导致 git ls-remote 失败（code 128）
+    #[test]
+    fn rejects_pseudo_npm_names() {
+        // 真实故障案例：截图报错中的 spec
+        assert!(!is_valid_npm_package_name("dsh-web-ui#packages/dsh-skill-explorer"));
+        assert!(!is_valid_npm_package_name("dsh-web-ui#dsh-aionui-panel"));
+        assert!(!is_valid_npm_package_name("OpenViking#examples/dsh-memory-plugin"));
+        assert!(!is_valid_npm_package_name("AIsChat#dsh-aischat"));
+        // 其他伪形态
+        assert!(!is_valid_npm_package_name(""));
+        assert!(!is_valid_npm_package_name("  "));
+        assert!(!is_valid_npm_package_name("packages/dsh-foo")); // 裸路径
+        assert!(!is_valid_npm_package_name("some name")); // 空格
+        assert!(!is_valid_npm_package_name("a\\b")); // 反斜杠
+        assert!(!is_valid_npm_package_name("@scope/a/b")); // 多段 scoped
+        assert!(!is_valid_npm_package_name("@")); // 空 scope
+        assert!(!is_valid_npm_package_name("@/name")); // 空 scope
+        assert!(!is_valid_npm_package_name("Dsh-Upper")); // 大写非法
+    }
+
+    /// 正常 npm 包名（含 scoped、含点号、纯数字）必须放行
+    #[test]
+    fn accepts_real_npm_names() {
+        assert!(is_valid_npm_package_name("dsh-cost-meter"));
+        assert!(is_valid_npm_package_name("dshmarket"));
+        assert!(is_valid_npm_package_name("@deepseek-ai/dsh-settings"));
+        assert!(is_valid_npm_package_name("@furongjun1999/dsh-memory"));
+        assert!(is_valid_npm_package_name("@openviking/dsh-memory-plugin"));
+        assert!(is_valid_npm_package_name("@linxin666/dsh-web-ui-all"));
+        assert!(is_valid_npm_package_name("dsh-ssh-tui"));
+        assert!(is_valid_npm_package_name("left-pad"));
+        assert!(is_valid_npm_package_name("d3"));
+        assert!(is_valid_npm_package_name("@2nd1st/dsh-plugin-open-app"));
+    }
+
+    /// sanitize_entries：伪 npm 名置 None，真包名保留
+    #[test]
+    fn sanitize_entries_nukes_pseudo_npm() {
+        let mk = |name: &str, npm: Option<&str>| CatalogEntry {
+            name: name.to_string(),
+            url: None,
+            npm: npm.map(|s| s.to_string()),
+            description: None,
+            category: None,
+            stars: None,
+            downloads: None,
+        };
+        let entries = vec![
+            mk("dsh-web-ui#packages/dsh-skill-explorer", Some("dsh-web-ui#packages/dsh-skill-explorer")),
+            mk("dsh-cost-meter", Some("dsh-cost-meter")),
+            mk("@furongjun1999/dsh-memory", Some("@furongjun1999/dsh-memory")),
+            mk("some-plugin", None),
+        ];
+        let out = sanitize_entries(entries);
+        assert_eq!(out[0].npm, None, "伪包名必须被置 None");
+        assert_eq!(out[1].npm.as_deref(), Some("dsh-cost-meter"));
+        assert_eq!(out[2].npm.as_deref(), Some("@furongjun1999/dsh-memory"));
+        assert_eq!(out[3].npm, None);
+    }
+
+    /// 端到端：官网 API 的 WebsitePluginItem → CatalogEntry 的 npm 解析优先级
+    /// （npm 字段 → topics 合法包名 → id 合法时才用）
+    #[test]
+    fn website_npm_resolution_priority() {
+        // 模拟旧后端（无 npm 字段，topics 携带真包名）的响应体解析
+        let body = r#"{
+            "total": 2,
+            "plugins": [
+                {
+                    "id": "dsh-web-ui#packages/dsh-skill-explorer",
+                    "github_url": "https://github.com/zhu1090093659/dsh-web-ui/tree/main/packages/dsh-skill-explorer"
+                },
+                {
+                    "id": "dsh-cost-meter",
+                    "topics": ["dsh-cost-meter"]
+                }
+            ]
+        }"#;
+        let parsed: WebsiteCatalogResponse = serde_json::from_str(body).unwrap();
+        let mut entries: Vec<CatalogEntry> = parsed
+            .plugins
+            .into_iter()
+            .map(|p| {
+                let npm = p
+                    .npm_name
+                    .as_deref()
+                    .filter(|n| is_valid_npm_package_name(n))
+                    .map(|n| n.to_string())
+                    .or_else(|| {
+                        p.topics
+                            .iter()
+                            .find(|t| is_valid_npm_package_name(t))
+                            .cloned()
+                    })
+                    .or_else(|| is_valid_npm_package_name(&p.id).then(|| p.id.clone()));
+                CatalogEntry {
+                    name: p.id.clone(),
+                    url: p.github_url,
+                    npm,
+                    description: None,
+                    category: p.category,
+                    stars: p.stars,
+                    downloads: p.downloads,
+                }
+            })
+            .collect();
+        entries = sanitize_entries(entries);
+        // monorepo 引用：npm 必须为 None（这正是本次故障的 spec）
+        assert_eq!(entries[0].npm, None);
+        assert_eq!(entries[0].name, "dsh-web-ui#packages/dsh-skill-explorer");
+        // 普通插件：topics 中的真包名生效
+        assert_eq!(entries[1].npm.as_deref(), Some("dsh-cost-meter"));
+    }
 }

@@ -333,6 +333,20 @@ pub(crate) async fn npm_install_into(
     registry: &str,
     version: Option<&str>,
 ) -> Result<(), String> {
+    // 最终防线：spec 含 '#'（GitHub 仓库子目录引用，如 "dsh-web-ui#packages/dsh-skill-explorer"）
+    // 会被 npm 解析为 git 依赖（ssh://git@github.com/null/<repo>.git），进而触发 git ls-remote。
+    // 一旦 GitHub 经本地代理不可达，用户只会看到晦涩的 "code 128 / unknown git error"。
+    // 此处提前拦截并给出可解释、可行动的中文报错。
+    if npm_name.contains('#') {
+        let hint = npm_name
+            .replace("#packages/", "/tree/main/packages/")
+            .replace('#', "#path:/");
+        return Err(format!(
+            "「{}」不是 npm 包名，而是 GitHub 仓库子目录引用（monorepo 插件），暂不支持一键安装。\
+             请到该插件的 GitHub 仓库查看其真实 npm 包名后再试，或在 DSH 中执行: dsh plugin add github:{}",
+            npm_name, hint,
+        ));
+    }
     // 瞬时失败（npm 缓存锁/杀毒扫描抖动）自动重试；镜像源缺指定版本时回退官方 registry。
     // 校验要求「期望=实际」，必须精确安装期望版本——装 latest 会与版本探测源漂移。
     let pinned = version

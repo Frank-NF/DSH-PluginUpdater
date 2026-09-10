@@ -1170,6 +1170,12 @@ async function openInstall(mp: MarketPlugin) {
     toast.warn(t('market.noNpm'))
     return
   }
+  // 防御：目录数据源可能给出「仓库#子目录」形 monorepo 引用（含 #），
+  // 交给 npm 会被解析成 git 依赖导致晦涩的 code 128 错误，安装前拦截
+  if (mp.npm.includes('#')) {
+    toast.warn(t('market.gitRefUnsupported', { name: mp.npm }))
+    return
+  }
   pendingInstallNpm.value = mp.npm
   try {
     installTargets.value = await pluginApi.listInstallTargets()

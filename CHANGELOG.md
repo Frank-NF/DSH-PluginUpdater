@@ -2,7 +2,15 @@
 
 *格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)，发布流程见 [docs/VERSIONING.md](docs/VERSIONING.md)。*
 
-## [Unreleased]
+## [1.14.1] - 2026-09-10
+
+### Fixed（伪 npm 包名导致安装失败的根因修复）
+
+- **市场目录伪包名拦截（code 128 根因）**：上游目录存在形如 `dsh-web-ui#packages/dsh-skill-explorer` 的 monorepo 子目录条目，桌面端此前把该 `name` 原样当 npm 包名传给 `npm install`，npm 将其解析为 git 依赖（`ssh://git@github.com/null/dsh-web-ui.git`）并执行 `git ls-remote`；GitHub 经本地代理不可达时以晦涩的 `code 128 / unknown git error / Failed to connect ... over proxy 127.0.0.1` 失败。修复分三层：
+  - **catalog.rs**：新增 `is_valid_npm_package_name` 校验（拒绝含 `#`、斜杠、空格、反斜杠的伪包名）；官网源 npm 名解析优先级改为 `npm 字段 → topics 中首个合法包名 → id（仅当合法）`；四个数据源（官网 / npm 镜像包 / Pages / 磁盘缓存）统一经 `sanitize_entries` 净化后才消费
+  - **main.rs / bundle.rs**：`check_updates` 的「id 兜底 npm 名」逻辑增加合法性防御；`npm_install_into` 安装入口对含 `#` 的 spec 直接拦截，返回可解释的中文报错（附 GitHub 仓库路径提示），不再落进 git 依赖解析
+  - **前端 PluginTable.vue**：一键安装入口对含 `#` 的伪包名先行拦截提示（zh/en 文案 `market.gitRefUnsupported`）
+- **官网后端 `/api/plugins` 透传真实 npm 名**：`PluginData` 新增 `npm` 字段（目录源净化后透传，monorepo 子目录引用为 `null`）；`topics` 仅在 npm 名合法时携带真包名（兼容旧桌面端解析）；`batch-check` 对含 `#` 的伪包名直接跳过 registry 查询
 
 ### Changed（官网内容全面更新）
 
