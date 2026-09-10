@@ -518,12 +518,11 @@ pub async fn server_stop() -> Result<String, String> {
 
     // 2. 本工具启动记录的 PID 兜底
     let spid = SPAWNED_PID.swap(0, Ordering::SeqCst);
-    if spid > 0 && !killed_pids.contains(&spid) {
-        if kill_process_tree(spid) {
+    if spid > 0 && !killed_pids.contains(&spid)
+        && kill_process_tree(spid) {
             killed_pids.push(spid);
             stopped.push(format!("进程 {} 已结束", spid));
         }
-    }
 
     // 3. 终极兜底：已知端口仍开着，按端口找 PID（netstat）
     let known_ports: Vec<u16> = LAST_KNOWN_PORT
@@ -531,7 +530,7 @@ pub async fn server_stop() -> Result<String, String> {
         .ok()
         .and_then(|g| *g)
         .into_iter()
-        .chain([DSH_WEB_PORT_DEFAULT, 3080, DSH_WEB_PORT_LEGACY].into_iter())
+        .chain([DSH_WEB_PORT_DEFAULT, 3080, DSH_WEB_PORT_LEGACY])
         .collect();
 
     for attempts in 0..3 {
@@ -585,7 +584,7 @@ pub async fn server_restart(port: Option<u16>) -> Result<String, String> {
     // 等待端口释放（TIME_WAIT 等）
     let wait_ports: Vec<u16> = prior_port
         .into_iter()
-        .chain([DSH_WEB_PORT_DEFAULT, 3080, DSH_WEB_PORT_LEGACY].into_iter())
+        .chain([DSH_WEB_PORT_DEFAULT, 3080, DSH_WEB_PORT_LEGACY])
         .collect();
     let mut waited = 0;
     while waited < 20 {
@@ -625,7 +624,7 @@ fn find_node() -> String {
                     .filter(|p| p.is_dir() && p.file_name().map(|n| n.to_string_lossy().starts_with("22")).unwrap_or(false))
                     .collect();
                 versions.sort();
-                if let Some(latest) = versions.into_iter().rev().next() {
+                if let Some(latest) = versions.into_iter().next_back() {
                     let exe = latest.join(if cfg!(windows) { "node.exe" } else { "node" });
                     if exe.exists() {
                         return exe.to_string_lossy().to_string();
