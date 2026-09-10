@@ -2,6 +2,24 @@
 
 *格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)，发布流程见 [docs/VERSIONING.md](docs/VERSIONING.md)。*
 
+## [1.15.0] - 2026-09-10
+
+### Fixed
+
+- **右上角工具栏悬浮提示从未显示**：v1.13.8 的 `.weui-btn::after { display:none !important }` 防御性重置（WeUI 本体对 `.weui-btn` 并无 `::after` 规则）连坐杀死了同元素的 `data-tip` 自定义 tooltip（26b85ac 引入即失效）。已删除该无对象重置，并中和 WeUI `:active::before` 按压遮罩对箭头伪元素的拉伸
+- **设置页「服务器同步 / 测试连接」运行时报 command not found**：`test_server_connection` / `sync_to_server` 已定义但漏注册进 `invoke_handler`，现已接线
+
+### Added
+
+- **官网全域 SEO**：7 个页面统一 `useSeoMeta`（description / OG / Twitter Card / canonical）、`robots.txt`、动态 `sitemap.xml`、1200×630 OG 分享图、下载页 `SoftwareApplication` 结构化数据
+- **自建站点统计（零第三方依赖）**：页面浏览 / 安装包下载 / 匿名活跃安装三类日聚合；App 启动 ping 仅上报随机安装 id + 版本号（无任何个人数据，设置页可关）；管理端 `/admin/stats` 看板（admin JWT 鉴权）
+- **下载计数**：`GET /api/dl/[file]` 校验文件名白名单后计数并 302 到静态文件，官网下载与桌面自更新统一计入
+
+### Changed
+
+- **死代码清理**：GitHub releases 更新路径残留（`fetch_latest_release`/`fetch_releases`/`check_all_updates`/`normalize_version`）、actionSheet 死链（`WActionHost` + `useActionSheet`）、`snapshot_entries`/`cleanup_old_backups`/`find_plugin_by_id` 等共 15 项；Rust clippy 警告 **50 → 0**
+- **仓库瘦身**：官网移除未使用的 element-plus 依赖与全局 CSS 引入；取消跟踪 4.3MB 旧安装包与 894KB iOS 图标；`.gitignore` 补 `icon-build/` 与根目录安装包
+
 ## [1.14.1] - 2026-09-10
 
 ### Fixed（伪 npm 包名导致安装失败的根因修复）

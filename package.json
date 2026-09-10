@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-updater",
-  "version": "1.14.1",
+  "version": "1.15.0",
   "private": true,
   "scripts": {
     "build": "cd src-vue && npm run build"
